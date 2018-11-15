@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -45,7 +45,7 @@
 
 %% @doc Gets all current registered contacts for an AOR.
 %% Use nksip_gruu:find/2 to process gruu options.
--spec find(nkservice:name()|nkservice:id(), nksip:aor() | nksip:uri()) ->
+-spec find(nkservice:name()|nksip:srv_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
 find(Srv, {Scheme, User, Domain}) ->
@@ -59,7 +59,7 @@ find(Srv, Uri) ->
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nkservice:name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
 find(Srv, Scheme, User, Domain) ->
@@ -71,7 +71,7 @@ find(Srv, Scheme, User, Domain) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:name()|nkservice:id(), AOR::nksip:aor()) ->
+-spec qfind(nkservice:name()|nksip:srv_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
 qfind(Srv, {Scheme, User, Domain}) ->
@@ -80,7 +80,7 @@ qfind(Srv, {Scheme, User, Domain}) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nkservice:name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
 qfind(Srv, Scheme, User, Domain) ->
@@ -92,7 +92,7 @@ qfind(Srv, Scheme, User, Domain) ->
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(nkservice:name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
 delete(Srv, Scheme, User, Domain) ->
@@ -119,7 +119,7 @@ is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
     false;
 
 is_registered(#sipmsg{
-                srv = SrvId,
+                srv_id = SrvId, 
                 from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
                 nkport=NkPort
             }) ->

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -56,7 +56,7 @@ make_config(Tries, Pass) ->
 
 check_auth(Req, Resp, UAC, Call) ->
      #trans{
-        id = _TransId,
+        id = TransId,
         opts = Opts,
         method = Method, 
         code = Code, 
@@ -69,7 +69,7 @@ check_auth(Req, Resp, UAC, Call) ->
         (not IsProxy)
     of
         true ->
-            #call{srv=SrvId, call_id=_CallId} = Call,
+            #call{srv_id=SrvId, call_id=CallId} = Call,
             Max = case nklib_util:get_value(sip_uac_auto_auth_max_tries, Opts) of
                 undefined -> 
                     get_config(SrvId, max_tries);
@@ -87,9 +87,10 @@ check_auth(Req, Resp, UAC, Call) ->
             of
                 {ok, Req1} ->
                     {ok, nksip_call_uac:resend(Req1, UAC, Call)};
-                {error, _Error} ->
-                    ?CALL_DEBUG("UAC ~p could not generate new auth request: ~p",
-                                [_TransId, _Error], Call),
+                {error, Error} ->
+                    ?debug(SrvId, CallId, 
+                           "UAC ~p could not generate new auth request: ~p", 
+                           [TransId, Error]),    
                     continue;
                 false ->
                     continue

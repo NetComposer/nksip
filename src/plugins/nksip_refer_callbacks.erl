@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,7 +28,7 @@
 -export([plugin_deps/0]).
 -export([sip_refer/2, sip_subscribe/2, sip_notify/2]).
 -export([sip_refer/3, sip_refer_update/3]).
--export([nksip_parse_uac_opts/2, nksip_user_callback/3, nksip_uac_reply/3]).
+-export([nks_sip_parse_uac_opts/2, nks_sip_call/3, nks_sip_uac_reply/3]).
 
 
 %% ===================================================================
@@ -71,17 +71,17 @@ sip_refer_update(_SubsHandle, _Status, _Call) ->
 
 
 %% @doc Called to parse specific UAC options
--spec nksip_parse_uac_opts(nksip:request(), nksip:optslist()) ->
+-spec nks_sip_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {error, term()}|{continue, list()}.
 
-nksip_parse_uac_opts(Req, Opts) ->
+nks_sip_parse_uac_opts(Req, Opts) ->
     case lists:keyfind(refer_subscription_id, 1, Opts) of
         {refer_subscription_id, Refer} when is_binary(Refer) ->
             {continue, [Req, Opts]};
         {refer_subscription_id, _} ->
             {error, {invalid_config, refer_subscription_id}};
         false ->
-            {continue, [Req, Opts]}
+            {continue, [Req, Opts]} 
     end.
 
 
@@ -115,7 +115,7 @@ sip_notify(Req, Call) ->
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
             SubsHandle = nksip_subscription_lib:get_handle(Req),
-            #call{srv=SrvId} = Call,
+            #call{srv_id=SrvId} = Call,
             catch SrvId:sip_refer_update(SubsHandle, {notify, Body}, Call),
             {reply, ok};
         _ ->
@@ -125,10 +125,10 @@ sip_notify(Req, Call) ->
 
 %% @doc This plugin callback function is used to call application-level 
 %% Service callbacks.
--spec nksip_user_callback(atom(), list(), nksip:srv_id()) ->
+-spec nks_sip_call(atom(), list(), nksip:srv_id()) ->
     continue.
 
-nksip_user_callback(sip_dialog_update,
+nks_sip_call(sip_dialog_update, 
           [
             {
                 subscription_status, 
@@ -138,7 +138,7 @@ nksip_user_callback(sip_dialog_update,
             _Dialog, Call
           ], 
           _SrvId) ->
-    #call{srv=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     {ok, SubsId} = nksip_subscription:get_handle(Subs),
     Status1 = case Status of
         init -> init;
@@ -149,17 +149,17 @@ nksip_user_callback(sip_dialog_update,
     catch SrvId:sip_refer_update(SubsId, Status1, Call),
     continue;
 
-nksip_user_callback(_, _, _) ->
+nks_sip_call(_, _, _) ->
     continue.
 
 
 
     %% @doc Called when the UAC must send a reply to the user
--spec nksip_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()},
+-spec nks_sip_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
                      nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
-nksip_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
+nks_sip_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
     #sipmsg{class={resp, Code, Reason}} = Resp,
     case nklib_util:get_value(refer_subscription_id, Opts) of
         undefined -> 
@@ -183,6 +183,6 @@ nksip_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
     end,
     {continue, [{resp, Resp}, UAC, Call]};
 
-nksip_uac_reply(Class, UAC, Call) ->
+nks_sip_uac_reply(Class, UAC, Call) ->
     {continue, [Class, UAC, Call]}.
 

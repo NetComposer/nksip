@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,7 +25,7 @@
 -include("../include/nksip.hrl").
 
 -export([plugin_deps/0, plugin_start/2]).
--export([nksip_transport_uas_sent/1]).
+-export([nks_sip_transport_uas_sent/1]).
 
 
 
@@ -63,10 +63,10 @@ plugin_start(Config, _Service) ->
 %% ===================================================================
 
 %% @doc Called when the transport has just sent a response
--spec nksip_transport_uas_sent(nksip:response()) ->
+-spec nks_sip_transport_uas_sent(nksip:response()) ->
     continue.
 
-nksip_transport_uas_sent(#sipmsg{start=Start}) ->
+nks_sip_transport_uas_sent(#sipmsg{start=Start}) ->
     Elapsed = nklib_util:l_timestamp()-Start,
     nksip_stats:response_time(Elapsed),
     continue.

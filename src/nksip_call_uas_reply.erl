@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,7 +27,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+
 
 %% ===================================================================
 %% Private
@@ -38,8 +38,8 @@
     {ok | {error, term()}, nksip_call:call()}.
 
 
-reply(_Reply, #trans{method='ACK', id=_Id, status=_Status}=UAS, Call) ->
-    ?CALL_LOG(notice, "UAC ~p 'ACK' (~p) trying to send a reply ~p", [_Id, _Status, _Reply], Call),
+reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
+    ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", [Id, Status, Reply]),
     UAS1 = UAS#trans{status=finished},
     {{error, invalid_call}, update(UAS1, Call)};
 
@@ -60,26 +60,26 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                 ) ->
     {Resp1, SendOpts1} = 
         nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
-    #call{srv=SrvId} = Call,
-    case ?CALL_SRV(SrvId, nksip_uas_send_reply, [{Resp1, SendOpts1}, UAS, Call]) of
+    #call{srv_id=SrvId} = Call,
+    case SrvId:nks_sip_uas_send_reply({Resp1, SendOpts1}, UAS, Call) of
         {continue, [{Resp2, SendOpts2}, UAS2, Call2]} ->
             send({Resp2, SendOpts2}, UAS2, update(UAS2, Call2));
         {error, Error} ->
             {{error, Error}, Call}
     end;
 
-reply({#sipmsg{class={resp, _Code, _Reason}}, _}, #trans{code=_LastCode}=UAS, Call) ->
-    #trans{status=_Status, id=_Id, method=_Method} = UAS,
-    ?CALL_LOG(info, "UAS ~p ~p cannot send ~p response in ~p (last code was ~p)",
-               [_Id, _Method, _Code, _Status, _LastCode], Call),
+reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->
+    #trans{status=Status, id=Id, method=Method} = UAS,
+    ?call_info("UAS ~p ~p cannot send ~p response in ~p (last code was ~p)", 
+               [Id, Method, Code, Status, LastCode]),
     {{error, invalid_call}, Call};
 
 reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
     reply(nksip_reply:reply(Req, SipReply), UAS, Call);
 
-reply(_SipReply, #trans{id=_Id, method=_Method, status=_Status}, Call) ->
-    ?CALL_LOG(info, "UAS ~p ~p cannot send ~p response in ~p (no stored request)",
-               [_Id, _Method, _SipReply, _Status], Call),
+reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
+    ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
+               [Id, Method, SipReply, Status]),
     {{error, invalid_call}, Call}.
 
 
@@ -100,15 +100,15 @@ send({Resp, SendOpts}, UAS, Call) ->
         stateless = Stateless
     } = UAS,    
     #call{
-        srv = SrvId,
+        srv_id = SrvId, 
         msgs = Msgs
     } = Call,
-    {UserReply, Resp2} = case nksip_call_uas_transp:send_response(Resp, SendOpts) of
-        {ok, Resp20} ->
-            {ok, Resp20};
+    case nksip_call_uas_transp:send_response(Resp, SendOpts) of
+        {ok, Resp2} -> 
+            UserReply = ok;
         {error, _} -> 
-            {Resp20, _} = nksip_reply:reply(Req, service_unavailable),
-            {{error, service_unavailable}, Resp20}
+            UserReply = {error, service_unavailable},
+            {Resp2, _} = nksip_reply:reply(Req, service_unavailable)
     end,
     #sipmsg{class={resp, Code2, _}} = Resp2,
     Call1 = case Req of
@@ -125,15 +125,15 @@ send({Resp, SendOpts}, UAS, Call) ->
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     case Stateless of
         true when Method/='INVITE' ->
-            ?CALL_DEBUG("UAS ~p ~p stateless reply ~p", [Id, Method, Code2], Call),
+            ?call_debug("UAS ~p ~p stateless reply ~p", [Id, Method, Code2]),
             UAS1 = UAS#trans{status=finished, response=Resp2, code=Code2},
             UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call3),
             {UserReply, update(UAS2, Call3)};
         _ ->
-            ?CALL_DEBUG("UAS ~p ~p stateful reply ~p", [Id, Method, Code2], Call),
+            ?call_debug("UAS ~p ~p stateful reply ~p", [Id, Method, Code2]),
             UAS2 = UAS#trans{response=Resp2, code=Code2},
             Call4 = update(UAS2, Call3),
-            case ?CALL_SRV(SrvId, nksip_uas_sent_reply, [Call4]) of
+            case SrvId:nks_sip_uas_sent_reply(Call4) of
                 {ok, Call5} ->
                     {UserReply, Call5};
                 {continue, [Call5]} ->
@@ -153,7 +153,7 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 200 ->
     nksip_call_lib:timeout_timer(timer_c, UAS, Call);
 
 % RFC6026 accepted state, to wait for INVITE retransmissions
-% Dialog will send 2xx retransmissions
+% Dialog will send 2xx retransmissionshrl
 stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
     #trans{id=Id, request=Req, response=Resp} = UAS,
     UAS1 = case Id < 0 of

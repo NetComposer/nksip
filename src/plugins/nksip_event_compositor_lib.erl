@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,7 +26,7 @@
 
 -include("../include/nksip.hrl").
 -include("nksip_event_compositor.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+
 
 
 %% ===================================================================
@@ -35,24 +35,20 @@
 
 
 %% @private
--spec store_get(nkservice:id(), nksip:aor(), binary()) ->
+-spec store_get(nksip:srv_id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 store_get(SrvId, AOR, Tag) ->
     case callback(SrvId, {get, AOR, Tag}) of
-        {ok, #reg_publish{} = Reg} ->
-            {ok, Reg};
-        {ok, not_found} ->
-            not_found;
-        {ok, Res} ->
-            {error, {invalid_callback_response, Res}};
-        error ->
-            {error, invalid_callback}
+        {ok, #reg_publish{} = Reg} -> {ok, Reg};
+        {ok, not_found} -> not_found;
+        {ok, Res} -> {error, {invalid_callback_response, Res}};
+        error -> {error, invalid_callback}
     end.
 
 
 %% @private
--spec store_put(nkservice:id(), nksip:aor(), integer(), integer(),
+-spec store_put(nksip:srv_id(), nksip:aor(), integer(), integer(),
                 #reg_publish{}|nksip:body()) ->
     nksip:sipreply().
 
@@ -67,16 +63,16 @@ store_put(SrvId, AOR, Tag, Expires, Reg) ->
         {ok, ok} -> 
             reply(Tag, Expires);
         {ok, Resp} -> 
-            ?SIP_LOG(warning, "invalid callback response: ~p", [Resp]),
+            ?warning(SrvId, <<>>, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
         error -> 
-            ?SIP_LOG(warning, "invalid callback response", []),
+            ?warning(SrvId, <<>>, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
 
 %% @private
--spec store_del(nkservice:id(), nksip:aor(), binary()) ->
+-spec store_del(nksip:srv_id(), nksip:aor(), binary()) ->
     nksip:sipreply().
 
 store_del(SrvId, AOR, Tag) ->
@@ -84,10 +80,10 @@ store_del(SrvId, AOR, Tag) ->
         {ok, ok} -> 
             reply(Tag, 0);
         {ok, Resp} -> 
-            ?SIP_LOG(warning, "invalid callback response: ~p", [Resp]),
+            ?warning(SrvId, <<>>, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
         error -> 
-            ?SIP_LOG(warning, "invalid callback response", []),
+            ?warning(SrvId, <<>>, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
@@ -100,12 +96,9 @@ store_del(SrvId, AOR, Tag) ->
 
 store_del_all(SrvId) ->
     case callback(SrvId, del_all) of
-        {ok, ok} ->
-            ok;
-        {ok, _Resp} ->
-            {error, invalid_callback};
-        error ->
-            {error, invalid_callback}
+        {ok, ok} -> ok;
+        {ok, _Resp} -> {error, invalid_callback}; 
+        error -> {error, invalid_callback}
     end.
 
 
@@ -115,11 +108,11 @@ reply(Tag, Expires) ->
 
 
 %% @private 
--spec callback(nkservice:id(), term()) ->
+-spec callback(nksip:srv_id(), term()) ->
     term() | error.
 
 callback(SrvId, Op) -> 
-    ?CALL_SRV(SrvId, nksip_user_callback, [sip_event_compositor_store, [Op, SrvId], SrvId]).
+    SrvId:nks_sip_call(sip_event_compositor_store, [Op, SrvId], SrvId).
 
 
 

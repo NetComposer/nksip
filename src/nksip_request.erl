@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -55,9 +55,9 @@ get_handle(Term) ->
 -spec srv_id( Request ) -> Result when
         Request     :: nksip:request()
             | nksip:handle(),
-        Result      :: {ok, nkservice:id()}.
+        Result      :: {ok, nksip:srv_id()}.
 
-srv_id(#sipmsg{class={req, _}, srv=SrvId}) ->
+srv_id(#sipmsg{class={req, _}, srv_id=SrvId}) ->
     {ok, SrvId};
     
 srv_id(Handle) ->
@@ -154,7 +154,7 @@ meta(Field, Handle) ->
         FieldList   :: [ nksip_sipmsg:field() ],
         Request     :: nksip:request()
             | nksip:handle(),
-        Result      :: {ok, [ {nksip_sipmsg:field(), term()} ]}
+        Result      :: {ok, [ {nksip_sipmsg:field(), term()} ]} 
             | {error, term()}.
 
 metas(Fields, #sipmsg{class={req, _}}=Req) when is_list(Fields) ->
@@ -194,8 +194,8 @@ header(Name, Handle) when is_binary(Handle) ->
             | {error, term()}.
 
 reply(SipReply, Handle) ->
-    {req, SrvId, PkgId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
-    nksip_call:send_reply(SrvId, PkgId, CallId, ReqId, SipReply).
+    {req, SrvId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
+    nksip_call:send_reply(SrvId, CallId, ReqId, SipReply).
 
 
 %%----------------------------------------------------------------
@@ -206,6 +206,6 @@ reply(SipReply, Handle) ->
         Request :: nksip:request(),
         Result  :: boolean().
 
-is_local_ruri(#sipmsg{class={req, _}, srv=SrvId, ruri=RUri}) ->
+is_local_ruri(#sipmsg{class={req, _}, srv_id=SrvId, ruri=RUri}) ->
     nksip_util:is_local(SrvId, RUri).
 

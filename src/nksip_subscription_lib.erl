@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -54,7 +54,7 @@ get_handle({user_subs, #subscription{id=SubsId},
                #dialog{srv_id=SrvId, id=DialogId, call_id=CallId}}) ->
     Srv = atom_to_binary(SrvId, latin1), 
     <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{srv=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
+get_handle(#sipmsg{srv_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
     Srv = atom_to_binary(SrvId, latin1), 
     <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
@@ -66,7 +66,7 @@ get_handle(_) ->
 
 %% @private
 -spec parse_handle(nksip:handle()) ->
-    {nkservice:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
+    {nksip:srv_id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
 
 parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, Srv:7/binary, 
          $_, CallId/binary>>) ->
@@ -210,7 +210,7 @@ remote_id(Handle, Srv) ->
     {_SrvId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
     {ok, DialogHandle} = nksip_dialog:get_handle(Handle),
     RemoteId = nksip_dialog_lib:remote_id(DialogHandle, Srv),
-    {SrvId1, _PkgId, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
+    {SrvId1, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
     Srv1 = atom_to_binary(SrvId1, latin1),
     <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
 

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,7 +25,7 @@
 -include("../include/nksip.hrl").
 
 -export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_start/2]).
--export([nksip_connection_sent/2, nksip_connection_recv/2, nks_sip_debug/3]).
+-export([nks_sip_connection_sent/2, nks_sip_connection_recv/2, nks_sip_debug/3]).
 
 %% ===================================================================
 %% Plugin
@@ -72,11 +72,11 @@ plugin_start(Config, _Service) ->
 
 
 %% @doc Called when a new message has been sent
--spec nksip_connection_sent(nksip:request()|nksip:response(), binary()) ->
+-spec nks_sip_connection_sent(nksip:request()|nksip:response(), binary()) ->
     continue.
 
-nksip_connection_sent(SipMsg, Packet) ->
-    #sipmsg{srv =_SrvId, class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
+nks_sip_connection_sent(SipMsg, Packet) ->
+    #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case Class of
         {req, Method} ->
@@ -88,18 +88,18 @@ nksip_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nksip_connection_recv(nksip:sipmsg(), binary()) ->
+-spec nks_sip_connection_recv(nksip:sipmsg(), binary()) ->
     continue.
 
-nksip_connection_recv(NkPort, Packet) ->
-    #sipmsg{nkport=NkPort, call_id=CallId, srv=SrvId} = NkPort,
+nks_sip_connection_recv(NkPort, Packet) ->
+    #sipmsg{nkport=NkPort, call_id=CallId, srv_id=SrvId} = NkPort,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
     continue.
 
 
 %% doc Called at specific debug points
--spec nks_sip_debug(nkservice:id(), nksip:call_id(), term()) ->
+-spec nks_sip_debug(nksip:srv_id(), nksip:call_id(), term()) ->
     continue.
 
 nks_sip_debug(SrvId, CallId, Info) ->

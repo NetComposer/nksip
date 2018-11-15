@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,7 +29,6 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -74,20 +73,20 @@ uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
              when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
     case nksip_subscription_lib:find(Req, Dialog) of
-        #subscription{class=Class} = Subs
+        #subscription{class=Class, id=Id} = Subs
             when (Class==uac andalso Method=='SUBSCRIBE') orelse
                  (Class==uac andalso Method=='REFER') orelse
                  (Class==uas andalso Method=='NOTIFY') ->
-            ?CALL_DEBUG("Subscription ~s UAC response ~p ~p", [Subs#subscription.id, Method, Code], Call),
+            ?call_debug("Subscription ~s UAC response ~p ~p", [Id, Method, Code]),
             uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         not_found when Code>=200 andalso Code<300 andalso
                        (Method=='SUBSCRIBE' orelse Method=='REFER') ->
-            Subs = create(uac, Req, Dialog, Call),
-            ?CALL_DEBUG("Subscription ~s UAC response ~p ~p", [Subs#subscription.id, Method, Code], Call),
+            Subs = #subscription{id=Id} = create(uac, Req, Dialog, Call),
+            ?call_debug("Subscription ~s UAC response ~p ~p", [Id, Method, Code]),
             uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
             case Code>=200 andalso Code<300 of
-                true -> ?CALL_LOG(notice, "UAC event ignoring ~p ~p", [Method, Code], Call);
+                true -> ?call_notice("UAC event ignoring ~p ~p", [Method, Code]);
                 false -> ok
             end,
             Dialog
@@ -148,11 +147,11 @@ uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     case nksip_subscription_lib:find(Req, Dialog) of
-        #subscription{class=Class, id=_Id} when
+        #subscription{class=Class, id=Id} when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
             (Method=='REFER' andalso Class==uas) orelse
             (Method=='NOTIFY' andalso Class==uac) ->
-            ?CALL_DEBUG("Subscription ~s UAS request ~p", [_Id, Method], Call),
+            ?call_debug("Subscription ~s UAS request ~p", [Id, Method]), 
             {ok, Dialog};
         not_found when Method=='SUBSCRIBE' andalso
                 element(1, Req#sipmsg.event) == <<"refer">> ->
@@ -165,7 +164,7 @@ uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
                 false -> {error, no_transaction}
             end;
         _ ->
-            ?CALL_LOG(notice, "UAS event ignoring ~p", [Method], Call),
+            ?call_notice("UAS event ignoring ~p", [Method]),
             {error, no_transaction}
     end;
 
@@ -182,11 +181,11 @@ uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
              when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
     case nksip_subscription_lib:find(Req, Dialog) of
-        #subscription{class=Class, id=_Id} = Subs when
+        #subscription{class=Class, id=Id} = Subs when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
             (Method=='REFER' andalso Class==uas) orelse
             (Method=='NOTIFY' andalso Class==uac) ->
-            ?CALL_DEBUG("Subscription ~s UAS response ~p ~p", [_Id, Method, Code], Call),
+            ?call_debug("Subscription ~s UAS response ~p ~p", [Id, Method, Code]),
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         not_found when Code>=200, Code<300 ->
             Class = case Method of 
@@ -194,13 +193,13 @@ uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
                 'REFER' -> uas; 
                 'NOTIFY' -> uac 
             end,
-            Subs = create(Class, Req, Dialog, Call),
-            ?CALL_DEBUG("Subscription ~s UAS response ~p, ~p", [Subs#subscription.id, Method, Code], Call),
+            Subs = #subscription{id=Id} = create(Class, Req, Dialog, Call),
+            ?call_debug("Subscription ~s UAS response ~p, ~p", [Id, Method, Code]), 
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
             case Code>=200 andalso Code<300 of
                 true ->
-                    ?CALL_LOG(notice, "UAS event ignoring ~p ~p", [Method, Code], Call);
+                    ?call_notice("UAS event ignoring ~p ~p", [Method, Code]);
                 false ->
                     ok
             end,
@@ -271,20 +270,19 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
-    #call{srv=SrvId, package=PkgId, times=#call_times{t1=T1, tc=TC}} = Call,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+    #call{srv_id=SrvId, times=#call_times{t1=T1, tc=TC}} = Call,
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
         _ when Method=='REFER' -> TC;
-        _ -> Config#config.event_expires
+        _ -> ?GET_CONFIG(SrvId, event_expires)
     end,
     RespExpires = case Resp#sipmsg.expires of
         SE0 when is_integer(SE0), SE0>=0 -> SE0;
         _ when Method=='REFER' -> TC;
-        _ -> Config#config.event_expires
+        _ -> ?GET_CONFIG(SrvId, event_expires)
     end,
     Expires = min(ReqExpires, RespExpires),
-    ?CALL_DEBUG("Event ~s expires updated to ~p", [Id, Expires], Call),
+    ?call_debug("Event ~s expires updated to ~p", [Id, Expires]),
     TimerN1 = case NotifyCSeq > element(1, Req#sipmsg.cseq) of
         true when Expires>0 -> 
             undefined;     % NOTIFY already received
@@ -295,7 +293,7 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
         0 -> 
             undefined;
         _ ->
-            Offset = Config#config.event_expires_offset,
+            Offset = ?GET_CONFIG(SrvId, event_expires_offset),
             start_timer(1000*(Expires+Offset), {timeout, Id}, Dialog)
     end,
     TimerMiddle1= case Expires of
@@ -314,7 +312,7 @@ update({notify, Req}, Subs, Dialog, Call) ->
     Subs1 = Subs#subscription{last_notify_cseq=element(1, Req#sipmsg.cseq)},
     Status = case nksip_subscription_lib:state(Req) of
         invalid -> 
-            ?CALL_LOG(notice, "Invalid subscription state", [], Call),
+            ?call_notice("Invalid subscription state", []),
             {terminated, {code, 400}, undefined};
         SE -> 
             SE
@@ -335,20 +333,19 @@ update({Status, Expires}, Subs, Dialog, Call)
         true -> 
             ok;
         false -> 
-            ?CALL_DEBUG("Subscription ~s ~p -> ~p", [Id, OldStatus, Status], Call),
+            ?call_debug("Subscription ~s ~p -> ~p", [Id, OldStatus, Status]),
             dialog_update(Status, Subs, Dialog, Call)
     end,
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
-    ?CALL_DEBUG("Event ~s expires updated to ~p", [Id, Expires], Call),
+    ?call_debug("Event ~s expires updated to ~p", [Id, Expires]),
     Answered1 = case Answered of
         undefined -> nklib_util:timestamp();
         _ -> Answered
     end,
-    #call{srv=SrvId, package=PkgId} = Call,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
-    Offset = Config#config.event_expires_offset,
+    #call{srv_id=SrvId} = Call,
+    Offset = ?GET_CONFIG(SrvId, event_expires_offset),
     Subs1 = Subs#subscription{
         status = Status,
         answered = Answered1,
@@ -360,15 +357,16 @@ update({Status, Expires}, Subs, Dialog, Call)
 
 update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
     #subscription{
-        timer_n = N,
+        id = Id,
+        status = OldStatus,
+        timer_n = N, 
         timer_expire = Expire, 
         timer_middle = Middle
     } = Subs,
     cancel_timer(N),
     cancel_timer(Expire),
     cancel_timer(Middle),
-    ?CALL_DEBUG("Subscription ~s ~p -> {terminated, ~p}",
-        [Subs#subscription.id, Subs#subscription.status, Reason], Call),
+    ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason]),
     dialog_update({terminated, Reason, Retry}, Subs, Dialog, Call),
     store(Subs#subscription{status={terminated, Reason}}, Dialog, Call).
 
@@ -379,7 +377,7 @@ update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
 
 create_prov_event(#sipmsg{from={_, FromTag}}=Req, Call) ->
     Id = nksip_subscription_lib:make_id(Req),
-    ?CALL_DEBUG("Provisional event ~s (~s) UAC created", [Id, FromTag], Call),
+    ?call_debug("Provisional event ~s (~s) UAC created", [Id, FromTag]),
     #call{times=#call_times{t1=T1}, events=Events} = Call,
     Timer = erlang:start_timer(64*T1, self(), {remove_prov_event, {Id, FromTag}}),
     ProvEvent = #provisional_event{id={Id, FromTag}, timer_n=Timer},
@@ -398,7 +396,7 @@ remove_prov_event({Id, FromTag}, #call{events=Events}=Call) ->
     case lists:keytake({Id, FromTag}, #provisional_event.id, Events) of
         {value, #provisional_event{timer_n=Timer}, Rest} ->
             cancel_timer(Timer),
-            ?CALL_DEBUG("Provisional event ~s (~s) destroyed", [Id, FromTag], Call),
+            ?call_debug("Provisional event ~s (~s) destroyed", [Id, FromTag]),
             Call#call{events=Rest};
         false ->
             Call
@@ -442,9 +440,8 @@ request_uac_opts('SUBSCRIBE', Opts, _Dialog, Subs) ->
 
 request_uac_opts('NOTIFY', Opts, Dialog, Subs) ->
     #subscription{event=Event, timer_expire=Timer} = Subs,
-    #dialog{srv_id=SrvId, package=PkgId} = Dialog,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
-    Offset = Config#config.event_expires_offset,
+    #dialog{srv_id=SrvId} = Dialog,
+    Offset = ?GET_CONFIG(SrvId, event_expires_offset),
     {value, {_, SS}, Opts1} = lists:keytake(subscription_state, 1, Opts),
     SS1 = case SS of
         State when State==active; State==pending ->
@@ -483,7 +480,7 @@ timer({Type, Id}, Dialog, Call) ->
             Dialog1 = update({terminated, timeout, undefined}, Subs, Dialog, Call),
             nksip_call_dialog:store(Dialog1, Call);
         not_found -> 
-            ?CALL_LOG(notice, "Subscription ~s timer fired for unknown event", [Id], Call),
+            ?call_notice("Subscription ~s timer fired for unknown event", [Id]),
             Call
     end.
 
@@ -541,27 +538,25 @@ do_is_prov_event(Id, [_|Rest]) -> do_is_prov_event(Id, Rest).
 -spec store(#subscription{}, nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-store(Subs, Dialog, Call) ->
-    #subscription{id=Id, status=Status, class=_Class} = Subs,
+store(Subs, Dialog, _Call) ->
+    #subscription{id=Id, status=Status, class=Class} = Subs,
     #dialog{subscriptions=Subscriptions} = Dialog,
-    {Rest, IsFirst} = case Subscriptions of
-        [] ->
-            {[], true};
-        [#subscription{id=Id}|Rest0] ->
-            {Rest0, true};
-        _ ->
-            {[], false}
+    case Subscriptions of
+        [] -> Rest = [], IsFirst = true;
+        [#subscription{id=Id}|Rest] -> IsFirst = true;
+        _ -> Rest = [], IsFirst = false
     end,
+    UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     case Status of
         {terminated, _Reason} ->
-            ?CALL_DEBUG("~s removing event ~s", [_Class, Id], Call),
+            ?call_debug("~s removing event ~s", [UA, Id]),
             Subscriptions1 = case IsFirst of
                 true -> Rest;
                 false -> lists:keydelete(Id, #subscription.id, Subscriptions)
             end,
             Dialog#dialog{subscriptions=Subscriptions1};
         _ ->
-            ?CALL_DEBUG("~s storing event ~s: ~p", [_Class, Id, Status], Call),
+            ?call_debug("~s storing event ~s: ~p", [UA, Id, Status]),
             Subscriptions1 = case IsFirst of
                 true -> [Subs|Rest];
                 false -> lists:keystore(Id, #subscription.id, Subscriptions, Subs)
@@ -575,15 +570,13 @@ store(Subs, Dialog, Call) ->
 -spec dialog_update(term(), #subscription{}, nksip:dialog(), nksip_call:call()) ->
     ok.
 
-dialog_update(Status, Subs, Dialog, #call{srv=SrvId}=Call) ->
+dialog_update(Status, Subs, Dialog, #call{srv_id=SrvId}=Call) ->
     Status1 = case Status of
-        {terminated, Reason, undefined} ->
-            {terminated, Reason};
-        _ ->
-            Status
+        {terminated, Reason, undefined} -> {terminated, Reason};
+        _ -> Status
     end,
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
-    ?CALL_SRV(SrvId, nksip_user_callback, [sip_dialog_update, Args, SrvId]).
+    SrvId:nks_sip_call(sip_dialog_update, Args, SrvId).
 
 
 %% @private

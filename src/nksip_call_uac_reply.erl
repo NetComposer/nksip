@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,7 +26,6 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -38,8 +37,8 @@
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-reply(Class, UAC, #call{srv=SrvId}=Call) ->
-    case ?CALL_SRV(SrvId, nksip_uac_reply, [Class, UAC, Call]) of
+reply(Class, UAC, #call{srv_id=SrvId}=Call) ->
+    case SrvId:nks_sip_uac_reply(Class, UAC, Call) of
         {continue, [Class1, UAC1, Call1]} ->
             do_reply(Class1, UAC1, Call1);
         {ok, Call1} ->
@@ -59,26 +58,20 @@ do_reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
         is_function(CB, 1) andalso 
         (Async orelse lists:member(get_request, Opts))
     of
-        true ->
-            call(CB, {req, Req, Call});
-        false ->
-            ok
+        true -> call(CB, {req, Req, Call});
+        false -> ok
     end,
     case Async of
-        true ->
-            ok;
-        false ->
-            gen_server:reply(From, ok)
+        true -> ok;
+        false -> gen_server:reply(From, ok)
     end,
     Call;
 
 do_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     CB = nklib_util:get_value(callback, Opts),
     case is_function(CB, 1) andalso lists:member(get_request, Opts) of
-        true ->
-            call(CB, {req, Req, Call});
-        false ->
-            ok
+        true -> call(CB, {req, Req, Call});
+        false -> ok
     end,
     Call;
 
@@ -90,16 +83,12 @@ do_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
         is_function(CB, 1) andalso Code>100 andalso 
         (Code<200 orelse Async)
     of
-        true ->
-            call(CB, {resp, Code, Resp, Call});
-        false ->
-            ok
+        true -> call(CB, {resp, Code, Resp, Call});
+        false -> ok
     end,
     case Async of
-        false when Code>=200 ->
-            gen_server:reply(From, response(Resp, Opts));
-        _ ->
-            ok
+        false when Code>=200 -> gen_server:reply(From, response(Resp, Opts));
+        _ -> ok
     end,
     Call;
 
@@ -107,16 +96,12 @@ do_reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     CB = nklib_util:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case is_function(CB, 1) andalso Async of
-        true ->
-            call(CB, {error, Error});
-        false ->
-            ok
+        true -> call(CB, {error, Error});
+        false -> ok
     end,
     case Async of
-        true ->
-            ok;
-        false ->
-            gen_server:reply(From, {error, Error})
+        true -> ok;
+        false -> gen_server:reply(From, {error, Error})
     end,
     Call;
 
@@ -129,7 +114,7 @@ do_reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
 do_reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Reply = case nksip_reply:parse(Error) of
         error -> 
-            ?CALL_LOG(notice, "Invalid proxy internal response: ~p", [Error], Call),
+            ?call_notice("Invalid proxy internal response: ~p", [Error]),
             {internal_error, <<"Invalid Internal Proxy UAC Response">>};
         {ErrCode, ErrOpts} ->
             {ErrCode, ErrOpts}
@@ -147,7 +132,7 @@ do_reply(_, #trans{from=none}, Call) ->
 call(CB, Arg) ->
     case catch CB(Arg) of
         {'EXIT', Error} -> 
-            ?CALL_LOG(warning, "Error calling UAC callback function: ~p", [Error]);
+            ?call_warning("Error calling UAC callback function: ~p", [Error]);
         _ -> 
             ok
     end.

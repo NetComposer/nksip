@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -37,7 +37,7 @@
 %% ===================================================================
 
 %% @doc Configures a Service to start debugging
--spec start(nkservice:id()|nkservice:name()) ->
+-spec start(nksip:srv_id()|nkservice:name()) ->
     ok | {error, term()}.
 
 start(Srv) ->
@@ -55,7 +55,7 @@ start(Srv) ->
 
 
 %% @doc Stop debugging in a specific Service
--spec stop(nkservice:id()|nkservice:name()) ->
+-spec stop(nksip:srv_id()|nkservice:name()) ->
     ok | {error, term()}.
 
 stop(Srv) ->
@@ -79,7 +79,7 @@ stop(Srv) ->
 
 
 %% @private
-insert(#sipmsg{srv=SrvId, call_id=CallId}, Info) ->
+insert(#sipmsg{srv_id=SrvId, call_id=CallId}, Info) ->
     insert(SrvId, CallId, Info).
 
 

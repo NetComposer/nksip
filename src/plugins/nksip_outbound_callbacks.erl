@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,7 +27,7 @@
 -include("nksip_registrar.hrl").
 
 -export([plugin_deps/0, plugin_config/2, plugin_stop/2]).
--export([nksip_uac_proxy_opts/2, nksip_transport_uac_headers/6]).
+-export([nks_sip_uac_proxy_opts/2, nks_sip_transport_uac_headers/6]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
 	     nks_sip_registrar_get_index/2]).
 
@@ -61,10 +61,10 @@ plugin_stop(Config, _Service) ->
 %% ===================================================================
 
 %% @doc Called to add options for proxy UAC processing
--spec nksip_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
+-spec nks_sip_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {reply, nksip:sipreply()}.
 
-nksip_uac_proxy_opts(Req, ReqOpts) ->
+nks_sip_uac_proxy_opts(Req, ReqOpts) ->
     case nksip_outbound:proxy_opts(Req, ReqOpts) of
         {ok, ProxyOpts} -> 
             {continue, [Req, ProxyOpts]};
@@ -74,9 +74,9 @@ nksip_uac_proxy_opts(Req, ReqOpts) ->
 
 
 %% @doc Called when preparing the request for sending
-nksip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
-    Req2 = nksip_outbound:add_headers(Req, Opts, Scheme, Transp, Host, Port),
-    {ok, Req2}.
+nks_sip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
+    Req1 = nksip_outbound:add_headers(Req, Opts, Scheme, Transp, Host, Port),
+    {ok, Req1}.
 
 
 %% @private

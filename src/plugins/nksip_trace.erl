@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -71,7 +71,7 @@ start() ->
 
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
--spec start(nkservice:id()|nkservice:name()) ->
+-spec start(nksip:srv_id()|nkservice:name()) -> 
     ok | {error, term()}.
 
 start(Srv) -> 
@@ -79,7 +79,7 @@ start(Srv) ->
 
 
 %% @doc Equivalent to `start(Srv, File, all)'.
--spec start(nkservice:id()|nkservice:name(), file()) ->
+-spec start(nksip:srv_id()|nkservice:name(), file()) -> 
     ok | {error, term()}.
 
 start(Srv, File) -> 
@@ -87,7 +87,7 @@ start(Srv, File) ->
 
 
 %% @doc Configures a Service to start tracing SIP messages.
--spec start(nkservice:id()|nkservice:id(), file(), ip_list()) ->
+-spec start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()) ->
     ok | {error, term()}.
 
 start(Srv, File, IpList) ->
@@ -115,7 +115,7 @@ stop() ->
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
--spec stop(nkservice:id()|nkservice:name()) ->
+-spec stop(nksip:srv_id()|nkservice:name()) ->
     ok | {error, term()}.
 
 stop(Srv) ->
@@ -153,7 +153,7 @@ print(Header, #sipmsg{}=SipMsg) ->
 
 
 %% @private
--spec sipmsg(nkservice:id(), nksip:call_id(), binary(),
+-spec sipmsg(nksip:srv_id(), nksip:call_id(), binary(), 
              nkpacket:nkport(), binary()) ->
     ok.
 
@@ -259,7 +259,7 @@ close_file(SrvId) ->
         undefined -> 
             ok;
         {File, OldDevice} ->
-            ?SIP_LOG(notice, "Closing file ~s (~p)", [File, OldDevice]),
+            ?notice(SrvId, <<>>, "Closing file ~s (~p)", [File, OldDevice]),
             nksip_app:del({nksip_trace_file, SrvId}),
             file:close(OldDevice),
             ok
@@ -273,7 +273,7 @@ open_file(_SrvId, console) ->
 open_file(SrvId, File) ->
     case file:open(binary_to_list(File), [append]) of
         {ok, IoDevice} -> 
-            ?SIP_LOG(notice, "File ~s opened for trace (~p)", [File, IoDevice]),
+            ?notice(SrvId, <<>>, "File ~s opened for trace (~p)", [File, IoDevice]),
             nksip_app:put({nksip_trace_file, SrvId}, {File, IoDevice}),
             ok;
         {error, _Error} -> 

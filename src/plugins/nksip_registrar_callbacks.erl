@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,7 +29,7 @@
 
 -export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
 -export([sip_registrar_store/2]).
--export([sip_register/2, nksip_authorize_data/3]).
+-export([sip_register/2, nks_sip_authorize_data/3]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
          nks_sip_registrar_get_index/2, nks_sip_registrar_update_regcontact/4]).
 
@@ -83,7 +83,7 @@ plugin_stop(Config, #{id:=SrvId}) ->
     [RegContact] | ok | not_found when 
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
                    {del, AOR} | del_all,
-        SrvId :: nkservice:id(),
+        SrvId :: nksip:srv_id(),
         AOR :: nksip:aor(),
         RegContact :: nksip_registrar:reg_contact(),
         TTL :: integer().
@@ -122,7 +122,7 @@ sip_register(Req, _Call) ->
 
 
 %% @private
-nksip_authorize_data(List, #trans{request=Req}=Trans, Call) ->
+nks_sip_authorize_data(List, #trans{request=Req}=Trans, Call) ->
     case nksip_registrar:is_registered(Req) of
         true -> {continue, [[register|List], Trans, Call]};
         false -> continue

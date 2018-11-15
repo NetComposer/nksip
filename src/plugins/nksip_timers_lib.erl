@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -54,7 +54,7 @@ parse_uac_config([Term|Rest], Req, Opts) ->
         {sip_timers_se, SE} when is_integer(SE) ->
             parse_uac_config([{sip_timers_se, {SE, undefined}}|Rest], Req, Opts);
         {sip_timers_se, {SE, Refresh}} when is_integer(SE) ->
-            #sipmsg{srv=SrvId} = Req,
+            #sipmsg{srv_id=SrvId} = Req,
             case SrvId:config_nksip_timers() of
                 {_, MinSE} when SE<MinSE -> 
                     {error, {invalid_config, sip_timers_se}};
@@ -178,7 +178,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
 
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
-    #call{srv=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     {Default, _} = SrvId:config_nksip_timers(),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
@@ -189,7 +189,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
                 _ -> {Default, undefined}
             end;
         invalid ->
-            ?CALL_LOG(warning, "Invalid Session-Expires in response", [], Call),
+            ?call_warning("Invalid Session-Expires in response", []),
             {Default, undefined}
     end,
     Type = case Class==Refresh of
@@ -197,7 +197,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
         false when Refresh/=undefined -> refreshed;
         false -> none
     end,
-    ?CALL_LOG(info, "session timer updated (~p, ~p)", [{Class, Refresh, Type}, SE], Call),
+    ?call_info("session timer updated (~p, ~p)", [{Class, Refresh, Type}, SE]),
     {Type, SE}.
 
 
@@ -241,7 +241,7 @@ make_uac_dialog(Method, Dialog, Call) ->
     {resend, nksip:request(), nksip_call:call()} | false.
 
 uac_received_422(Req, Resp, UAC, Call) ->
-    #sipmsg{srv=SrvId, dialog_id=DialogId} = Resp,
+    #sipmsg{srv_id=SrvId, dialog_id=DialogId} = Resp,
     #trans{
         method = Method, 
         code = Code, 
@@ -300,7 +300,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
     continue | {update, nksip:request(), nksip_call:call()} | 
                {reply, nksip:sipreply(), nksip_call:call()}.
 
-uas_check_422(#sipmsg{srv=SrvId, class={req, Method}}=Req, Call) ->
+uas_check_422(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Call) ->
     case Method=='INVITE' orelse Method=='UPDATE' of
         true ->
             case parse(Req) of
@@ -345,13 +345,13 @@ uas_check_422(#sipmsg{srv=SrvId, class={req, Method}}=Req, Call) ->
     nksip:response().
 
 uas_dialog_response(
-        Req, #sipmsg{srv=SrvId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
+        Req, #sipmsg{srv_id=SrvId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
         when Code>=200 andalso Code<300 andalso 
              (Method=='INVITE' orelse Method=='UPDATE') ->
     case nksip_sipmsg:supported(<<"timer">>, Resp) of
         true ->
             #sipmsg{require=Require} = Resp,
-            ReqSupport = nksip_sipmsg:supported(<<"timer">>, Req),
+            ReqSupport = nksip_sipmsg:supported(<<"timer">>, Req), 
             ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
                 [ReqMinSE0] -> ReqMinSE0;
                 _ -> 90
@@ -393,7 +393,7 @@ uas_dialog_response(_Req, Resp, _Call) ->
 -spec uac_pre_request(nksip:request(), nksip_call:call()) ->
     nksip:request().
 
-uac_pre_request(#sipmsg{srv=SrvId, class={req, Method}}=Req, _Call)
+uac_pre_request(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, _Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
     ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
         [ReqMinSE0] -> ReqMinSE0;

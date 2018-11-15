@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -202,19 +202,13 @@
                 | {error, term()}.
 
 start(Name, Opts) ->
-    Plugins = maps:get(plugins, Opts, []),
-    Listen = maps:get(listenUrl, Opts, "sip:all"),
-    Opts2 = maps:remove(plugins, Opts),
-    Service = #{
-        plugins => Plugins,
-        packages => [
-            #{
-                class => ?PACKAGE_CLASS_SIP,
-                config => Opts2#{listenUrl => Listen}
-            }
-        ]
+    Opts1 = nklib_util:to_map(Opts),
+    Opts2 = Opts1#{
+        class => nksip,
+        plugins => [nksip|maps:get(plugins, Opts1, [])],
+        sip_listen => maps:get(sip_listen, Opts1, "sip:all")
     },
-    nkservice:start(Name, Service).
+    nkservice:start(Name, Opts2).
 
 
 %%----------------------------------------------------------------

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,7 +29,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+
 
 %% ===================================================================
 %% Types
@@ -54,11 +54,11 @@
     nksip_call:call().
 
 request(Req, Opts, From, Call) ->
-    #sipmsg{class={req, Method}, id=_MsgId} = Req,
-    #call{srv=SrvId} = Call,
+    #sipmsg{class={req, Method}, id=MsgId} = Req,
+    #call{srv_id=SrvId} = Call,
     {continue, [Req1, Opts1, From1, Call1]} = 
-        ?CALL_SRV(SrvId, nksip_uac_pre_request, [Req, Opts, From, Call]),
-    {#trans{id=_TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
+        SrvId:nks_sip_uac_pre_request(Req, Opts, From, Call),
+    {#trans{id=TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
     case lists:member(async, Opts1) andalso From1 of
         {srv, SrvFrom} when Method=='ACK' -> 
             gen_server:reply(SrvFrom, async);
@@ -69,12 +69,12 @@ request(Req, Opts, From, Call) ->
             ok
     end,
     case From1 of
-        {fork, _ForkId} ->
-            ?CALL_DEBUG("UAC ~p sending request ~p ~p (~s, fork: ~p)",
-                        [_TransId, Method, Opts1, _MsgId, _ForkId], Call);
+        {fork, ForkId} ->
+            ?call_debug("UAC ~p sending request ~p ~p (~s, fork: ~p)", 
+                        [TransId, Method, Opts1, MsgId, ForkId]);
         _ ->
-            ?CALL_DEBUG("UAC ~p sending request ~p ~p (~s)",
-                        [_TransId, Method, Opts1, _MsgId], Call)
+            ?call_debug("UAC ~p sending request ~p ~p (~s)", 
+                        [TransId, Method, Opts1, MsgId])
     end,
     nksip_call_uac_send:send(UAC, Call2).
 
@@ -97,10 +97,11 @@ dialog(DialogId, Method, Opts, Call) ->
     {ok, nksip:request(), nksip:optslist(), nksip_call:call()} | {error, term()}.
 
 make_dialog(DialogId, Method, Opts, Call) ->
-    #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
+    #call{srv_id=SrvId, call_id=CallId} = Call,
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
-        {ok, RUri, Opts2, Call1} ->
-            case nksip_call_uac_make:make(SrvId, PkgId, Method, RUri, CallId, Opts2) of
+        {ok, RUri, Opts1, Call1} -> 
+            Opts2 = [{call_id, CallId} | Opts1],
+            case nksip_call_uac_make:make(SrvId, Method, RUri, Opts2) of
                 {ok, Req, ReqOpts} ->
                     {ok, Req, ReqOpts, Call1};
                 {error, Error} ->
@@ -118,15 +119,15 @@ make_dialog(DialogId, Method, Opts, Call) ->
 
 resend(Req, UAC, Call) ->
      #trans{
-        id = _TransId,
-        status = _Status,
+        id = TransId,
+        status = Status,
         opts = Opts,
-        method = _Method,
+        method = Method,
         iter = Iter,
         from = From
     } = UAC,
     #sipmsg{vias=[_|Vias], cseq={_, CSeqMethod}} = Req,
-    ?CALL_LOG(info, "UAC ~p ~p (~p) resending updated request", [_TransId, _Method, _Status], Call),
+    ?call_info("UAC ~p ~p (~p) resending updated request", [TransId, Method, Status]),
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
     Req1 = Req#sipmsg{vias=Vias, cseq={CSeq, CSeqMethod}},
     % Contact would be already generated
@@ -154,7 +155,7 @@ cancel(TransId, Opts, From, #call{trans=Trans}=Call) when is_integer(TransId) ->
                 {srv, SrvFrom} -> gen_server:reply(SrvFrom, {error, unknown_request});
                 _ -> ok
             end,
-            ?CALL_DEBUG("UAC ~p not found to CANCEL", [TransId], Call),
+            ?call_debug("UAC ~p not found to CANCEL", [TransId]),
             Call
     end.
 
@@ -164,25 +165,25 @@ cancel(TransId, Opts, From, #call{trans=Trans}=Call) when is_integer(TransId) ->
 -spec cancel(nksip_call:trans(), nksip:optslist(), nksip_call:call()) ->
     nksip_call:call().
 
-cancel(#trans{id=_TransId, class=uac, cancel=Cancel, status=Status}=UAC, Opts, Call)
+cancel(#trans{id=TransId, class=uac, cancel=Cancel, status=Status}=UAC, Opts, Call)
        when Cancel==undefined; Cancel==to_cancel ->
     case Status of
         invite_calling ->
-            ?CALL_DEBUG("UAC ~p (invite_calling) delaying CANCEL", [_TransId], Call),
+            ?call_debug("UAC ~p (invite_calling) delaying CANCEL", [TransId]),
             UAC1 = UAC#trans{cancel=to_cancel},
             update(UAC1, Call);
         invite_proceeding ->
-            ?CALL_DEBUG("UAC ~p (invite_proceeding) generating CANCEL", [_TransId], Call),
+            ?call_debug("UAC ~p (invite_proceeding) generating CANCEL", [TransId]),
             CancelReq = nksip_call_uac_make:make_cancel(UAC#trans.request, Opts),
             UAC1 = UAC#trans{cancel=cancelled},
             request(CancelReq, [no_dialog], none, update(UAC1, Call));
         invite_completed ->
-            ?CALL_LOG(info, "UAC ~p (invite_completed) received CANCEL", [_TransId], Call),
+            ?call_info("UAC ~p (invite_completed) received CANCEL", [TransId]),
             Call
     end;
 
-cancel(#trans{id=_TransId, cancel=_Cancel, status=_Status}, _Opts, Call) ->
-    ?CALL_DEBUG("UAC ~p (~p) cannot CANCEL request: (~p)", [_TransId, _Status, _Cancel], Call),
+cancel(#trans{id=TransId, cancel=Cancel, status=Status}, _Opts, Call) ->
+    ?call_debug("UAC ~p (~p) cannot CANCEL request: (~p)", [TransId, Status, Cancel]),
     Call.
 
 
@@ -264,28 +265,25 @@ make_trans(Req, Opts, From, Call) ->
 -spec response(nksip:response(), nksip_call:call()) ->
     nksip_call:call().
 
-response(Resp, #call{srv=SrvId, trans=Trans}=Call) ->
-    #sipmsg{class={resp, _Code, _Reason}, cseq={_, _Method}} = Resp,
+response(Resp, #call{srv_id=SrvId, trans=Trans}=Call) ->
+    #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}} = Resp,
     TransId = nksip_call_lib:uac_transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
         #trans{class=uac, from=From, ruri=RUri}=UAC -> 
             IsProxy = case From of 
-                {fork, _} ->
-                    true;
-                _ ->
-                    false
+                {fork, _} -> true; 
+                _ -> false 
             end,
             DialogId = nksip_call_uac_dialog:uac_dialog_id(Resp, IsProxy, Call),
-            Resp2 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
-            case ?CALL_SRV(SrvId, nksip_uac_pre_response, [Resp2, UAC, Call]) of
-                {continue, [Resp3, UAC2, Call2]} ->
-                    nksip_call_uac_resp:response(Resp3, UAC2, Call2);
+            Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
+            case SrvId:nks_sip_uac_pre_response(Resp1, UAC, Call) of
+                {continue, [Resp2, UAC2, Call2]} ->
+                    nksip_call_uac_resp:response(Resp2, UAC2, Call2);
                 {ok, Call2} ->
                     Call2
             end;
         _ -> 
-            ?CALL_LOG(info, "UAC received ~p ~p response for unknown transaction",
-                      [_Method, _Code], Call),
+            ?call_info("UAC received ~p ~p response for unknown transaction", [Method, Code]),
             Call
     end.
 

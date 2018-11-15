@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,7 +25,6 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -129,8 +128,7 @@ parse_opts([], _Req, Resp, _Code, Opts) ->
 
 
 parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
-    #sipmsg{srv=SrvId, package=PkgId} = Req,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+    #sipmsg{srv_id=SrvId} = Req,
     Op = case Term of
     
         ignore ->
@@ -217,12 +215,13 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            {replace, <<"supported">>, Config#config.supported};
+            Supported = ?GET_CONFIG(SrvId, supported),
+            {replace, <<"supported">>, Supported};
         allow ->        
-            {replace, <<"allow">>, Config#config.allow};
+            {replace, <<"allow">>, ?GET_CONFIG(SrvId, allow)};
         accept ->
             #sipmsg{class={req, Method}} = Req,
-            Accept = case Config#config.accept of
+            Accept = case ?GET_CONFIG(SrvId, accept) of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
@@ -235,7 +234,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case Config#config.events of
+            case ?GET_CONFIG(SrvId, events) of
                 [] -> ignore;
                 Events -> {replace, <<"allow-event">>, Events}
             end;
@@ -302,13 +301,12 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             parse_opts(Rest, Req, Resp, Code, Opts)
     end.
 
-
 %% @private
 -spec parse_plugin_opts(nksip:request(), nksip:response(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_plugin_opts(#sipmsg{srv=SrvId}=Req, Resp, Opts) ->
-    case ?CALL_SRV(SrvId, nksip_parse_uas_opt, [Req, Resp, Opts]) of
+parse_plugin_opts(#sipmsg{srv_id=SrvId}=Req, Resp, Opts) ->
+    case SrvId:nks_sip_parse_uas_opt(Req, Resp, Opts) of
         {continue, [_, Resp1, Opts1]} ->
             {Resp1, Opts1};
         {error, Error} ->

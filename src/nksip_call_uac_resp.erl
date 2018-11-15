@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,7 +28,6 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -61,13 +60,14 @@ response(Resp, UAC, Call) ->
         times = #call_times{trans=TransTime}
     } = Call,
     Now = nklib_util:timestamp(),
-    {Code1, Resp1} = case Now-Start < TransTime of
+    case Now-Start < TransTime of
         true -> 
-            {Code, Resp};
+            Code1 = Code,
+            Resp1 = Resp;
         false -> 
+            Code1 = 408,
             Reply = {timeout, <<"Transaction Timeout">>},
-            {Resp0, _} = nksip_reply:reply(Req, Reply),
-            {408, Resp0}
+            {Resp1, _} = nksip_reply:reply(Req, Reply)
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
         true -> 
@@ -82,9 +82,9 @@ response(Resp, UAC, Call) ->
         undefined -> 
             ok;    % It is own-generated
         _ -> 
-            ?CALL_DEBUG("UAC ~p ~p (~p) ~s received ~p",
+            ?call_debug("UAC ~p ~p (~p) ~sreceived ~p", 
                         [TransId, Method, Status, 
-                         if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call)
+                         if NoDialog -> "(no dialog) "; true -> "" end, Code1])
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
     Call3 = case NoDialog of
@@ -118,7 +118,7 @@ response_status(invite_calling, Resp, UAC, Call) ->
 
 response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code < 200 ->
     #trans{request=Req, cancel=Cancel} = UAC,
-    #call{srv=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     % Add another 3 minutes
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
     Call1 = update(UAC1, Call),
@@ -127,12 +127,13 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code 
         to_cancel -> nksip_call_uac:cancel(UAC1, [], Call2);
         _ -> Call2
     end,
-    case ?CALL_SRV(SrvId, nksip_uac_response, [Req, Resp, UAC1, Call3]) of
+    case SrvId:nks_sip_uac_response(Req, Resp, UAC1, Call3) of
         {continue, [_, _, _, Call4]} ->
             Call4;
         {ok, Call4} ->
             Call4
     end;
+
 
 % Final 2xx response received
 % Enters new RFC6026 'invite_accepted' state, to absorb 2xx retransmissions
@@ -171,7 +172,7 @@ response_status(invite_proceeding, #sipmsg{nkport=undefined}=Resp, UAC, Call) ->
 response_status(invite_proceeding, Resp, UAC, Call) ->
     #sipmsg{to={To, ToTag}} = Resp,
     #trans{request=Req, transp=Transp} = UAC,
-    #call{srv=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     UAC1 = UAC#trans{
         request = Req#sipmsg{to={To, ToTag}}, 
         response = undefined, 
@@ -189,7 +190,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
             UAC3#trans{status=finished}
     end,
     Call1 = update(UAC5, Call),
-    case ?CALL_SRV(SrvId, nksip_uac_response, [Req, Resp, UAC5, Call1]) of
+    case SrvId:nks_sip_uac_response(Req, Resp, UAC5, Call1) of
         {continue, [_Req6, Resp6, UAC6, Call6]} ->
             nksip_call_uac_reply:reply({resp, Resp6}, UAC6, Call6);
         {ok, Call2} ->
@@ -202,10 +203,10 @@ response_status(invite_accepted, _Resp, #trans{code=Code}, Call)
 
 response_status(invite_accepted, Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}} = Resp,
-    #trans{id=_TransId, code=_Code, status=_Status, to_tags=ToTags} = UAC,
+    #trans{id=TransId, code=Code, status=Status, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->
-            ?CALL_DEBUG("UAC ~p (~p) received ~p retransmission", [_TransId, _Status, _Code], Call),
+            ?call_debug("UAC ~p (~p) received ~p retransmission", [TransId, Status, Code]),
             Call;
         _ ->
             do_received_hangup(Resp, UAC, Call)
@@ -213,15 +214,15 @@ response_status(invite_accepted, Resp, UAC, Call) ->
 
 response_status(invite_completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, RespCode, _Reason}, to={_, ToTag}} = Resp,
-    #trans{id=_TransId, code=Code, to_tags=ToTags} = UAC,
+    #trans{id=TransId, code=Code, to_tags=ToTags} = UAC,
     case ToTags of 
         [ToTag|_] ->
             case RespCode of
                 Code ->
                     send_ack(UAC, Call);
                 _ ->
-                    ?CALL_LOG(info, "UAC ~p (invite_completed) ignoring new ~p response "
-                               "(previous was ~p)", [_TransId, RespCode, Code], Call)
+                    ?call_info("UAC ~p (invite_completed) ignoring new ~p response "
+                               "(previous was ~p)", [TransId, RespCode, Code])
             end,
             Call;
         _ ->  
@@ -248,7 +249,7 @@ response_status(proceeding, #sipmsg{nkport=undefined}=Resp, UAC, Call) ->
 response_status(proceeding, Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}} = Resp,
     #trans{request=Req, transp=Transp} = UAC,
-    #call{srv=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     UAC2 = case Transp of
         udp -> 
             UAC1 = UAC#trans{
@@ -263,7 +264,7 @@ response_status(proceeding, Resp, UAC, Call) ->
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
     Call1 = update(UAC2, Call),
-    case ?CALL_SRV(SrvId, nksip_uac_response, [Req, Resp, UAC2, Call1]) of
+    case SrvId:nks_sip_uac_response(Req, Resp, UAC2, Call1) of
         {continue, [_Req6, Resp6, UAC6, Call6]} ->
             nksip_call_uac_reply:reply({resp, Resp6}, UAC6, Call6);
         {ok, Call2} ->
@@ -271,16 +272,16 @@ response_status(proceeding, Resp, UAC, Call) ->
     end;
 
 response_status(completed, Resp, UAC, Call) ->
-    #sipmsg{class={resp, _Code, _Reason}, cseq={_, _Method}, to={_, ToTag}} = Resp,
-    #trans{id=_TransId, to_tags=ToTags} = UAC,
+    #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to={_, ToTag}} = Resp,
+    #trans{id=TransId, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->
-            ?CALL_LOG(info, "UAC ~p ~p (completed) received ~p retransmission",
-                       [_TransId, _Method, _Code], Call),
+            ?call_info("UAC ~p ~p (completed) received ~p retransmission", 
+                       [TransId, Method, Code]),
             Call;
         _ ->
-            ?CALL_LOG(info, "UAC ~p ~p (completed) received new ~p response",
-                       [_TransId, _Method, _Code], Call),
+            ?call_info("UAC ~p ~p (completed) received new ~p response", 
+                       [TransId, Method, Code]),
             UAC1 = case lists:member(ToTag, ToTags) of
                 true -> UAC;
                 false -> UAC#trans{to_tags=ToTags++[ToTag]}
@@ -294,16 +295,16 @@ response_status(completed, Resp, UAC, Call) ->
     nksip_call:call().
 
 do_received_hangup(Resp, UAC, Call) ->
-    #sipmsg{to={_, ToTag}, dialog_id=_DialogId} = Resp,
-    #trans{id=_TransId, code=Code, status=_Status, to_tags=ToTags} = UAC,
+    #sipmsg{to={_, ToTag}, dialog_id=DialogId} = Resp,
+    #trans{id=TransId, code=Code, status=Status, to_tags=ToTags} = UAC,
     UAC1 = case lists:member(ToTag, ToTags) of
         true -> UAC;
         false -> UAC#trans{to_tags=ToTags++[ToTag]}
     end,
     case Code < 300 of
         true ->
-            ?CALL_LOG(info, "UAC ~p (~p) sending ACK and BYE to secondary response "
-                       "(dialog ~s)", [_TransId, _Status, _DialogId], Call),
+            ?call_info("UAC ~p (~p) sending ACK and BYE to secondary response " 
+                       "(dialog ~s)", [TransId, Status, DialogId]),
             spawn(
                 fun() ->
                     Handle = nksip_dialog_lib:get_handle(Resp),
@@ -312,18 +313,18 @@ do_received_hangup(Resp, UAC, Call) ->
                             case nksip_uac:bye(Handle, []) of
                                 {ok, 200, []} ->
                                     ok;
-                                _ByeErr ->
-                                    ?CALL_LOG(notice, "UAC ~p could not send BYE: ~p",
-                                                 [_TransId, _ByeErr], Call)
+                                ByeErr ->
+                                    ?call_notice("UAC ~p could not send BYE: ~p", 
+                                                 [TransId, ByeErr])
                             end;
-                        _AckErr ->
-                            ?CALL_LOG(notice, "UAC ~p could not send ACK: ~p",
-                                         [_TransId, _AckErr], Call)
+                        AckErr ->
+                            ?call_notice("UAC ~p could not send ACK: ~p", 
+                                         [TransId, AckErr])
                     end
                 end);
         false ->       
-            ?CALL_LOG(info, "UAC ~p (~p) received new ~p response",
-                        [_TransId, _Status, Code], Call)
+            ?call_info("UAC ~p (~p) received new ~p response",
+                        [TransId, Status, Code])
     end,
     update(UAC1, Call).
 
@@ -332,13 +333,13 @@ do_received_hangup(Resp, UAC, Call) ->
 -spec send_ack(nksip_call:trans(), nksip_call:call()) ->
     ok.
 
-send_ack(#trans{request=Req, id=_TransId}, Call) ->
+send_ack(#trans{request=Req, id=TransId}, _Call) ->
     Ack = nksip_call_uac_make:make_ack(Req),
     case nksip_call_uac_transp:resend_request(Ack, []) of
         {ok, _} -> 
             ok;
         {error, _} -> 
-            ?CALL_LOG(notice, "UAC ~p could not send non-2xx ACK", [_TransId], Call)
+            ?call_notice("UAC ~p could not send non-2xx ACK", [TransId])
     end.
 
 
@@ -350,8 +351,8 @@ send_2xx_ack(DialogId, Call) ->
     case nksip_call_uac:dialog(DialogId, 'ACK', [async], Call) of
         {ok, Call1} ->
             Call1;
-        {error, _Error} ->
-            ?CALL_LOG(warning, "Could not generate 2xx ACK: ~p", [_Error], Call),
+        {error, Error} ->
+            ?call_warning("Could not generate 2xx ACK: ~p", [Error]),
             Call
     end.
 

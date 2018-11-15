@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -39,19 +39,19 @@
     nksip_call:call().
 
 send(#trans{method='ACK'}=UAC, Call) ->
-    #trans{id=_TransId, request=Req, opts=Opts} = UAC,
+    #trans{id=TransId, request=Req, opts=Opts} = UAC,
     case nksip_call_uac_transp:send_request(Req, Opts) of
         {ok, SentReq} ->
             sent_request(SentReq, UAC, Call);
         {error, Error} ->
-            ?CALL_DEBUG("UAC ~p error sending 'ACK' request: ~p", [_TransId, Error], Call),
+            ?call_debug("UAC ~p error sending 'ACK' request: ~p", [TransId, Error]),
             UAC1 = UAC#trans{status=finished},
             Call1 = update(UAC1, Call),
             nksip_call_uac_reply:reply({error, Error}, UAC1, Call1)
     end;
 
 send(UAC, Call) ->
-    #trans{method=Method, id=_TransId, request=Req, opts=Opts} = UAC,
+    #trans{method=Method, id=TransId, request=Req, opts=Opts} = UAC,
     #sipmsg{to={_, ToTag}} = Req,
     NoDialog = lists:member(no_dialog, Opts),
     % For proxies sending SUBSCRIBE or NOTIFY, no_dialog will be true
@@ -80,14 +80,14 @@ send(UAC, Call) ->
                 {ok, SentReq} -> 
                     sent_request(SentReq, UAC, Call);
                 {error, Error} ->
-                    ?CALL_DEBUG("UAC ~p error sending ~p request: ~p",
-                                [_TransId, Method, Error], Call),
+                    ?call_debug("UAC ~p error sending ~p request: ~p", 
+                                [TransId, Method, Error]),
                     UAC1 = UAC#trans{status=finished},
                     Call1 = update(UAC1, Call),
                     nksip_call_uac_reply:reply({error, Error}, UAC1, Call1)
             end;
         {error, Error} ->
-            ?CALL_LOG(info, "UAC ~p dialog error: ~p", [_TransId, Error], Call),
+            ?call_info("UAC ~p dialog error: ~p", [TransId, Error]),
             UAC1 = UAC#trans{status=finished},
             Call1 = update(UAC1, Call),
             nksip_call_uac_reply:reply({error, Error}, UAC1, Call1)
@@ -99,8 +99,8 @@ send(UAC, Call) ->
     nksip_call:call().
 
 sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
-    #trans{id=_TransId, opts=Opts} = UAC,
-    ?CALL_DEBUG("UAC ~p sent 'ACK' request", [_TransId], Call),
+    #trans{id=TransId, opts=Opts} = UAC,
+    ?call_debug("UAC ~p sent 'ACK' request", [TransId]),
     UAC1 = UAC#trans{
         status = finished, 
         request = Req,
@@ -115,17 +115,17 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
 
 sent_request(Req, UAC, Call) ->
     #sipmsg{
-        class = {req, _Method},
+        class = {req, Method}, 
         to = {_, ToTag}, 
         nkport = NkPort
     } = Req,
     #trans{
-        id = _TransId,
+        id = TransId, 
         opts = Opts, 
         from = From
     } = UAC,
     {ok, {_, Transp, _, _}} = nkpacket:get_local(NkPort),
-    ?CALL_DEBUG("UAC ~p sent ~p request", [_TransId, _Method], Call),
+    ?call_debug("UAC ~p sent ~p request", [TransId, Method]),
     UAC1 = UAC#trans{
         request = Req, 
         transp = Transp,

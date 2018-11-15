@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,7 +26,6 @@
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -42,67 +41,53 @@
 
 send_request(Req, Opts) ->
     #sipmsg{
-        srv = SrvId,
-        package = PkgId,
+        srv_id = SrvId, 
         call_id = CallId, 
         class = {req, Method}, 
         ruri = RUri, 
         routes = Routes
     } = Req,
-    ?CALL_DEBUG("UAC send opts: ~p", [Opts]),
-    {DestUri2, RUri2, Routes2} = case Routes of
+    ?call_debug("UAC send opts: ~p", [Opts]),
+    case Routes of
         [] -> 
-            {RUri, RUri, []};
+            DestUri = RUri1 = RUri,
+            Routes1 = [];
         [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
             case lists:member(<<"lr">>, RouteOpts) of
                 true ->     
                     DestUri = TopRoute#uri{
                         scheme = case RUri#uri.scheme of
-                            sips ->
-                                sips;
-                            _ ->
-                                TopRoute#uri.scheme
+                            sips -> sips;
+                            _ -> TopRoute#uri.scheme
                         end
                     },
-                    %{DestUri, RUri, [TopRoute|RestRoutes]};
-                    {DestUri, RUri, Routes};
+                    RUri1 = RUri,
+                    Routes1 = [TopRoute|RestRoutes];
                 false ->
-                    DestUri = TopRoute#uri{
+                    DestUri = RUri1 = TopRoute#uri{
                         scheme = case RUri#uri.scheme of
-                            sips ->
-                                sips;
-                            _ ->
-                                TopRoute#uri.scheme
+                            sips -> sips;
+                            _ -> TopRoute#uri.scheme
                         end
                     },
                     CRUri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
-                    {DestUri, DestUri, RestRoutes ++ [CRUri]}
+                    Routes1 = RestRoutes ++ [CRUri]
             end
     end,
-    ?CALL_SRV(SrvId, nks_sip_debug, [SrvId, CallId, {uac_out_request, Method}]),
-    Destinations = case nklib_util:get_value(route_flow, Opts) of
+    SrvId:nks_sip_debug(SrvId, CallId, {uac_out_request, Method}),
+    Dests = case nklib_util:get_value(route_flow, Opts) of
         #nkport{}=Flow -> 
-            [Flow, DestUri2];
+            [Flow, DestUri];
         undefined -> 
-            [DestUri2]
+            [DestUri]
     end,
-    Req2 = Req#sipmsg{ruri=RUri2, routes=Routes2},
-    #uri{scheme=Scheme} = DestUri2,
-    PreFun = make_pre_fun(Scheme, Opts),
-    %
-    % - if no route is set, message is sent directly to RUri, and
-    %   ruri and routes is not updated in request
-    % - if a "loose" (lr) route is first, message is sent to that route,
-    %   ruri and routes are not updated
-    % - if a non-loose route is first, message is sent to that route,
-    %   ruri is changed to that route, it's extracted from route list and
-    %   original ruri is appended to the end
-    %
-    case nksip_util:send(SrvId, PkgId, Destinations, Req2, PreFun, Opts) of
+    Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
+    PreFun = make_pre_fun(DestUri, Opts),  
+    case nksip_util:send(SrvId, Dests, Req1, PreFun, Opts) of
         {ok, SentReq} -> 
             {ok, SentReq};
         {error, Error} ->
-            ?CALL_SRV(SrvId, nks_sip_debug, [SrvId, CallId, {uac_out_request_error, Error}]),
+            SrvId:nks_sip_debug(SrvId, CallId, {uac_out_request_error, Error}),
             {error, service_unavailable}
     end.
 
@@ -111,8 +96,8 @@ send_request(Req, Opts) ->
 -spec resend_request(nksip:request(), nksip:optslist()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{srv=SrvId, package=PkgId, nkport=NkPort}=Req, Opts) ->
-    nksip_util:send(SrvId, PkgId, [NkPort], Req, none, Opts).
+resend_request(#sipmsg{srv_id=SrvId, nkport=NkPort}=Req, Opts) ->
+    nksip_util:send(SrvId, [NkPort], Req, none, Opts).
         
 
 
@@ -121,23 +106,19 @@ resend_request(#sipmsg{srv=SrvId, package=PkgId, nkport=NkPort}=Req, Opts) ->
 %% ===================================================================
 
 
-%% @private Updates the request based on selected transport
-%% - Generates Record-Route, Path and Contact (calling add_headers/6)
-%% - Adds nkport
-%% - Adds Via
-%% - Updates the IP in SDP in case it is "auto.nksip" to the local IP
-
--spec make_pre_fun(nksip:scheme(), [nksip_uac:req_option()]) ->
+%% @private
+-spec make_pre_fun(nksip:uri(), nklib:optslist()) ->
     function().
 
-make_pre_fun(Scheme, Opts) ->
+make_pre_fun(Dest, Opts) ->
+    #uri{scheme=Scheme} = Dest,     % RUri or first route
     fun(Req, NkPort) ->
         #sipmsg{
-            srv = SrvId,
-            package = PkgId,
+            srv_id = SrvId, 
             ruri = RUri, 
             call_id = CallId,
             vias = Vias,
+            routes = Routes, 
             body = Body
         } = Req,
         #nkport{
@@ -145,11 +126,11 @@ make_pre_fun(Scheme, Opts) ->
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = NkPort,
-        ListenHost = nksip_util:get_listenhost(SrvId, PkgId, ListenIp, Opts),
-        ?CALL_DEBUG("UAC listenhost is ~s", [ListenHost]),
-        {ok, Req2} =
-            ?CALL_SRV(SrvId, nksip_transport_uac_headers,
-                     [Req, Opts, Scheme,Transp, ListenHost, ListenPort]),
+        ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
+        ?call_debug("UAC listenhost is ~s", [ListenHost]),
+        {ok, Req1} = 
+            SrvId:nks_sip_transport_uac_headers(Req, Opts, Scheme, 
+                                             Transp, ListenHost, ListenPort),
         IsStateless = lists:member(stateless_via, Opts),
         GlobalId = nksip_config_cache:global_id(),
         Branch = case Vias of
@@ -175,28 +156,27 @@ make_pre_fun(Scheme, Opts) ->
                 NkSIP = nklib_util:hash({BaseBranch, GlobalId}),
                 <<"z9hG4bK", BaseBranch/binary, $-, NkSIP/binary>>
         end,
-        Via2 = #via{
+        Via1 = #via{
             transp = Transp, 
             domain = ListenHost, 
             port = ListenPort, 
             opts = [<<"rport">>, {<<"branch">>, Branch}]
         },
-        Body2 = case Body of
-            #sdp{} = SDP ->
-                nksip_sdp:update_ip(SDP, ListenHost);
-            _ ->
-                Body
+        Body1 = case Body of 
+            #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
+            _ -> Body
         end,
-        Req2#sipmsg{
+        Req1#sipmsg{
             nkport = NkPort,
             ruri = RUri#uri{ext_opts=[], ext_headers=[]},
-            vias = [Via2|Vias],
-            body = Body2
+            vias = [Via1|Vias],
+            routes = Routes,
+            body = Body1
         }
     end.
 
 
-%% @private Generates Record-Route, Path and Contact
+%% @private
 -spec add_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
                   nkpacket:transport(), binary(), inet:port_number()) ->
     nksip:request().
@@ -204,7 +184,7 @@ make_pre_fun(Scheme, Opts) ->
 add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
     #sipmsg{
         class = {req, Method},
-        srv = SrvId,
+        srv_id = SrvId, 
         from = {From, _},
         vias = Vias,
         contacts = Contacts,
@@ -236,7 +216,7 @@ add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
     end,
     Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
         true ->
-            Contact = nksip_util:make_route(Scheme, Transp, ListenHost,
+            Contact = nksip_util:make_route(Scheme, Transp, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
             UUID = nksip:get_uuid(SrvId),

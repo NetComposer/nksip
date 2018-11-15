@@ -1,69 +1,111 @@
-APP = nksip
-REBAR = rebar3
+PROJECT = nksip
+DIALYZER = dialyzer
+REBAR = ./rebar
+#RELOADER = -s nkreloader
 
-.PHONY: rel stagedevrel package version all tree shell
+all: app
 
-all: version compile
+deps:
+	@$(REBAR) get-deps
 
+app: deps
+	@$(REBAR) compile
 
-version:
-	@echo "$(shell git symbolic-ref HEAD 2> /dev/null | cut -b 12-)-$(shell git log --pretty=format:'%h, %ad' -1)" > $(APP).version
+cnodeps:
+	./rebar compile skip_deps=true
 
-
-version_header: version
-	@echo "-define(VERSION, <<\"$(shell cat $(APP).version)\">>)." > include/$(APP)_version.hrl
-
-
-clean:
-	$(REBAR) clean
-
-
-rel:
-	$(REBAR) release
+clean: clean-docs clean-logs clean-edocs
+	@$(REBAR) clean
+	rm -f erl_crash.dump
 
 
-compile:
-	$(REBAR) compile
+clean-logs:
+	rm -rf log/*
+	rm -rf samples/nksip_loadtest/log/*
+	rm -rf samples/nksip_pbx/log/* 
+	rm -rf samples/nksip_tutorial/log/*
+
+docs: clean-docs
+	@$(REBAR) doc skip_deps=true
+
+clean-docs:
+	rm -f doc/*.css doc/*.html \
+	      doc/*.png doc/edoc-info
+	rm -f plugins/doc/*.css plugins/doc/*.html \
+	      plugins/doc/*.png plugins/doc/edoc-info
+	rm -f samples/nksip_loadtest/doc/*.css samples/nksip_loadtest/doc/*.html \
+	      samples/nksip_loadtest/doc/*.png samples/nksip_loadtest/doc/edoc-info
+	rm -f samples/nksip_pbx/doc/*.css samples/nksip_pbx/doc/*.html \
+	      samples/nksip_pbx/doc/*.png samples/nksip_pbx/doc/edoc-info
+	rm -f samples/nksip_tutorial/doc/*.css samples/nksip_tutorial/doc/*.html \
+	      samples/nksip_tutorial/doc/*.png samples/nksip_tutorial/doc/edoc-info
+
+EDOC_SOURCE_PATH_H = "./src", \
+			"./include", \
+			"./priv/doc_src", \
+			"./samples/nksip_loadtest/src", \
+			"./samples/nksip_pbx/src", \
+			"./samples/nksip_tutorial/src", \
+			"./plugins/src", \
+			"./plugins/include", \
+			"./deps/nklib/src","./deps/nklib/include", \
+			"./deps/nkpacket/src","./deps/nkpacket/include", \
+			"./deps/nkservice/src","./deps/nkservice/include", \
+			"./deps/nkdocker/src","./deps/nkdocker/include" 
+			
+EDOC_SOURCE_PATH = "./priv/doc_src","./src"
+			
+USER_EDOC_OPTS = '[{source_path,[$(EDOC_SOURCE_PATH)]},\
+ 			{dir,"./edocs"}, \
+			]'
+
+DEVELOPER_EDOC_OPTS = '[{source_path,[$(EDOC_SOURCE_PATH)]},\
+ 			{dir,"./edocs"}, \
+			{private,true}, \
+			{todo,true} \
+			]'
+
+edocs: clean-edocs
+	erl -noshell -run edoc_run packages '[""]' $(USER_EDOC_OPTS)
+	
+edocs-dev: clean-edocs
+	erl -noshell -run edoc_run packages '[""]' $(DEVELOPER_EDOC_OPTS)
+
+clean-edocs:
+	rm -Rf edocs
+
+tests: app eunit
+
+eunit:
+	export ERL_FLAGS="-config test/app.config"; ./rebar eunit skip_deps=true
+
+build-plt:
+	@$(DIALYZER) --build_plt --output_plt .$(PROJECT).plt \
+		--apps erts kernel stdlib sasl tools inets crypto public_key ssl eunit
+
+dialyze: app
+	@$(DIALYZER) ebin/nksip*.beam --plt .$(PROJECT).plt \
+	-Werror_handling  #-Wunmatched_returns -Wrace_conditions -Wunderspecs
+
+shell: 
+	erl -config priv/app.config -args_file priv/vm.args $(RELOADER)
+
+tutorial: app
+	erl -config samples/nksip_tutorial/priv/app.config \
+		-args_file samples/nksip_tutorial/priv/vm.args 
+
+loadtest: app
+	erl -config samples/nksip_loadtest/priv/app.config \
+		-args_file samples/nksip_loadtest/priv/vm.args -s nksip_loadtest
+
+pbx: app
+	erl -config samples/nksip_pbx/priv/app.config \
+		-args_file samples/nksip_pbx/priv/vm.args
+
+build_tests:
+	erlc -pa ebin -pa deps/lager/ebin -pa deps/nklib/ebin -pa deps/nkpacket/ebin \
+	-o ebin -I include \
+	+export_all +debug_info +"{parse_transform, lager_transform}" \
+	test/*.erl
 
 
-tests:
-	$(REBAR) eunit
-
-
-dialyzer:
-	$(REBAR) dialyzer
-
-
-xref:
-	$(REBAR) xref
-
-
-upgrade:
-	$(REBAR) upgrade
-	make tree
-
-
-update:
-	$(REBAR) update
-
-
-tree:
-	$(REBAR) tree | grep -v '=' | sed 's/ (.*//' > tree
-
-
-tree-diff: tree
-	git diff test -- tree
-
-
-docs:
-	$(REBAR) edoc
-
-
-shell:
-	$(REBAR) shell --config config/shell.config --name $(APP)@127.0.0.1 --setcookie nk --apps $(APP)
-
-remsh:
-	erl -name remsh@127.0.0.1 -setcookie nk -remsh $(APP)@127.0.0.1
-
-remsh2:
-	erl -name remsh2@127.0.0.1 -setcookie nk -remsh $(APP)@127.0.0.1

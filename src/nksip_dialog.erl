@@ -1,7 +1,7 @@
 
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -85,12 +85,12 @@ get_handle(Term) ->
 
 %% @doc Gets thel App of a dialog
 -spec srv_id(nksip:dialog()|nksip:handle()) ->
-    {ok, nkservice:id()}.
+    {ok, nksip:srv_id()}.
 
 srv_id(#dialog{srv_id=SrvId}) ->
     {ok, SrvId};
 srv_id(Handle) ->
-    {SrvId, _PkgId, _DialogId, _CallId} = nksip_dialog_lib:parse_handle(Handle),
+    {SrvId, _DialogId, _CallId} = nksip_dialog_lib:parse_handle(Handle),
     {ok, SrvId}.
 
 
@@ -110,7 +110,7 @@ srv_name(Term) ->
 call_id(#dialog{call_id=CallId}) ->
     {ok, CallId};
 call_id(Handle) ->
-    {_SrvId, _PkgId, _DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    {_SrvId, _DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
     {ok, CallId}.
 
 
@@ -168,7 +168,7 @@ get_all() ->
 
 
 %% @doc Finds all started dialogs handles having `Call-ID'.
--spec get_all(nkservice:name()|nkservice:id(), nksip:call_id()) ->
+-spec get_all(nkservice:name()|nksip:srv_id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(Srv, CallId) ->
@@ -197,8 +197,8 @@ bye_all() ->
     ok | {error, term()}.
 
 stop(Handle) ->
-    {SrvId, PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
-    nksip_call:stop_dialog(SrvId, PkgId, CallId, DialogId).
+    {SrvId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    nksip_call:stop_dialog(SrvId, CallId, DialogId).
 
 
 %% @doc Stops (deletes) all current dialogs.
@@ -214,7 +214,7 @@ stop_all() ->
     [{nkpacket:transport(), inet:ip_address(), inet:port_number()}].
 
 get_authorized_list(Handle) ->
-    {SrvId, _PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    {SrvId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
     case nksip_call:get_authorized_list(SrvId, CallId, DialogId)of
         {ok, List} -> List;
         _ -> []
@@ -226,8 +226,8 @@ get_authorized_list(Handle) ->
     ok | {error, term()}.
 
 clear_authorized_list(Handle) ->
-    {SrvId, PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
-    nksip_call:clear_authorized_list(SrvId, PkgId, CallId, DialogId).
+    {SrvId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    nksip_call:clear_authorized_list(SrvId, CallId, DialogId).
 
 
 

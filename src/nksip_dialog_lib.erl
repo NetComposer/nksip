@@ -1,7 +1,7 @@
 
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -53,7 +53,7 @@
 get_handle(#dialog{id=Id, srv_id=SrvId, call_id=CallId}) ->
     Srv = atom_to_binary(SrvId, latin1),
     <<$D, $_, Id/binary, $_, Srv/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{dialog_id=DialogId, srv=SrvId, call_id=CallId}) ->
+get_handle(#sipmsg{dialog_id=DialogId, srv_id=SrvId, call_id=CallId}) ->
     Srv = atom_to_binary(SrvId, latin1),
     <<$D, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
 get_handle(<<"D_", _/binary>>=DialogId) ->
@@ -66,9 +66,9 @@ get_handle(_) ->
     error(invalid_dialog).
 
 
-%% @doc TODO MUST REPLY PKGID!
+%% @doc 
 -spec parse_handle(nksip:handle()) -> 
-    {nkservice:id(), nkservice:package_id(), id(), nksip:call_id()}.
+    {nksip:srv_id(), id(), nksip:call_id()}.
 
 parse_handle(<<$D, $_, _/binary>>=Bin) ->
     <<$D, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>> = Bin,
@@ -147,7 +147,7 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {SrvId, _PkgId, DialogId, CallId} = parse_handle(Handle),
+    {SrvId, DialogId, CallId} = parse_handle(Handle),
     Fun = fun(Dialog) ->
         case catch metas(Fields, Dialog) of
             {'EXIT', {{invalid_field, Field}, _}} -> 
@@ -221,7 +221,7 @@ remote_id(<<$D, _/binary>>=DialogId, Srv) ->
 
 %% @private Hack to find de dialog at another app in the same machine
 change_app(Id, Srv) ->
-    {_, _, DialogId, CallId} = parse_handle(Id),
+    {_, DialogId, CallId} = parse_handle(Id),
     {ok, SrvId1} = nkservice_srv:get_srv_id(Srv),
     Srv1 = atom_to_binary(SrvId1, latin1),
     <<$D, $_, DialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.

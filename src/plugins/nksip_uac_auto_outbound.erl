@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,7 +22,7 @@
 -module(nksip_uac_auto_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_register/5, stop_register/2, get_registers/1]).
+-export([start_register/4, stop_register/2, get_registers/1]).
 
 -include("nksip_uac_auto_outbound.hrl").
 
@@ -33,17 +33,17 @@
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nkservice:id(), nkservice:package_id(), term(), nksip:user_uri(),
+-spec start_register(nkservice:name()|nksip:srv_id(), term(), nksip:user_uri(),
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(SrvId, PkgId, RegId, Uri, Opts) when is_list(Opts) ->
+start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     Opts1 = [{user, [nksip_uac_auto_outbound]}|Opts],
-    nksip_uac_auto_register:start_register(SrvId, PkgId, RegId, Uri, Opts1).
+    nksip_uac_auto_register:start_register(Srv, RegId, Uri, Opts1).
 
 
 %% @doc Stops a previously started registration serie.
--spec stop_register(nkservice:name()|nkservice:id(), term()) ->
+-spec stop_register(nkservice:name()|nksip:srv_id(), term()) -> 
     ok | not_found.
 
 stop_register(Srv, RegId) ->

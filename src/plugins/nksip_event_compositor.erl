@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -47,7 +47,7 @@
 %% ===================================================================
 
 %% @doc Finds a stored published information
--spec find(nkservice:id()|term(), nksip:aor(), binary()) ->
+-spec find(nksip:srv_id()|term(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(Srv, AOR, Tag) ->
@@ -60,7 +60,7 @@ find(Srv, AOR, Tag) ->
     nksip:sipreply().
 
 request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
-    #sipmsg{srv=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
+    #sipmsg{srv_id=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
     Expires1 = case is_integer(Expires) andalso Expires>0 of
         true -> 
             Expires;
@@ -85,7 +85,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
                 not_found ->    
                     conditional_request_failed;
                 {error, Error} ->
-                    ?SIP_LOG(warning, "Error calling callback: ~p", [Error]),
+                    ?warning(SrvId, <<>>, "Error calling callback: ~p", [Error]),
                     {internal_error, <<"Callback Invalid Response">>}
             end;
         _ ->

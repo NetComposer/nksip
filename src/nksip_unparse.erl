@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -216,7 +216,7 @@ do_error_reason({Name, Code, Text}) ->
 
 
 % %% @doc Adds a "+sip_instance" media feature tag to a Contact
-% -spec add_sip_instance(nkservice:id(), nksip:uri()) ->
+% -spec add_sip_instance(nksip:srv_id(), nksip:uri()) ->
 %     {ok, nksip:uri()} | {error, service_not_found}.
 
 % add_sip_instance(SrvId, #uri{ext_opts=ExtOpts}=Uri) ->

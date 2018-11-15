@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,7 +24,7 @@
 
 -include("nksip_event_compositor.hrl").
 
-%-compile([export_all]).
+-compile([export_all]).
 -export([get_all/0, clear/0, print_all/0]).
 
 
@@ -35,7 +35,7 @@
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nkservice:id(), nksip:aor(), binary(), #reg_publish{}}].
+    [{nksip:srv_id(), nksip:aor(), binary(), #reg_publish{}}].
 
 get_all() ->
     [

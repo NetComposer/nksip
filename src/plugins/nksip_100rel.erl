@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -87,8 +87,8 @@ send_prack(Resp, Id, DialogId, Call) ->
                         Bin;
                     #sdp{} = LocalSDP -> 
                         LocalSDP;
-                    _Other ->
-                        ?CALL_LOG(warning, "error calling prack_sdp/2: ~p", [_Other], Call),
+                    Other ->
+                        ?call_warning("error calling prack_sdp/2: ~p", [Other]),
                         <<>>
                 end;
             _ ->
@@ -124,8 +124,8 @@ send_prack(Resp, Id, DialogId, Call) ->
                 throw(Error)
         end
     catch
-        throw:_TError ->
-            ?CALL_LOG(warning, "could not send PRACK: ~p", [_TError], Call),
+        throw:TError ->
+            ?call_warning("could not send PRACK: ~p", [TError]),
             continue
     end.
 
@@ -145,7 +145,7 @@ uas_store_info(Resp, UAS) ->
     case nklib_util:get_value(nksip_100rel_pracks, Meta, []) of
         [] ->
             RSeq = case nklib_util:get_value(nksip_100rel_rseq, Meta, 0) of
-                0 -> nklib_util:rand(1, 2147483647);
+                0 -> crypto:rand_uniform(1, 2147483647);
                 LastRSeq -> LastRSeq+1
             end,
             Headers1 = nksip_headers:update(Resp, [{single, <<"rseq">>, RSeq}]),

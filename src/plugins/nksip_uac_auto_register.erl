@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,8 +22,8 @@
 -module(nksip_uac_auto_register).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_ping/5, stop_ping/2, get_pings/1]).
--export([start_register/5, stop_register/2, get_registers/1]).
+-export([start_ping/4, stop_ping/2, get_pings/1]).
+-export([start_register/4, stop_register/2, get_registers/1]).
 
 -include("nksip_uac_auto_register.hrl").
 
@@ -34,18 +34,21 @@
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nkservice:id(), nkservice:package_id(), term(), nksip:user_uri(),
+-spec start_register(nkservice:name()|nksip:srv_id(), term(), nksip:user_uri(), 
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(SrvId, PkgId, RegId, Uri, Opts) when is_list(Opts) ->
+start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     try
+        case nkservice_srv:get_srv_id(Srv) of
+            {ok, SrvId} -> ok;
+            _ -> SrvId = throw(service_not_found)
+        end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        CallId = nklib_util:luid(),
-        case nksip_call_uac_make:make(SrvId, PkgId, 'REGISTER', Uri, CallId, Opts) of
+        case nksip_call_uac_make:make(SrvId, 'REGISTER', Uri, Opts) of
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
@@ -57,36 +60,39 @@ start_register(SrvId, PkgId, RegId, Uri, Opts) when is_list(Opts) ->
 
 
 %% @doc Stops a previously started registration serie.
--spec stop_register(nkservice:name()|nkservice:id(), term()) ->
+-spec stop_register(nkservice:name()|nksip:srv_id(), term()) -> 
     ok | not_found.
 
-stop_register(SrvId, RegId) ->
-    nkservice:call(SrvId, {nksip_uac_auto_register_stop_reg, RegId}).
+stop_register(Srv, RegId) ->
+    nkservice:call(Srv, {nksip_uac_auto_register_stop_reg, RegId}).
     
 
 %% @doc Get current registration status.
--spec get_registers(nkservice:id()) ->
+-spec get_registers(nkservice:name()|nksip:srv_id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(SrvId) ->
-    nkservice:call(SrvId, nksip_uac_auto_register_get_regs).
+get_registers(Srv) ->
+    nkservice:call(Srv, nksip_uac_auto_register_get_regs).
 
 
 
 %% @doc Starts a new automatic ping serie.
--spec start_ping(nkservice:id(), nkservice:package_id(), term(), nksip:user_uri(),
+-spec start_ping(nkservice:name()|nksip:srv_id(), term(), nksip:user_uri(), 
                  nksip:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
 
-start_ping(SrvId, PkgId, PingId, Uri, Opts) when is_list(Opts) ->
+start_ping(Srv, PingId, Uri, Opts) when is_list(Opts) ->
     try
+        case nkservice_srv:get_srv_id(Srv) of
+            {ok, SrvId} -> ok;
+            _ -> SrvId = throw(service_not_found)
+        end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        CallId = nklib_util:luid(),
-        case nksip_call_uac_make:make(SrvId, PkgId, 'OPTIONS', Uri, CallId, Opts) of
+        case nksip_call_uac_make:make(SrvId, 'OPTIONS', Uri, Opts) of
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
@@ -98,7 +104,7 @@ start_ping(SrvId, PkgId, PingId, Uri, Opts) when is_list(Opts) ->
 
 
 %% @doc Stops a previously started ping serie.
--spec stop_ping(nkservice:name()|nkservice:id(), term()) ->
+-spec stop_ping(nkservice:name()|nksip:srv_id(), term()) -> 
     ok | not_found.
 
 stop_ping(Srv, PingId) ->

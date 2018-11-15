@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,7 +24,6 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 -export([request/2, response/3, update_response/3]).
 -import(nksip_call_dialog, [find/2, update/3, store/2]).
@@ -48,7 +47,7 @@ request(Req, Call) ->
     #sipmsg{class={req, Method}, cseq={CSeq, _}, dialog_id=DialogId} = Req,
     case find(DialogId, Call) of
         #dialog{remote_seq=RemoteSeq}=Dialog ->
-            ?CALL_DEBUG("Dialog ~s UAS request ~p", [DialogId, Method], Call),
+            ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method]),
             case RemoteSeq>0 andalso CSeq<RemoteSeq of
                 true ->
                     {error, {internal_error, <<"Old CSeq in Dialog">>}};
@@ -106,12 +105,13 @@ do_request('INVITE', _Req, #dialog{invite=#invite{status=Status}}, _Call) ->
     end;
 
 do_request('BYE', _Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
+    #dialog{id=DialogId} = Dialog,
     #invite{status=Status} = Invite,
     case Status of
         confirmed -> 
             ok;
         _ -> 
-            ?CALL_DEBUG("Dialog ~s (~p) received BYE", [Dialog#dialog.id, Status], Call)
+            ?call_debug("Dialog ~s (~p) received BYE", [DialogId, Status])
     end,
     {ok, update({invite, bye}, Dialog, Call)};
 
@@ -176,7 +176,7 @@ do_ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
         #dialog{invite=#invite{}=Invite}=Dialog ->
             #invite{status=Status, request=InvReq} = Invite,
             #sipmsg{cseq={InvSeq, _}} = InvReq,
-            ?CALL_DEBUG("Dialog ~s (~p) UAS request 'ACK'", [DialogId, Status], Call),
+            ?call_debug("Dialog ~s (~p) UAS request 'ACK'", [DialogId, Status]),
             case Status of
                 accepted_uas when CSeq==InvSeq->
                     {HasSDP, SDP, Offer, Answer} = get_sdp(AckReq, Invite), 
@@ -217,10 +217,10 @@ response(Req, Resp, Call) ->
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
     case find(DialogId, Call) of
         #dialog{}=Dialog ->
-            ?CALL_DEBUG("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code]),
             do_response(Method, Code, Req, Resp, Dialog, Call);
         not_found when Code>100 andalso Code<300 andalso Method=='INVITE' ->
-            ?CALL_DEBUG("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code]),
             Offer = case Body of 
                 #sdp{}=SDP -> {remote, invite, SDP};
                 _ -> undefined
@@ -240,7 +240,7 @@ response(Req, Resp, Call) ->
         not_found when Code>=200 andalso Code<300 andalso 
                        (Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse
                         Method=='REFER') ->
-            ?CALL_DEBUG("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code]),
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
         not_found ->
@@ -314,15 +314,13 @@ do_response('INVITE', Code, _Req, Resp,
             update({invite, confirmed}, Dialog#dialog{invite=Invite1}, Call)
     end;
 
-do_response('INVITE', _Code, _Req, _Resp, Dialog, Call) ->
-%%    Status = case Dialog#dialog.invite of
-%%        #invite{status=Status0} ->
-%%            Status0;
-%%        _ ->
-%%            undefined
-%%    end,
-    ?CALL_LOG(info, "Dialog UAS ~s ignoring unexpected INVITE response ~p",
-                 [Dialog#dialog.id, _Code], Call),
+do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
+    case Dialog#dialog.invite of
+        #invite{status=Status} -> ok;
+        _ -> Status = undefined
+    end,
+    ?call_info("Dialog UAS ~s ignoring unexpected INVITE response ~p in ~p", 
+                 [DialogId, Code, Status]),
     store(Dialog, Call);
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
@@ -446,7 +444,7 @@ do_response(_, _, _, _, Dialog, Call) ->
 
 update_response(Req, {Resp, Opts}, Call) ->
     #sipmsg{contacts=Contacts} = Resp,
-    #call{srv=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     DialogId = nksip_dialog_lib:make_id(uas, Resp),
     {Resp1, Opts1} = case Contacts of
         [] ->
@@ -460,7 +458,7 @@ update_response(Req, {Resp, Opts}, Call) ->
         _ ->
             {Resp#sipmsg{dialog_id=DialogId}, Opts}
     end,
-    {ok, Resp2, Opts2} = ?CALL_SRV(SrvId, nksip_uas_dialog_response, [Req, Resp1, Opts1, Call]),
+    {ok, Resp2, Opts2} = SrvId:nks_sip_uas_dialog_response(Req, Resp1, Opts1, Call),
     {Resp2, Opts2}.
 
 
@@ -487,7 +485,7 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
 %% @private
 retry() ->
     {500, [
-        {add, "retry-after", nklib_util:rand(0, 11)},
+        {add, "retry-after", crypto:rand_uniform(0, 11)},
         {reason_phrase, <<"Processing Previous INVITE">>}
     ]}.
 

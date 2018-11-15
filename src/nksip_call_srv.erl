@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,10 +25,10 @@
 
 -behaviour(gen_server).
 
--export([start/3, stop/1, sync_work/5, async_work/2]).
+-export([start/2, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
          code_change/3]).
--export([get_data/1, find_call/1]).
+-export([get_data/1]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -40,11 +40,11 @@
 %% ===================================================================
 
 %% @doc Starts a new call process.
--spec start(nkservice:id(), nkservice:package_id(), nksip:call_id()) ->
+-spec start(nksip:srv_id(), nksip:call_id()) ->
     {ok, pid()}.
 
-start(SrvId, PkgId, CallId) ->
-    gen_server:start(?MODULE, [SrvId, PkgId, CallId], []).
+start(SrvId, CallId) ->
+    gen_server:start(?MODULE, [SrvId, CallId], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!).
@@ -60,8 +60,8 @@ stop(Pid) ->
 -spec sync_work(pid(), reference(), pid(), nksip_call_worker:work(), {pid(), term()}|none) ->
     ok.
 
-sync_work(Pid, WorkRef, Sender, Work, From) ->
-    gen_server:cast(Pid, {sync_work, WorkRef, Sender, Work, From}).
+sync_work(Pid, Ref, Sender, Work, From) ->
+    gen_server:cast(Pid, {sync_work, Ref, Sender, Work, From}).
 
 
 %% @doc Sends an asynchronous piece of {@link nksip_call_worker:work()} to the call.
@@ -75,21 +75,7 @@ async_work(Pid, Work) ->
 %% @private
 get_data(Pid) ->
     gen_server:call(Pid, get_data).
-
-
-%% @doc Find a call's pid
--spec find_call(nksip:call_id()) ->
-    pid() | undefined.
-
-find_call(CallId) ->
-    case nklib_proc:values({?MODULE, CallId}) of
-        [{_, Pid}] when is_pid(Pid) ->
-            Pid;
-        _ ->
-            undefined
-    end.
-
-
+ 
 
 %% ===================================================================
 %% gen_server
@@ -100,16 +86,12 @@ find_call(CallId) ->
 -spec init(term()) ->
     {ok, call()}.
 
-init([SrvId, PkgId, CallId]) ->
-    nklib_counters:async([nksip_calls, {nksip_calls, SrvId, PkgId}]),
-    nklib_proc:put(?MODULE, {CallId, SrvId, PkgId}),
-    true = nklib_proc:reg({?MODULE, CallId}),
+init([SrvId, CallId]) ->
+    nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
     Id = erlang:phash2(make_ref()) * 1000,
-    #config{times=Times} = nksip_plugin:get_config(SrvId, PkgId),
-    #call_times{trans=TransTime} = Times,
+    #call_times{trans=TransTime} = Times = ?GET_CONFIG(SrvId, times),
     Call = #call{
-        srv = SrvId,
-        package = PkgId,
+        srv_id = SrvId, 
         call_id = CallId, 
         next = Id+1,
         hibernate = false,
@@ -121,10 +103,9 @@ init([SrvId, PkgId, CallId]) ->
         events = [],
         times = Times
     },
-    Debug = nksip_plugin:get_debug(SrvId, PkgId, call),
-    erlang:put(nksip_debug, Debug),
+    nksip_util:put_log_cache(SrvId, CallId),
     erlang:start_timer(2000 * TransTime, self(), check_call),
-    ?CALL_DEBUG("started (~p)", [self()], Call),
+    ?call_debug("call process ~p started (~p)", [Id, self()]),
     {ok, Call}.
 
 
@@ -146,7 +127,7 @@ handle_call(Msg, _From, Call) ->
     {noreply, call()} | {stop, term(), call()}.
 
 handle_cast({sync_work, Ref, Pid, Work, From}, Call) ->
-    nksip_router:work_received(Pid, self(), Ref),
+    Pid ! {sync_work_received, Ref, self()},
     next(nksip_call_worker:work(Work, From, Call));
 
 handle_cast({async_work, Work}, Call) ->
@@ -165,13 +146,26 @@ handle_cast(Msg, Call) ->
     {noreply, call()} | {stop, term(), call()}.
 
 handle_info({timeout, _Ref, check_call}, Call) ->
-    Call2 = nksip_call:check_call(Call),
+    Call1 = nksip_call:check_call(Call),
     Timeout = 2000*(Call#call.times)#call_times.trans,
     erlang:start_timer(Timeout, self(), check_call),
-    next(Call2);
+    next(Call1);
 
 handle_info({timeout, Ref, Type}, Call) ->
     next(nksip_call_worker:timeout(Type, Ref, Call));
+
+% handle_info({'DOWN', _Ref, process, Pid, _Reason}=Info, #call{srv_id=SrvId}=Call) ->
+%     case whereis(SrvId) of
+%         undefined ->
+%             lager:warning("Srv ~p down1", [SrvId]),
+%             {stop, normal, Call};
+%         Pid ->
+%             lager:warning("Srv ~p down2", [SrvId]),
+%             {stop, normal, Call};
+%         _ ->
+%             lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
+%             next(Call)
+%     end;
 
 handle_info(Info, Call) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
@@ -190,8 +184,8 @@ code_change(_OldVsn, Call, _Extra) ->
 -spec terminate(term(), call()) ->
     ok.
 
-terminate(_Reason, #call{}=Call) ->
-    ?CALL_DEBUG("stopped", [], Call).
+terminate(_Reason, #call{}) ->
+    ?call_debug("call process stopped", []).
 
 
 
@@ -216,7 +210,7 @@ next(#call{hibernate=Hibernate}=Call) ->
         false ->
             {noreply, Call};
         _ ->
-            ?CALL_DEBUG("hibernating: ~p", [Hibernate], Call),
+            ?call_debug("call hibernating: ~p", [Hibernate]),
             {noreply, Call#call{hibernate=false}, hibernate}
     end.
 

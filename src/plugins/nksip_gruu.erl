@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -66,7 +66,7 @@ get_gruu_temp(Srv) ->
 
 
 %% @doc Use this function instead of nksip_registrar:find/2,4 to decode the generated GRUUs.
--spec registrar_find(nkservice:name()|nkservice:id(), nksip:uri()) ->
+-spec registrar_find(nkservice:name()|nksip:srv_id(), nksip:uri()) ->
     [nksip:uri()].
 
 registrar_find(Srv, Uri) ->
