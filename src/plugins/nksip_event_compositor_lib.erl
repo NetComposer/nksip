@@ -58,8 +58,10 @@ store_get(SrvId, AOR, Tag) ->
 
 store_put(SrvId, AOR, Tag, Expires, Reg) ->
     Reg1 = case is_record(Reg, reg_publish) of
-        true -> Reg;
-        false -> #reg_publish{data=Reg}
+        true ->
+            Reg;
+        false ->
+            #reg_publish{data=Reg}
     end,
     Now = nklib_util:timestamp(),
     Reg2 = Reg1#reg_publish{expires=Now+Expires},
@@ -95,7 +97,7 @@ store_del(SrvId, AOR, Tag) ->
 
 
 %% @private
--spec store_del_all(nksip:srv_id()) ->
+-spec store_del_all(nkservice:id()) ->
     ok | {error, term()}.
 
 store_del_all(SrvId) ->
@@ -118,8 +120,8 @@ reply(Tag, Expires) ->
 -spec callback(nkservice:id(), term()) ->
     term() | error.
 
-callback(SrvId, Op) -> 
-    ?CALL_SRV(SrvId, nksip_user_callback, [sip_event_compositor_store, [Op, SrvId], SrvId]).
+callback(SrvId, Op) ->
+    nksip_util:user_callback(SrvId, sip_event_compositor_store, [Op, SrvId]).
 
 
 

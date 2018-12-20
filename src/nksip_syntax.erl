@@ -40,7 +40,7 @@
 %% @private
 %% Transport options must be included in url
 app_syntax() ->
-    #{
+    nkpacket_syntax:tls_syntax(#{
         sip_listen => binary,
         sip_allow => words,
         sip_supported => words,
@@ -63,7 +63,7 @@ app_syntax() ->
         sip_local_host6 => [{atom, [auto]}, host6],
         sip_debug => {list, atom},
         sip_udp_max_size => nat_integer                 % Used for all sent packets
-    }.
+    }).
 
 
 default_allow() ->

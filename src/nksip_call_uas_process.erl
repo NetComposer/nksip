@@ -196,20 +196,34 @@ call_user_sip_method(#trans{method='ACK', request=Req}, #call{srv=SrvId}=Call) -
 call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv=SrvId}=Call) ->
     #sipmsg{to={_, ToTag}} = Req,
     Fun = case Method of
-        'INVITE' when ToTag == <<>> -> sip_invite;
-        'INVITE' -> sip_reinvite;
-        'UPDATE' -> sip_update;
-        'BYE' -> sip_bye;
-        'OPTIONS' -> sip_options;
-        'REGISTER' -> sip_register;
-        'PRACK' -> sip_prack;
-        'INFO' -> sip_info;
-        'MESSAGE' -> sip_message;
-        'SUBSCRIBE' when ToTag == <<>> -> sip_subscribe;
-        'SUBSCRIBE' -> sip_resubscribe;
-        'NOTIFY' -> sip_notify;
-        'REFER' -> sip_refer;
-        'PUBLISH' -> sip_publish
+        'INVITE' when ToTag == <<>> ->
+            sip_invite;
+        'INVITE' ->
+            sip_reinvite;
+        'UPDATE' ->
+            sip_update;
+        'BYE' ->
+            sip_bye;
+        'OPTIONS' ->
+            sip_options;
+        'REGISTER' ->
+            sip_register;
+        'PRACK' ->
+            sip_prack;
+        'INFO' ->
+            sip_info;
+        'MESSAGE' ->
+            sip_message;
+        'SUBSCRIBE' when ToTag == <<>> ->
+            sip_subscribe;
+        'SUBSCRIBE' ->
+            sip_resubscribe;
+        'NOTIFY' ->
+            sip_notify;
+        'REFER' ->
+            sip_refer;
+        'PUBLISH' ->
+            sip_publish
     end,
     case catch SrvId:Fun(Req, Call) of
         {reply, Reply} -> 

@@ -28,7 +28,7 @@
 -export([start/3, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
          code_change/3]).
--export([get_data/1, find_call/1]).
+-export([get_data/1, find_call/3]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -78,11 +78,11 @@ get_data(Pid) ->
 
 
 %% @doc Find a call's pid
--spec find_call(nksip:call_id()) ->
+-spec find_call(nkservice:id(), nkservice:package_id(), nksip:call_id()) ->
     pid() | undefined.
 
-find_call(CallId) ->
-    case nklib_proc:values({?MODULE, CallId}) of
+find_call(SrvId, PkgId, CallId) ->
+    case nklib_proc:values({?MODULE, SrvId, PkgId, CallId}) of
         [{_, Pid}] when is_pid(Pid) ->
             Pid;
         _ ->
@@ -103,7 +103,7 @@ find_call(CallId) ->
 init([SrvId, PkgId, CallId]) ->
     nklib_counters:async([nksip_calls, {nksip_calls, SrvId, PkgId}]),
     nklib_proc:put(?MODULE, {CallId, SrvId, PkgId}),
-    true = nklib_proc:reg({?MODULE, CallId}),
+    true = nklib_proc:reg({?MODULE, SrvId, PkgId, CallId}),
     Id = erlang:phash2(make_ref()) * 1000,
     #config{times=Times} = nksip_plugin:get_config(SrvId, PkgId),
     #call_times{trans=TransTime} = Times,

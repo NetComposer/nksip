@@ -175,8 +175,10 @@ clear_all() ->
 get_all_dialogs() ->
     lists:flatten([
         case get_all_dialogs(SrvId, PkgId, CallId) of
-            {ok, Handles} -> Handles;
-            {error, _} -> []
+            {ok, Handles} ->
+                Handles;
+            {error, _} ->
+                []
         end
         || 
         {SrvId, PkgId, CallId, _} <- get_all()

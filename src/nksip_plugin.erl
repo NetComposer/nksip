@@ -166,12 +166,13 @@ get_listen(SrvId, PkgId, #{sip_listen:=Url}=Config) ->
 	case nkpacket_resolve:resolve(Url, ResolveOpts) of
 		{ok, Conns} ->
             Debug = maps:get(sip_debug, Config, []),
-			Opts = #{
+			Tls = nkpacket_syntax:extract_tls(Config),
+            Opts = Tls#{
                 id => {?PACKAGE_CLASS_SIP, SrvId, PkgId},
                 class => {nksip, SrvId, PkgId},
 				debug => lists:member(nkpacket, Debug)
 			},
-			get_listen(Conns, Opts, SipConfig, []);
+            get_listen(Conns, Opts, SipConfig, []);
 		{error, Error} ->
 			{error, Error}
 	end;

@@ -98,7 +98,6 @@ start(_Type, _Args) ->
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
             {ok, Vsn} = application:get_key(nksip, vsn),
             lager:info("NkSIP v~s has started", [Vsn]),
-            nksip_sample:start(),
             {ok, Pid};
         {error, Error} ->
             lager:error("Error parsing config: ~p", [Error]),

@@ -138,10 +138,14 @@ ruris(RUris) ->
         Result  :: [nksip:via()] 
             | error.
 
-vias([]) -> [];
-vias([First|_]=String) when is_integer(First) -> vias([String]);    % It's a string
-vias(List) when is_list(List) -> parse_vias(List, []);
-vias(Term) -> vias([Term]).
+vias([]) ->
+    [];
+vias([First|_]=String) when is_integer(First) ->
+    vias([String]);    % It's a string
+vias(List) when is_list(List) ->
+    parse_vias(List, []);
+vias(Term) ->
+    vias([Term]).
 
 
 %% ===================================================================
@@ -230,7 +234,7 @@ packet(SrvId, PkgId, CallId, NkPort, Packet) ->
                     {req, Method, RUri} ->
                         case nklib_parse:uris(RUri) of
                             [RUri1] ->
-                                {{req, Method}, [RUri1]};
+                                {{req, Method}, RUri1};
                             _ ->
                                 throw({invalid, <<"Request-URI">>})
                         end;
@@ -366,7 +370,8 @@ parse_sipmsg(SipMsg, Headers) ->
         {ok, ModSipMsg, ModHds} ->
             {ModSipMsg, ModHds}
     catch
-        _:_ -> {SipMsg, Headers}    % Some tests skip srv_id
+        _:_ ->
+            {SipMsg, Headers}    % Some tests skip srv_id
     end,
     From = case nklib_parse:uris(proplists:get_all_values(<<"from">>, Hds2)) of
         [From0] ->
@@ -571,8 +576,10 @@ parse_vias([], Acc) ->
 
 parse_vias([Next|Rest], Acc) ->
     case nksip_parse_via:vias(Next) of
-        error -> error;
-        UriList -> parse_vias(Rest, Acc++UriList)
+        error ->
+            error;
+        UriList ->
+            parse_vias(Rest, Acc++UriList)
     end.
 
 

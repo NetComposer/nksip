@@ -85,8 +85,10 @@ route(UriList, ProxyOpts, UAS, Call) ->
                 end
         end
     catch
-        throw:{reply, TReply} -> {reply, TReply, Call};
-        throw:{reply, TReply, TCall} -> {reply, TReply, TCall}
+        throw:{reply, TReply} ->
+            {reply, TReply, Call};
+        throw:{reply, TReply, TCall} ->
+            {reply, TReply, TCall}
     end.
 
 
@@ -130,8 +132,10 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], nkport=NkPort}=Resp, Call) ->
     #via{transp=ViaTransp, port=ViaPort, opts=ViaOpts} = Via,
     {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
     RPort = case nklib_util:get_integer(<<"rport">>, ViaOpts) of
-        0 -> ViaPort;
-        RPort0 -> RPort0
+        0 ->
+            ViaPort;
+        RPort0 ->
+            RPort0
     end,
     NkPort1 = NkPort#nkport{
         transp = ViaTransp, 
@@ -180,8 +184,10 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
     case lists:member(path, Opts) of     
         true ->
             case nksip_sipmsg:supported(<<"path">>, Req) of
-                true -> ok;
-                false -> throw({reply, {extension_required, <<"path">>}})
+                true ->
+                    ok;
+                false ->
+                    throw({reply, {extension_required, <<"path">>}})
             end;
         false ->
             ok

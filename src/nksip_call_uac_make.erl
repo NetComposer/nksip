@@ -83,7 +83,7 @@ make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
             [] ->
                 Opts;
             DefRoutes ->
-                Opts#{route => DefRoutes}
+                [{route, DefRoutes}|Opts]
         end,
         {Req2, Opts3} = parse_plugin_opts(Req1, Opts2),
         Req3 = case RUri of
@@ -99,12 +99,15 @@ make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
             andalso Req4#sipmsg.contacts==[]
             andalso not lists:member(contact, Opts4)
         of  
-            true -> [contact|Opts4];
-            false -> Opts4
+            true ->
+                [contact|Opts4];
+            false ->
+                Opts4
         end,
         {ok, Req4, Opts5}
     catch
-        throw:Throw -> {error, Throw}
+        throw:Throw ->
+            {error, Throw}
     end.
 
 
@@ -117,8 +120,10 @@ proxy_make(#sipmsg{srv=SrvId, ruri=RUri}=Req, Opts) ->
     try
         {Req1, Opts1} = parse_plugin_opts(Req, Opts),
         Req2 = case RUri of
-            #uri{headers=[]} -> Req1;
-            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
+            #uri{headers=[]} ->
+                Req1;
+            #uri{headers=Headers} ->
+                nksip_parse_header:headers(Headers, Req1, post)
         end,
         {Req3, Opts3} = parse_opts(Opts1, Req2, []),
         case ?CALL_SRV(SrvId, nksip_uac_proxy_opts, [Req3, Opts3]) of
@@ -129,15 +134,18 @@ proxy_make(#sipmsg{srv=SrvId, ruri=RUri}=Req, Opts) ->
                 {reply, Reply}
         end
     catch
-        throw:Throw -> {error, Throw}
+        throw:Throw ->
+            {error, Throw}
     end.
 
 
 %% @private
 remove_local_routes(#sipmsg{srv=SrvId, routes=Routes}=Req) ->
     case do_remove_local_routes(SrvId, Routes) of
-        Routes -> Req;
-        Routes1 -> Req#sipmsg{routes=Routes1}
+        Routes ->
+            Req;
+        Routes1 ->
+            Req#sipmsg{routes=Routes1}
     end.
 
 
@@ -147,8 +155,10 @@ do_remove_local_routes(_SrvId, []) ->
 
 do_remove_local_routes(SrvId, [Route|RestRoutes]) ->
     case nksip_util:is_local(SrvId, Route) of
-        true -> do_remove_local_routes(SrvId, RestRoutes);
-        false -> [Route|RestRoutes]
+        true ->
+            do_remove_local_routes(SrvId, RestRoutes);
+        false ->
+            [Route|RestRoutes]
     end.
 
 
@@ -171,8 +181,10 @@ make_cancel(Req, Opts) ->
             Headers1;
         Reason ->
             case nksip_unparse:error_reason(Reason) of
-                error -> Headers1;
-                BinReason -> [{<<"reason">>, BinReason}|Headers1]
+                error ->
+                    Headers1;
+                BinReason ->
+                    [{<<"reason">>, BinReason}|Headers1]
             end
     end,
     Req#sipmsg{
@@ -235,18 +247,27 @@ parse_opts([Term|Rest], Req, Opts) ->
     #sipmsg{srv=SrvId, package=PkgId, class={req, Method}} = Req,
     Op = case Term of
         
-        ignore -> ignore;
+        ignore ->
+            ignore;
 
         % Header manipulation
-        {add, Name, Value} -> {add, Name, Value};
-        {add, {Name, Value}} -> {add, Name, Value};
-        {replace, Name, Value} -> {replace, Name, Value};
-        {replace, {Name, Value}} -> {replace, Name, Value};
-        {insert, Name, Value} -> {insert, Name, Value};
-        {insert, {Name, Value}} -> {insert, Name, Value};
+        {add, Name, Value} ->
+            {add, Name, Value};
+        {add, {Name, Value}} ->
+            {add, Name, Value};
+        {replace, Name, Value} ->
+            {replace, Name, Value};
+        {replace, {Name, Value}} ->
+            {replace, Name, Value};
+        {insert, Name, Value} ->
+            {insert, Name, Value};
+        {insert, {Name, Value}} ->
+            {insert, Name, Value};
 
-        {call_id, CallId} when is_binary(CallId) -> ignore;
-        {call_id, _} -> error;
+        {call_id, CallId} when is_binary(CallId) ->
+            ignore;
+        {call_id, _} ->
+            error;
 
         {Name, Value} when Name==from; Name==to; 
                            Name==content_type; Name==require; Name==supported; 
@@ -267,11 +288,16 @@ parse_opts([Term|Rest], Req, Opts) ->
             case lists:keymember(content_type, 1, Rest) of
                 false ->
                     ContentType = case Req#sipmsg.content_type of
-                        undefined when is_binary(Body) -> undefined;
-                        undefined when is_list(Body), is_integer(hd(Body)) -> undefined;
-                        undefined when is_record(Body, sdp) -> <<"application/sdp">>;
-                        undefined -> <<"application/nksip.ebf.base64">>;
-                        CT0 -> CT0
+                        undefined when is_binary(Body) ->
+                            undefined;
+                        undefined when is_list(Body), is_integer(hd(Body)) ->
+                            undefined;
+                        undefined when is_record(Body, sdp) ->
+                            <<"application/sdp">>;
+                        undefined ->
+                            <<"application/nksip.ebf.base64">>;
+                        CT0 ->
+                            CT0
                     end,
                     {update, Req#sipmsg{body=Body, content_type=ContentType}, Opts};
                 true ->
@@ -309,14 +335,15 @@ parse_opts([Term|Rest], Req, Opts) ->
 
         {Name, Value} when Name==record_flow; Name==route_flow ->
             {update, Req, [{Name, Value}|Opts]};
-        {meta, List} when is_list(List) ->
-            case lists:keyfind(meta, 1, Opts) of
+        {get_meta, List} when is_list(List) ->
+            % get_meta can be used several times
+            case lists:keyfind(get_meta, 1, Opts) of
                 false -> 
-                    {update, Req, [{meta, List}|Opts]};
-                {meta, List0} ->
-                    {update, Req, nklib_util:store_value(meta, List0++List, Opts)}
+                    {update, Req, [{get_meta, List}|Opts]};
+                {get_meta, List0} ->
+                    {update, Req, nklib_util:store_value(get_meta, List0++List, Opts)}
             end;
-        {meta, _} ->
+        {get_meta, _} ->
             error;
         {user, List} when is_list(List) ->
             case lists:keyfind(user, 1, Opts) of
@@ -376,8 +403,10 @@ parse_opts([Term|Rest], Req, Opts) ->
         allow_event ->
             Config = nksip_plugin:get_config(SrvId, PkgId),
             case Config#config.events of
-                [] -> ignore;
-                Events -> {replace, <<"allow-event">>, Events}
+                [] ->
+                    ignore;
+                Events ->
+                    {replace, <<"allow-event">>, Events}
             end;
 
         % Register options

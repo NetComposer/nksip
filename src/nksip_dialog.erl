@@ -25,7 +25,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([srv_id/1, srv_name/1, get_handle/1, call_id/1, meta/2, metas/2]).
+-export([srv_id/1, srv_name/1, get_handle/1, call_id/1, get_meta/2, get_metas/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
 -export([get_authorized_list/1, clear_authorized_list/1]).
 -export([get_all_data/0]).
@@ -76,14 +76,16 @@
 
 get_handle(<<Class, $_, _/binary>>=Handle) when Class==$R; Class==$S ->
     case nksip_sipmsg:remote_meta(dialog_handle, Handle) of
-        {ok, DialogHandle} -> {ok, DialogHandle};
-        {error, _} -> {error, invalid_dialog}
+        {ok, DialogHandle} ->
+            {ok, DialogHandle};
+        {error, _} ->
+            {error, invalid_dialog}
     end;
 get_handle(Term) ->
     {ok, nksip_dialog_lib:get_handle(Term)}.
 
 
-%% @doc Gets thel App of a dialog
+%% @doc Gets the App of a dialog
 -spec srv_id(nksip:dialog()|nksip:handle()) ->
     {ok, nkservice:id()}.
 
@@ -103,7 +105,7 @@ srv_name(Term) ->
     {ok, SrvId:name()}.
 
 
-%% @doc Gets thel Call-ID of a dialog
+%% @doc Gets the Call-ID of a dialog
 -spec call_id(nksip:dialog()|nksip:handle()) ->
     {ok, nksip:call_id()}.
 
@@ -115,32 +117,36 @@ call_id(Handle) ->
 
 
 %% @doc Get a specific metadata
--spec meta(field(), nksip:dialog()|nksip:handle()) ->
+-spec get_meta(field(), nksip:dialog()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 
-meta(Field, #dialog{}=Dialog) -> 
-    {ok, nksip_dialog_lib:meta(Field, Dialog)};
-meta(Field, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+get_meta(Field, #dialog{}=Dialog) ->
+    {ok, nksip_dialog_lib:get_meta(Field, Dialog)};
+get_meta(Field, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
     case get_handle(MsgHandle) of
-        {ok, DlgHandle} -> meta(Field, DlgHandle);
-        {error, Error} -> {error, Error}
+        {ok, DlgHandle} ->
+            get_meta(Field, DlgHandle);
+        {error, Error} ->
+            {error, Error}
     end;
-meta(Field, Handle) ->
+get_meta(Field, Handle) ->
     nksip_dialog_lib:remote_meta(Field, Handle).
 
 
 %% @doc Get a group of specific metadata
--spec metas([field()], nksip:dialog()|nksip:handle()) ->
+-spec get_metas([field()], nksip:dialog()|nksip:handle()) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
-metas(Fields, #dialog{}=Dialog) when is_list(Fields) ->
-    {ok, nksip_dialog_lib:metas(Fields, Dialog)};
-metas(Fields, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+get_metas(Fields, #dialog{}=Dialog) when is_list(Fields) ->
+    {ok, nksip_dialog_lib:get_metas(Fields, Dialog)};
+get_metas(Fields, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
     case get_handle(MsgHandle) of
-        {ok, DlgHandle} -> metas(Fields, DlgHandle);
-        {error, Error} -> {error, Error}
+        {ok, DlgHandle} ->
+            get_metas(Fields, DlgHandle);
+        {error, Error} ->
+            {error, Error}
     end;
-metas(Fields, Handle) when is_list(Fields) ->
+get_metas(Fields, Handle) when is_list(Fields) ->
     nksip_dialog_lib:remote_metas(Fields, Handle).
 
 
@@ -151,8 +157,10 @@ metas(Fields, Handle) when is_list(Fields) ->
 
 get_dialog(#sipmsg{dialog_id=DialogId}, #call{}=Call) ->
     case nksip_call_dialog:find(DialogId, Call) of
-        not_found -> {error, invalid_dialog};
-        Dialog -> {ok, Dialog}
+        not_found ->
+            {error, invalid_dialog};
+        Dialog ->
+            {ok, Dialog}
     end;
 
 get_dialog({uses_subs, _Subs, Dialog}, _) ->
@@ -171,14 +179,11 @@ get_all() ->
 -spec get_all(nkservice:name()|nkservice:id(), nksip:call_id()) ->
     [nksip:handle()].
 
-get_all(Srv, CallId) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} -> 
-            case nksip_call:get_all_dialogs(SrvId, CallId) of
-                {ok, Handles} -> Handles;
-                {error, _} -> []
-            end;
-        _ ->
+get_all(SrvId, CallId) ->
+    case nksip_call:get_all_dialogs(SrvId, CallId) of
+        {ok, Handles} ->
+            Handles;
+        {error, _} ->
             []
     end.
 
@@ -216,8 +221,10 @@ stop_all() ->
 get_authorized_list(Handle) ->
     {SrvId, _PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
     case nksip_call:get_authorized_list(SrvId, CallId, DialogId)of
-        {ok, List} -> List;
-        _ -> []
+        {ok, List} ->
+            List;
+        _ ->
+            []
     end.
 
 
@@ -244,7 +251,7 @@ clear_authorized_list(Handle) ->
 get_all_data() ->
     Now = nklib_util:timestamp(),
     Fun = fun(DialogId, Acc) ->
-        case meta(full_dialog, DialogId) of
+        case get_meta(full_dialog, DialogId) of
             {ok, #dialog{}=Dialog} ->
                 Data = {DialogId, [
                     {id, Dialog#dialog.id},

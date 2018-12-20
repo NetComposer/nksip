@@ -134,8 +134,10 @@ do_request('INVITE', Req, IsProxy, #dialog{invite=Invite}=Dialog, Call) ->
     confirmed = Invite#invite.status,
     {HasSDP, SDP, _Offer, _} = get_sdp(Req, Invite),
     Offer1 = case HasSDP of 
-        true -> {local, invite, SDP};
-        false -> undefined
+        true ->
+            {local, invite, SDP};
+        false ->
+            undefined
     end,
     Invite1 = Invite#invite{
         status = proceeding_uac,
@@ -334,9 +336,12 @@ do_response('INVITE', Code, _Req, Resp,
             update({invite, {stop, Code}}, Dialog, Call);
         _ -> 
             Offer1 = case Invite#invite.sdp_offer of
-                {_, invite, _} -> undefined;
-                {_, prack, _} -> undefined;
-                Offer -> Offer
+                {_, invite, _} ->
+                    undefined;
+                {_, prack, _} ->
+                    undefined;
+                Offer ->
+                    Offer
             end,
             Invite1 = Invite#invite{response=Resp, sdp_offer=Offer1},
             update({invite, confirmed}, Dialog#dialog{invite=Invite1}, Call)
@@ -383,8 +388,10 @@ do_response('INVITE', _Code, _Req, _Resp, Dialog, Call) ->
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
     #dialog{caller_tag=CallerTag} = Dialog,
     Reason = case Req#sipmsg.from of
-        {_, CallerTag} -> caller_bye;
-        _ -> callee_bye
+        {_, CallerTag} ->
+            caller_bye;
+        _ ->
+            callee_bye
     end,
     update({invite, {stop, Reason}}, Dialog, Call);
 
@@ -538,8 +545,10 @@ uac_dialog_id(SipMsg, IsProxy, #call{dialogs=Dialogs}) ->
                 false ->
                     DlgIdB = nksip_dialog_lib:make_id(uas, SipMsg),
                     case lists:keymember(DlgIdB, #dialog.id, Dialogs) of
-                        true -> DlgIdB;
-                        false -> DlgIdA
+                        true ->
+                            DlgIdB;
+                        false ->
+                            DlgIdA
                     end
             end
     end.
@@ -616,8 +625,10 @@ generate(Method, Opts, Dialog, _Call) ->
                     ignore;
                 false ->
                     case nklib_util:get_value(contact, Opts, []) of
-                        [] -> {contact, LocalTarget};
-                        _ -> ignore
+                        [] ->
+                            {contact, LocalTarget};
+                        _ ->
+                            ignore
                     end
             end
             | Opts

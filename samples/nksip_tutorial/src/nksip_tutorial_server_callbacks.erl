@@ -105,8 +105,10 @@ sip_route(Scheme, User, <<"nksip">>, _Req, _Call) ->
     {proxy, UriList, [record_route]};
 sip_route(_Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:is_local_ruri(Req) of
-        true -> process;
-        false -> proxy
+        true ->
+            process;
+        false ->
+            proxy
     end.
 
 

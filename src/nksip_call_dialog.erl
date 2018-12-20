@@ -172,8 +172,10 @@ do_update({invite, Status}, Dialog, Call) ->
         (not BlockedRouteSet) andalso 
         (Status==accepted_uac orelse Status==accepted_uas)
     of
-        true -> Dialog2#dialog{blocked_route_set=true};
-        false -> Dialog2
+        true ->
+            Dialog2#dialog{blocked_route_set=true};
+        false ->
+            Dialog2
     end,
     Dialog4 = timer_update(Req, Resp, Class, Dialog3, Call),
     store(Dialog4, Call);
@@ -197,8 +199,10 @@ do_update({notify, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = route_update(Class, Req, Resp, Dialog),
     Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
     Dialog3 = case Dialog2#dialog.blocked_route_set of
-        true -> Dialog2;
-        false -> Dialog2#dialog{blocked_route_set=true}
+        true ->
+            Dialog2;
+        false ->
+            Dialog2#dialog{blocked_route_set=true}
     end,
     store(Dialog3, Call);
 
@@ -232,8 +236,10 @@ target_update(Class, Req, Resp, Dialog, Call) ->
     RemoteTarget1 = case RemoteTargets of
         [RT] ->
             case Secure of
-                true -> RT#uri{scheme=sips};
-                false -> RT
+                true ->
+                    RT#uri{scheme=sips};
+                false ->
+                    RT
             end;
         [] ->
             ?CALL_LOG(notice, "Dialog ~s: no Contact in remote target", [Dialog#dialog.id], Call),
@@ -244,21 +250,28 @@ target_update(Class, Req, Resp, Dialog, Call) ->
             RemoteTarget
     end,
     LocalTarget1 = case LocalTargets of
-        [LT] -> LT;
-        _ -> LocalTarget
+        [LT] ->
+            LT;
+        _ ->
+            LocalTarget
     end,
     Now = nklib_util:timestamp(),
     Early1 = Early andalso Code >= 100 andalso Code < 200,
     case RemoteTarget of
-        #uri{domain = <<"invalid.invalid">>} -> ok;
-        RemoteTarget1 -> ok;
-        _ -> sip_dialog_update(target_update, Dialog, Call)
+        #uri{domain = <<"invalid.invalid">>} ->
+            ok;
+        RemoteTarget1 ->
+            ok;
+        _ ->
+            sip_dialog_update(target_update, Dialog, Call)
     end,
     Invite1 = case Invite of
         #invite{answered=InvAnswered, class=InvClass, request=InvReq} ->
             InvAnswered1 = case InvAnswered of
-                undefined when Code >= 200 -> Now;
-                _ -> InvAnswered
+                undefined when Code >= 200 ->
+                    Now;
+                _ ->
+                    InvAnswered
             end,
             % If we are updating the remote target inside an uncompleted INVITE UAS
             % transaction, update original INVITE so that, when the final
@@ -266,13 +279,17 @@ target_update(Class, Req, Resp, Dialog, Call) ->
             InvReq1 = if
                 InvClass==uac; InvClass==proxy ->
                     case InvReq of
-                        #sipmsg{contacts=[LocalTarget1]} -> InvReq; 
-                        #sipmsg{} -> InvReq#sipmsg{contacts=[LocalTarget1]}
+                        #sipmsg{contacts=[LocalTarget1]} ->
+                            InvReq;
+                        #sipmsg{} ->
+                            InvReq#sipmsg{contacts=[LocalTarget1]}
                     end;
                 InvClass==uas ->
                     case InvReq of
-                        #sipmsg{contacts=[RemoteTarget1]} -> InvReq; 
-                        #sipmsg{} -> InvReq#sipmsg{contacts=[RemoteTarget1]}
+                        #sipmsg{contacts=[RemoteTarget1]} ->
+                            InvReq;
+                        #sipmsg{} ->
+                            InvReq#sipmsg{contacts=[RemoteTarget1]}
                     end
             end,
             Invite#invite{answered=InvAnswered1, request=InvReq1};
@@ -305,8 +322,10 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                     % and wants to send an in-dialog request (for example to send BYE)
                     % we must remove our own inserted Record-Route
                     case nksip_util:is_local(SrvId, FirstRS) of
-                        true -> RestRS;
-                        false -> [FirstRS|RestRS]
+                        true ->
+                            RestRS;
+                        false ->
+                            [FirstRS|RestRS]
                     end
             end;
         Class==uas ->
@@ -316,8 +335,10 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                     [];
                 [FirstRS|RestRS] ->
                     case nksip_util:is_local(SrvId, FirstRS) of
-                        true -> RestRS;
-                        false -> [FirstRS|RestRS]
+                        true ->
+                            RestRS;
+                        false ->
+                            [FirstRS|RestRS]
                     end
             end
     end,
@@ -343,8 +364,10 @@ session_update(
             } = Dialog,
             Call) ->
     {LocalSDP1, RemoteSDP1} = case OfferParty of
-        local when AnswerParty==remote -> {OfferSDP, AnswerSDP};
-        remote when AnswerParty==local -> {AnswerSDP, OfferSDP}
+        local when AnswerParty==remote ->
+            {OfferSDP, AnswerSDP};
+        remote when AnswerParty==local ->
+            {AnswerSDP, OfferSDP}
     end,
     case Started of
         true ->
@@ -453,8 +476,10 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
 
 get_meta(Key, DialogId, Call) ->
     case find(DialogId, Call) of
-        #dialog{meta=DlgMeta} -> nklib_util:get_value(Key, DlgMeta);
-        not_found -> nklib_util:get_value(Key, Call#call.meta)
+        #dialog{meta=DlgMeta} ->
+            nklib_util:get_value(Key, DlgMeta);
+        not_found ->
+            nklib_util:get_value(Key, Call#call.meta)
     end.
 
 
@@ -603,8 +628,10 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
         true ->
             sip_dialog_update(stop, Dialog, Call),
             Dialogs1 = case IsFirst of
-                true -> Rest;
-                false -> lists:keydelete(Id, #dialog.id, Dialogs)
+                true ->
+                    Rest;
+                false ->
+                    lists:keydelete(Id, #dialog.id, Dialogs)
             end,
             Call#call{dialogs=Dialogs1, hibernate=dialog_stop};
         false ->
@@ -629,7 +656,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
     ok.
 
 sip_dialog_update(Arg, Dialog, #call{srv=SrvId}=Call) ->
-    ?CALL_SRV(SrvId, nksip_user_callback, [sip_dialog_update, [Arg, Dialog, Call], SrvId]),
+    nksip_util:user_callback(SrvId, sip_dialog_update, [Arg, Dialog, Call]),
     ok.
 
 
@@ -638,7 +665,7 @@ sip_dialog_update(Arg, Dialog, #call{srv=SrvId}=Call) ->
     ok.
 
 sip_session_update(Arg, Dialog, #call{srv=SrvId}=Call) ->
-    ?CALL_SRV(SrvId, nksip_user_callback, [sip_session_update, [Arg, Dialog, Call], SrvId]),
+    nksip_util:user_callback(SrvId, sip_session_update, [Arg, Dialog, Call]),
     ok.
 
 

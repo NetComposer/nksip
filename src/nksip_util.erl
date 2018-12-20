@@ -24,11 +24,12 @@
 
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_listenhost/4, make_route/6]).
--export([get_connected/2, get_connected/5, is_local/2, send/6]).
--export([print_all/0]).
+-export([get_connected/2, get_connected/5, is_local/2, send/5]).
+-export([print_all/0, user_callback/3]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
+-include_lib("nkservice/include/nkservice.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -38,42 +39,6 @@
 %% ===================================================================
 %% Public
 %% =================================================================
-
-
-%%%% @private
-%%adapt_transports(SrvId, Transports, Service) ->
-%%    adapt_transports(SrvId, Transports, Service, []).
-%%
-%%
-%%%% @private
-%%adapt_transports(_SrvId, [], _Config, Acc) ->
-%%    lists:reverse(Acc);
-%%
-%%adapt_transports(SrvId, [{RawConns, Opts}|Rest], Config, Acc) ->
-%%    SipOpts = case RawConns of
-%%        [{nksip_protocol, Transp, _Ip, _Port}|_] ->
-%%            Base = #{class => {nksip, SrvId}},
-%%            case Transp of
-%%                udp ->
-%%                    #config{times=#call_times{t1=T1}} = Config,
-%%                    Base#{
-%%                        udp_starts_tcp => true,
-%%                        udp_stun_reply => true,
-%%                        udp_stun_t1 => T1
-%%                    };
-%%                ws ->
-%%                    Base#{ws_proto => sip};
-%%                wss ->
-%%                    Base#{ws_proto => sip};
-%%                _ ->
-%%                    Base
-%%            end;
-%%        _ ->
-%%            Opts
-%%    end,
-%%    Opts1 = maps:merge(Opts, SipOpts),
-%%    adapt_transports(SrvId, Rest, Config, [{RawConns, Opts1}|Acc]).
-
 
 
 %% @doc Gets a new `CSeq'.
@@ -94,8 +59,10 @@ get_cseq() ->
 
 initial_cseq() ->
     case binary:encode_unsigned(nklib_util:timestamp()-1325376000) of  % Base is 1/1/2012
-        <<_:1, CSeq0:31>> -> CSeq0;
-        <<_:9, CSeq0:31>> -> CSeq0
+        <<_:1, CSeq0:31>> ->
+            CSeq0;
+        <<_:9, CSeq0:31>> ->
+            CSeq0
     end.
 
 
@@ -147,9 +114,12 @@ get_listenhost(SrvId, PkgId, Ip, Opts) ->
 
 make_route(Scheme, Transp, ListenHost, Port, User, Opts) ->
     UriOpts = case Transp of
-        tls when Scheme==sips -> Opts;
-        udp when Scheme==sip -> Opts;
-        _ -> [{<<"transport">>, nklib_util:to_binary(Transp)}|Opts] 
+        tls when Scheme==sips ->
+            Opts;
+        udp when Scheme==sip ->
+            Opts;
+        _ ->
+            [{<<"transport">>, nklib_util:to_binary(Transp)}|Opts]
     end,
     #uri{
         scheme = Scheme,
@@ -196,11 +166,11 @@ is_local(SrvId, #via{}=Via) ->
 
 %% @private
 -spec send(nkservice:id(), nkservice:package_id(), [nkpacket:send_spec()],
-           nksip:request()|nksip:response(), nkpacket:pre_send_fun(),
+           nksip:request()|nksip:response()|function(),
            [nksip_uac:req_option()]) ->
     {ok, #sipmsg{}} | {error, term()}.
 
-send(SrvId, PkgId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
+send(SrvId, PkgId, Spec, Msg, Opts) when is_list(Spec) ->
     Opts2 = lists:filter(fun send_opts/1, Opts),
     Opts3 = maps:from_list(Opts2),
     Config = nksip_plugin:get_config(SrvId, PkgId),
@@ -212,13 +182,7 @@ send(SrvId, PkgId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
         ws_proto => sip,
         debug => erlang:get(nksip_debug)
     },
-    Opts5 = case Fun of
-        none ->
-            Opts4;
-        _ ->
-            Opts4#{pre_send_fun => Fun}
-    end,
-    case nkpacket:send(Spec, Msg, Opts5) of
+    case nkpacket:send(Spec, Msg, Opts4) of
         {ok, _Pid, Msg1} ->
             {ok, Msg1};
         {error, Error} ->
@@ -232,6 +196,11 @@ send_opts({no_dns_cache, _}) -> true;
 send_opts({idle_timeout, _}) -> true;
 send_opts({tls_opts, _}) -> true;
 send_opts(_) -> false.
+
+
+%% @private
+user_callback(SrvId, Fun, Args) ->
+    ?CALL_SRV(SrvId, nksip_user_callback, [SrvId, Fun, Args]).
 
 
 

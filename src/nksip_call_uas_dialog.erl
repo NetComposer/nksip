@@ -58,8 +58,10 @@ request(Req, Call) ->
             end;
         not_found when Method=='NOTIFY' ->
             case nksip_call_event:is_prov_event(Req, Call) of
-                true -> {ok, Call};
-                false -> {error, no_transaction}
+                true ->
+                    {ok, Call};
+                false ->
+                    {error, no_transaction}
             end;
         not_found -> 
             {error, no_transaction}
@@ -82,8 +84,10 @@ do_request('INVITE', Req,
             {error, request_pending};
         _ ->
             Offer1 = case HasSDP of 
-                true -> {remote, invite, SDP};
-                false -> undefined
+                true ->
+                    {remote, invite, SDP};
+                false ->
+                    undefined
             end,
             Invite1 = Invite#invite{
                 status = proceeding_uas,
@@ -99,10 +103,14 @@ do_request('INVITE', Req,
 
 do_request('INVITE', _Req, #dialog{invite=#invite{status=Status}}, _Call) ->
     case Status of
-        proceeding_uac -> {error, request_pending};
-        accepted_uac -> {error, request_pending};
-        proceeding_uas -> {error, retry()};
-        accepted_uas -> {error, retry()}
+        proceeding_uac ->
+            {error, request_pending};
+        accepted_uac ->
+            {error, request_pending};
+        proceeding_uas ->
+            {error, retry()};
+        accepted_uas ->
+            {error, retry()}
     end;
 
 do_request('BYE', _Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
@@ -149,14 +157,18 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
 
 do_request('SUBSCRIBE', Req, Dialog, Call) ->
     case nksip_call_event:uas_request(Req, Dialog, Call) of
-        {ok, Dialog1} -> {ok, store(Dialog1, Call)};
-        {error, Error} -> {error, Error}
+        {ok, Dialog1} ->
+            {ok, store(Dialog1, Call)};
+        {error, Error} ->
+            {error, Error}
     end;
         
 do_request('NOTIFY', Req, Dialog, Call) ->
     case nksip_call_event:uas_request(Req, Dialog, Call) of
-        {ok, Dialog1} -> {ok, store(Dialog1, Call)};
-        {error, Error} -> {error, Error}
+        {ok, Dialog1} ->
+            {ok, store(Dialog1, Call)};
+        {error, Error} ->
+            {error, Error}
     end;
 
 do_request('REFER', Req, Dialog, Call) ->
@@ -222,8 +234,10 @@ response(Req, Resp, Call) ->
         not_found when Code>100 andalso Code<300 andalso Method=='INVITE' ->
             ?CALL_DEBUG("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code], Call),
             Offer = case Body of 
-                #sdp{}=SDP -> {remote, invite, SDP};
-                _ -> undefined
+                #sdp{}=SDP ->
+                    {remote, invite, SDP};
+                _ ->
+                    undefined
             end,
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
             Invite = #invite{
@@ -294,8 +308,10 @@ do_response('INVITE', Code, Req, Resp,
     },
     Dialog1 = Dialog#dialog{invite=Invite1},
     case Code < 200 of
-        true -> update({invite, proceeding_uas}, Dialog1, Call);
-        false -> update({invite, accepted_uas}, Dialog1, Call)
+        true ->
+            update({invite, proceeding_uas}, Dialog1, Call);
+        false ->
+            update({invite, accepted_uas}, Dialog1, Call)
     end;
 
 do_response('INVITE', Code, _Req, Resp, 
@@ -306,9 +322,12 @@ do_response('INVITE', Code, _Req, Resp,
             update({invite, {stop, Code}}, Dialog, Call);
         _ -> 
             Offer1 = case Invite#invite.sdp_offer of
-                {_, invite, _} -> undefined;
-                {_, prack, _} -> undefined;
-                Offer -> Offer
+                {_, invite, _} ->
+                    undefined;
+                {_, prack, _} ->
+                    undefined;
+                Offer ->
+                    Offer
             end,
             Invite1 = Invite#invite{response=Resp, sdp_offer=Offer1},
             update({invite, confirmed}, Dialog#dialog{invite=Invite1}, Call)
@@ -328,8 +347,10 @@ do_response('INVITE', _Code, _Req, _Resp, Dialog, Call) ->
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
     #dialog{caller_tag=CallerTag} = Dialog,
     Reason = case Req#sipmsg.from of
-        {_, CallerTag} -> caller_bye;
-        _ -> callee_bye
+        {_, CallerTag} ->
+            caller_bye;
+        _ ->
+            callee_bye
     end,
     update({invite, {stop, Reason}}, Dialog, Call);
 

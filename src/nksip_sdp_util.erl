@@ -263,8 +263,10 @@ remove_codec(Media, Name, CodecMap) ->
                 fun({_Fmt, FName1, _Data}) ->
                     FName2 = nklib_util:to_upper(FName1),
                     case binary:match(FName2, Name2) of
-                        {0, _} -> false;
-                        _ -> true
+                        {0, _} ->
+                            false;
+                        _ ->
+                            true
                     end
                 end,
                 List),
@@ -287,8 +289,10 @@ filter_codec(Media, Name, CodecMap) ->
                 fun({_Fmt, FName1, _Data}) ->
                     FName2 = nklib_util:to_upper(FName1),
                     case binary:match(FName2, Name2) of
-                        {0, _} -> true;
-                        _ -> false
+                        {0, _} ->
+                            true;
+                        _ ->
+                            false
                     end
                 end,
                 List),

@@ -40,19 +40,24 @@
 
 start_register(SrvId, PkgId, RegId, Uri, Opts) when is_list(Opts) ->
     try
-        case lists:keymember(meta, 1, Opts) of
-            true -> throw(meta_not_allowed);
-            false -> ok
+        case lists:keymember(get_meta, 1, Opts) of
+            true ->
+                throw(meta_not_allowed);
+            false ->
+                ok
         end,
         CallId = nklib_util:luid(),
         case nksip_call_uac_make:make(SrvId, PkgId, 'REGISTER', Uri, CallId, Opts) of
-            {ok, _, _} -> ok;
-            {error, MakeError} -> throw(MakeError)
+            {ok, _, _} ->
+                ok;
+            {error, MakeError} ->
+                throw(MakeError)
         end,
         Msg = {nksip_uac_auto_register_start_reg, RegId, Uri, Opts},
         nkservice:call(SrvId, Msg)
     catch
-        throw:Error -> {error, Error}
+        throw:Error ->
+            {error, Error}
     end.
 
 
@@ -82,18 +87,23 @@ get_registers(SrvId) ->
 start_ping(SrvId, PkgId, PingId, Uri, Opts) when is_list(Opts) ->
     try
         case lists:keymember(meta, 1, Opts) of
-            true -> throw(meta_not_allowed);
-            false -> ok
+            true ->
+                throw(meta_not_allowed);
+            false ->
+                ok
         end,
         CallId = nklib_util:luid(),
         case nksip_call_uac_make:make(SrvId, PkgId, 'OPTIONS', Uri, CallId, Opts) of
-            {ok, _, _} -> ok;
-            {error, MakeError} -> throw(MakeError)
+            {ok, _, _} ->
+                ok;
+            {error, MakeError} ->
+                throw(MakeError)
         end,
         Msg = {nksip_uac_auto_register_start_ping, PingId, Uri, Opts},
         nkservice:call(SrvId, Msg)
     catch
-        throw:Error -> {error, Error}
+        throw:Error ->
+            {error, Error}
     end.
 
 
@@ -106,7 +116,7 @@ stop_ping(Srv, PingId) ->
     
 
 %% @doc Get current ping status.
--spec get_pings(nkservice:name()|nksip:srv_id()) -> 
+-spec get_pings(nkservice:name()|nkservice:id()) ->
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(Srv) ->

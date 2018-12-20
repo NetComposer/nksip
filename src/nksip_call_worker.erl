@@ -71,7 +71,7 @@ work({send, Req, Opts}, From, Call) ->
 work({send, Method, Uri, Opts}, From, Call) ->
     #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
     case nksip_call_uac_make:make(SrvId, PkgId, Method, Uri, CallId, Opts) of
-        {ok, Req, ReqOpts} -> 
+        {ok, Req, ReqOpts} ->
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
             gen_server:reply(From, {error, Error}),
@@ -89,8 +89,10 @@ work({send_dialog, DialogId, Method, Opts}, From, Call) ->
 
 work({send_cancel, ReqId, Opts}, From, Call) ->
     case is_list(Opts) of
-        true -> ok;
-        false -> error(cancel1)
+        true ->
+            ok;
+        false ->
+            error(cancel1)
     end,
     case get_trans_id(ReqId, Call) of
         {ok, TransId} ->
@@ -126,7 +128,7 @@ work({incoming, NkPort, Msg}, _From, Call) ->
     #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
     case nksip_parse:packet(SrvId, PkgId, CallId, NkPort, Msg) of
         {ok, SipMsg} ->
-            ?CALL_SRV(SrvId, nks_sip_connection_recv, [SipMsg, Msg]),
+            ?CALL_SRV(SrvId, nksip_connection_recv, [SipMsg, Msg]),
             work({incoming, SipMsg}, none, Call);
         {error, _Error} ->
             ?CALL_LOG(warning, "Error parsing SipMsg1: ~p", [_Error], Call),
@@ -223,8 +225,10 @@ work(info, From, Call) ->
         fun(#trans{id=Id, class=Class, method=Method, 
                    status=Status, timeout_timer=Timeout}) ->
             T = case Timeout of
-                {Tag, Timer} -> {Tag, erlang:read_timer(Timer)};
-                undefined -> undefined
+                {Tag, Timer} ->
+                    {Tag, erlang:read_timer(Timer)};
+                undefined ->
+                    undefined
             end,
             {trans, SrvId, CallId, Id, Class, Method, Status, T}
         end,
@@ -234,8 +238,10 @@ work(info, From, Call) ->
             Inv = case Invite of
                 #invite{status=Status, timeout_timer=Timer} ->
                     T = case Timer of
-                        Timer when is_reference(Timer) ->  erlang:read_timer(Timer);
-                        undefined -> undefined
+                        Timer when is_reference(Timer) ->
+                            erlang:read_timer(Timer);
+                        undefined ->
+                            undefined
                     end,
                     {Status, T};
                 undefined ->
@@ -251,8 +257,10 @@ work(info, From, Call) ->
         end,
         Dialogs),
     InfoProvEvents = case ProvEvents of
-        [] -> [];
-        _ -> [{prov_events, length(ProvEvents)}]
+        [] ->
+            [];
+        _ ->
+            [{prov_events, length(ProvEvents)}]
     end,
     gen_server:reply(From, InfoTrans++InfoDialog++InfoProvEvents),
     Call;
@@ -296,8 +304,10 @@ timeout({remove_prov_event, Id}, _Ref, Call) ->
 
 get_trans_id(SipMsgId, #call{msgs=Msgs}) ->
     case lists:keyfind(SipMsgId, 1, Msgs) of
-        {_, TransId, _DialogId} ->  {ok, TransId};
-        false -> not_found
+        {_, TransId, _DialogId} ->
+            {ok, TransId};
+        false ->
+            not_found
     end.
 
 
@@ -309,8 +319,10 @@ get_trans(SipMsgId, #call{trans=AllTrans}=Call) ->
     case get_trans_id(SipMsgId, Call) of
         {ok, TransId} -> 
             case lists:keyfind(TransId, #trans.id, AllTrans) of
-                #trans{}=Trans -> {ok, Trans};
-                false -> not_found
+                #trans{}=Trans ->
+                    {ok, Trans};
+                false ->
+                    not_found
             end;
         not_found -> 
             not_found
@@ -323,9 +335,12 @@ get_trans(SipMsgId, #call{trans=AllTrans}=Call) ->
 
 get_sipmsg(SipMsgId, Call) ->
     case get_trans(SipMsgId, Call) of
-        {ok, #trans{request=#sipmsg{id=SipMsgId}=Req}} -> {ok, Req};
-        {ok, #trans{response=#sipmsg{id=SipMsgId}=Resp}} -> {ok, Resp};
-        _ -> not_found
+        {ok, #trans{request=#sipmsg{id=SipMsgId}=Req}} ->
+            {ok, Req};
+        {ok, #trans{response=#sipmsg{id=SipMsgId}=Resp}} ->
+            {ok, Resp};
+        _ ->
+            not_found
     end.
 
 
@@ -335,8 +350,10 @@ get_sipmsg(SipMsgId, Call) ->
 
 get_dialog(DialogId, #call{dialogs=Dialogs}) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
-        false -> not_found;
-        Dialog -> {ok, Dialog}
+        false ->
+            not_found;
+        Dialog ->
+            {ok, Dialog}
     end.
 
 

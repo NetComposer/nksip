@@ -200,6 +200,7 @@ process_request(Req, UASTransId, Call) ->
         nkport = NkPort, 
         to = {_, ToTag}
     } = Req1,
+
     #call{
         trans = Trans, 
         next = NextId, 
@@ -209,9 +210,12 @@ process_request(Req, UASTransId, Call) ->
     LoopId = loop_id(Req1),
     DialogId = nksip_dialog_lib:make_id(uas, Req1),
     Status = case Method of
-        'INVITE' -> invite_proceeding;
-        'ACK' -> ack;
-        _ -> trying
+        'INVITE' ->
+            invite_proceeding;
+        'ACK' ->
+            ack;
+        _ ->
+            trying
     end,
     {ok, {_, Transp, _, _}} = nkpacket:get_local(NkPort),
     UAS = #trans{
@@ -343,7 +347,7 @@ preprocess(Req) ->
 %%
 %% TODO: Is this working?
 strict_router(#sipmsg{srv=SrvId, ruri=RUri, routes=Routes}=Request) ->
-    case 
+    case
         nklib_util:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
         andalso nksip_util:is_local(SrvId, RUri) of
     true ->

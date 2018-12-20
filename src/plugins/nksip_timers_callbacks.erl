@@ -104,8 +104,10 @@ nksip_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
     nksip_call_dialog:sip_dialog_update(
                                 {invite_status, {stop, StopReason}}, Dialog, Call),
     case Media of
-        true -> nksip_call_dialog:sip_session_update(stop, Dialog, Call);
-        _ -> ok
+        true ->
+            nksip_call_dialog:sip_session_update(stop, Dialog, Call);
+        _ ->
+            ok
     end,
     {ok, nksip_call_dialog:store(Dialog#dialog{invite=undefined}, Call)};
 
@@ -151,8 +153,10 @@ nksip_dialog_update({invite, Status}, Dialog, Call) ->
         (not BlockedRouteSet) andalso 
         (Status==accepted_uac orelse Status==accepted_uas)
     of
-        true -> Dialog2#dialog{blocked_route_set=true};
-        false -> Dialog2
+        true ->
+            Dialog2#dialog{blocked_route_set=true};
+        false ->
+            Dialog2
     end,
     Dialog4 = nksip_timers_lib:timer_update(Req, Resp, Class, Dialog3, Call),
     {ok, nksip_call_dialog:store(Dialog4, Call)};
@@ -194,8 +198,10 @@ nksip_uac_pre_request(Req, Opts, From, Call) ->
 nksip_uac_pre_response(Resp, UAC, Call) ->
     #trans{request=Req, from=From} = UAC,
     Resp1 = case From of 
-        {fork, _} -> nksip_timers_lib:uac_pre_response(Req, Resp);
-        _ -> Resp
+        {fork, _} ->
+            nksip_timers_lib:uac_pre_response(Req, Resp);
+        _ ->
+            Resp
     end,
     {continue, [Resp1, UAC, Call]}.
 
@@ -207,7 +213,10 @@ nksip_uac_pre_response(Resp, UAC, Call) ->
 
 nksip_uac_response(Req, Resp, UAC, Call) ->
     #trans{from=From, code=Code} = UAC,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of
+        {fork, _} -> true;
+        _ -> false
+    end,
     case 
         (not IsProxy) andalso Code==422 andalso
         nksip_timers_lib:uac_received_422(Req, Resp, UAC, Call) 

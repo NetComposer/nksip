@@ -75,7 +75,7 @@ check_cancel(UAS, #call{srv=SrvId}=Call) ->
             ?CALL_DEBUG("UAS ~p matched 'CANCEL' as ~p", [UAS#trans.id, InvUAS#trans.id], Call),
             Call1 = nksip_call_uas:do_reply(ok, UAS, Call), 
             Args = [InvUAS#trans.request, UAS#trans.request, Call1],
-            ?CALL_SRV(SrvId, nksip_user_callback, [sip_cancel, Args, SrvId]),
+            nksip_util:user_callback(SrvId, sip_cancel, Args),
             case From of
                 {fork, ForkId} -> 
                     % We do not cancel our UAS request, we send it to the fork
@@ -137,7 +137,7 @@ authorize_launch(#trans{request=Req}=UAS, #call{srv=SrvId}=Call) ->
         _ ->
             {ok, AuthData} = ?CALL_SRV(SrvId, nksip_authorize_data, [[], UAS, Call]),
             Args = [AuthData, Req, Call],
-            case ?CALL_SRV(SrvId, nksip_user_callback, [sip_authorize, Args, SrvId]) of
+            case nksip_util:user_callback(SrvId, sip_authorize, Args) of
                 {ok, Reply} -> 
                     authorize_reply(Reply, UAS, Call);
                 error ->
@@ -186,7 +186,7 @@ authorize_reply(Reply, UAS, Call) ->
 route_launch(#trans{ruri=RUri}=UAS, #call{srv=SrvId}=Call) ->
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
     Args = [Scheme, User, Domain, UAS#trans.request, Call],
-    case ?CALL_SRV(SrvId, nksip_user_callback, [sip_route, Args, SrvId]) of
+    case nksip_util:user_callback(SrvId, sip_route, Args) of
         {ok, Reply} -> 
             route_reply(Reply, UAS, Call);
         error -> 
@@ -202,20 +202,34 @@ route_reply(Reply, UAS, Call) ->
     #trans{ruri=RUri} = UAS,
     ?CALL_DEBUG("UAS ~p ~p route reply: ~p", [UAS#trans.id, UAS#trans.method, Reply], Call),
     Route = case Reply of
-        {reply, Resp} -> {reply, Resp};
-        {reply_stateless, Resp} -> {reply_stateless, Resp};
-        process -> process;
-        process_stateless -> process_stateless;
-        proxy -> {proxy, RUri, []};
-        {proxy, Uris} -> {proxy, Uris, []}; 
-        {proxy, ruri, Opts} -> {proxy, RUri, Opts};
-        {proxy, Uris, Opts} -> {proxy, Uris, Opts};
-        proxy_stateless -> {proxy, RUri, [stateless]};
-        {proxy_stateless, Uris} -> {proxy, Uris, [stateless]}; 
-        {proxy_stateless, ruri, Opts} -> {proxy, RUri, [stateless|Opts]};
-        {proxy_stateless, Uris, Opts} -> {proxy, Uris, [stateless|Opts]};
-        strict_proxy -> {strict_proxy, []};
-        {strict_proxy, Opts} -> {strict_proxy, Opts};
+        {reply, Resp} ->
+            {reply, Resp};
+        {reply_stateless, Resp} ->
+            {reply_stateless, Resp};
+        process ->
+            process;
+        process_stateless ->
+            process_stateless;
+        proxy ->
+            {proxy, RUri, []};
+        {proxy, Uris} ->
+            {proxy, Uris, []};
+        {proxy, ruri, Opts} ->
+            {proxy, RUri, Opts};
+        {proxy, Uris, Opts} ->
+            {proxy, Uris, Opts};
+        proxy_stateless ->
+            {proxy, RUri, [stateless]};
+        {proxy_stateless, Uris} ->
+            {proxy, Uris, [stateless]};
+        {proxy_stateless, ruri, Opts} ->
+            {proxy, RUri, [stateless|Opts]};
+        {proxy_stateless, Uris, Opts} ->
+            {proxy, Uris, [stateless|Opts]};
+        strict_proxy ->
+            {strict_proxy, []};
+        {strict_proxy, Opts} ->
+            {strict_proxy, Opts};
         _Invalid ->
             ?CALL_LOG(warning, "Invalid reply from route/5 callback: ~p", [_Invalid], Call),
             {reply_stateless, {internal_error, "Invalid Service Reply"}}
@@ -277,8 +291,10 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
             % Do not process dialogs on response
             UAS2 = UAS1#trans{opts=[no_dialog|Opts], stateless=false, from={fork, Id}},
             UAS3 = case Method of
-                'ACK' -> UAS2#trans{status=finished};
-                _ -> UAS2
+                'ACK' ->
+                    UAS2#trans{status=finished};
+                _ ->
+                    UAS2
             end,
             Call3 = update(UAS3, Call),
             nksip_call_fork:start(UAS3, UriSet, ProxyOpts1, Call3);

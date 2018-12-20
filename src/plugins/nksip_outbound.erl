@@ -86,8 +86,10 @@ proxy_opts(#sipmsg{srv=SrvId, class={req, 'REGISTER'}}=Req, Opts) ->
                     case nksip_util:get_connected(SrvId, NkPort) of
                         [Pid|_] ->
                             case length(Vias)==1 of
-                                true -> [{record_flow, {Pid, ob}}|Opts];
-                                false -> [{record_flow, Pid}|Opts]
+                                true ->
+                                    [{record_flow, {Pid, ob}}|Opts];
+                                false ->
+                                    [{record_flow, Pid}|Opts]
                             end;
                         _ -> 
                             Opts
@@ -120,8 +122,10 @@ proxy_opts(Req, Opts) ->
                                     Opts2 = case 
                                         nksip_util:get_connected(SrvId, NkPort)
                                     of
-                                        [Pid|_] -> [{record_flow, Pid}|Opts1];
-                                        [] -> Opts1
+                                        [Pid|_] ->
+                                            [{record_flow, Pid}|Opts1];
+                                        [] ->
+                                            Opts1
                                     end,
                                     {ok, Opts2};
                                 false ->
@@ -155,8 +159,10 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
                         incoming ->
                             [{route_flow, FlowTransp} |
                                 case lists:member(<<"ob">>, RouteOpts) of
-                                    true -> [{record_flow, Pid}|Opts];
-                                    false -> Opts
+                                    true ->
+                                        [{record_flow, Pid}|Opts];
+                                    false ->
+                                        Opts
                                 end]
                     end,
                     {ok, Opts1};
@@ -170,8 +176,10 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
             case lists:member(<<"ob">>, RouteOpts) of
                 true ->
                     Opts1 = case nksip_util:get_connected(SrvId, NkPort) of
-                        [{_, Pid}|_] -> [{record_flow, Pid}|Opts];
-                        _ -> Opts
+                        [{_, Pid}|_] ->
+                            [{record_flow, Pid}|Opts];
+                        _ ->
+                            Opts
                     end,
                     {ok, Opts1};
                 false ->
@@ -186,8 +194,10 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
 flow_type(#nkport{transp=Transp, remote_ip=Ip, remote_port=Port, opts=Opts1},
           #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, opts=Opts2}) ->
     case maps:get(path, Opts1, <<"/">>) == maps:get(path, Opts2, <<"/">>) of
-        true -> outcoming;
-        false -> incoming
+        true ->
+            outcoming;
+        false ->
+            incoming
     end;
 
 flow_type(_, _) ->
@@ -227,8 +237,10 @@ add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
         false -> 
             GlobalId = nksip_config_cache:global_id(),
             RouteBranch = case Vias of
-                [#via{opts=RBOpts}|_] -> nklib_util:get_binary(<<"branch">>, RBOpts);
-                _ -> <<>>
+                [#via{opts=RBOpts}|_] ->
+                    nklib_util:get_binary(<<"branch">>, RBOpts);
+                _ ->
+                    <<>>
             end,
             RouteHash = nklib_util:hash({GlobalId, SrvId, RouteBranch}),
             <<"NkQ", RouteHash/binary>>;
@@ -252,8 +264,10 @@ add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
                                                RouteUser, [<<"lr">>]);
                 <<"NkF", _/binary>> ->
                     PathOpts = case FlowOb of
-                        true -> [<<"lr">>, <<"ob">>];
-                        false -> [<<"lr">>]
+                        true ->
+                            [<<"lr">>, <<"ob">>];
+                        false ->
+                            [<<"lr">>]
                     end,
                     nksip_util:make_route(sip, Transp, ListenHost, ListenPort,
                                                RouteUser, PathOpts)
@@ -334,8 +348,10 @@ check_several_reg_id([#uri{ext_opts=Opts}|Rest], Found) ->
                     default;
                 Expires0 ->
                     case catch list_to_integer(Expires0) of
-                        Expires1 when is_integer(Expires1) -> Expires1;
-                        _ -> default
+                        Expires1 when is_integer(Expires1) ->
+                            Expires1;
+                        _ ->
+                            default
                     end
             end,
             case Expires of
@@ -401,8 +417,10 @@ decode_flow(Token) ->
     case catch list_to_pid(PidList) of
         Pid when is_pid(Pid) ->
             case catch nkpacket:get_nkport(Pid) of
-                {ok, FlowTransp} ->  {ok, FlowTransp};
-                _ -> {error, flow_failed}
+                {ok, FlowTransp} ->
+                    {ok, FlowTransp};
+                _ ->
+                    {error, flow_failed}
             end;
         _ ->
             {error, invalid}

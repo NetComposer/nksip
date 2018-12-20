@@ -315,11 +315,16 @@ send_reply(Resp, Fork, Call) ->
 best_response(#fork{request=Req, responses=Resps}) ->
     Sorted = lists:sort([
         if
-            Code == 401; Code == 407 -> {3999, Resp};
-            Code == 415; Code == 420; Code == 484 -> {4000, Resp};
-            Code == 503 -> {5000, Resp#sipmsg{class={resp, 500, <<>>}}};
-            Code >= 600 -> {Code, Resp};
-            true -> {10*Code, Resp}
+            Code == 401; Code == 407 ->
+                {3999, Resp};
+            Code == 415; Code == 420; Code == 484 ->
+                {4000, Resp};
+            Code == 503 ->
+                {5000, Resp#sipmsg{class={resp, 500, <<>>}}};
+            Code >= 600 ->
+                {Code, Resp};
+            true ->
+                {10*Code, Resp}
         end
         || #sipmsg{class={resp, Code, _Reason}}=Resp <- Resps
     ]),

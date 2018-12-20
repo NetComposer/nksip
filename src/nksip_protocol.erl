@@ -50,8 +50,10 @@
 
 start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
     case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}, 15000) of
-        ok -> ok;
-        _ -> error
+        ok ->
+            ok;
+        _ ->
+            error
     end.
 
 %% @doc Start a time-alive series, with result notify
@@ -300,8 +302,6 @@ conn_handle_info({stun, {ok, StunIp, StunPort}}, _NkPort, State) ->
                 _ ->
                     ok
             end,
-
-
             lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
             State1 = State#conn_state{
                 nat_ip = StunIp,

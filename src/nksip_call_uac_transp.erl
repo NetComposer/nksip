@@ -41,6 +41,7 @@
     {ok, nksip:request()} | {error, nksip:sipreply()}.
 
 send_request(Req, Opts) ->
+
     #sipmsg{
         srv = SrvId,
         package = PkgId,
@@ -51,7 +52,7 @@ send_request(Req, Opts) ->
     } = Req,
     ?CALL_DEBUG("UAC send opts: ~p", [Opts]),
     {DestUri2, RUri2, Routes2} = case Routes of
-        [] -> 
+        [] ->
             {RUri, RUri, []};
         [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
             case lists:member(<<"lr">>, RouteOpts) of
@@ -87,8 +88,7 @@ send_request(Req, Opts) ->
             [DestUri2]
     end,
     Req2 = Req#sipmsg{ruri=RUri2, routes=Routes2},
-    #uri{scheme=Scheme} = DestUri2,
-    PreFun = make_pre_fun(Scheme, Opts),
+    Msg = make_msg_fun(DestUri2, Req2, Opts),
     %
     % - if no route is set, message is sent directly to RUri, and
     %   ruri and routes is not updated in request
@@ -98,7 +98,7 @@ send_request(Req, Opts) ->
     %   ruri is changed to that route, it's extracted from route list and
     %   original ruri is appended to the end
     %
-    case nksip_util:send(SrvId, PkgId, Destinations, Req2, PreFun, Opts) of
+    case nksip_util:send(SrvId, PkgId, Destinations, Msg, Opts) of
         {ok, SentReq} -> 
             {ok, SentReq};
         {error, Error} ->
@@ -112,7 +112,8 @@ send_request(Req, Opts) ->
     {ok, nksip:request()} | error.
 
 resend_request(#sipmsg{srv=SrvId, package=PkgId, nkport=NkPort}=Req, Opts) ->
-    nksip_util:send(SrvId, PkgId, [NkPort], Req, none, Opts).
+    Msg = fun(NkPort) -> Req#sipmsg{nkport=NkPort} end,
+    nksip_util:send(SrvId, PkgId, [NkPort], Msg, Opts).
         
 
 
@@ -127,11 +128,12 @@ resend_request(#sipmsg{srv=SrvId, package=PkgId, nkport=NkPort}=Req, Opts) ->
 %% - Adds Via
 %% - Updates the IP in SDP in case it is "auto.nksip" to the local IP
 
--spec make_pre_fun(nksip:scheme(), [nksip_uac:req_option()]) ->
+-spec make_msg_fun(#uri{}, nksip:request(), [nksip_uac:req_option()]) ->
     function().
 
-make_pre_fun(Scheme, Opts) ->
-    fun(Req, NkPort) ->
+make_msg_fun(DestUri, Req, Opts) ->
+    #uri{scheme=Scheme} = DestUri,
+    fun(NkPort) ->
         #sipmsg{
             srv = SrvId,
             package = PkgId,

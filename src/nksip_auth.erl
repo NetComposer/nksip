@@ -60,7 +60,8 @@ realms(RespId) ->
     Hd1 = case nksip_response:header(RespId, ?RESP_WWW) of
         {ok, WWW} when is_list(WWW) ->
             [{?RESP_WWW, Data} || Data <- WWW];
-        _ -> []
+        _ ->
+            []
     end,
     Hd2 = case nksip_response:header(RespId, ?RESP_PROXY) of
         {ok, Proxy} when is_list(Proxy) ->
@@ -177,14 +178,17 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
                 throw(invalid_auth_header);
             {ok, ReqData} ->
                 ReqName = case RespName of
-                    ?RESP_WWW -> ?REQ_WWW;
-                    ?RESP_PROXY -> ?REQ_PROXY
+                    ?RESP_WWW ->
+                        ?REQ_WWW;
+                    ?RESP_PROXY ->
+                        ?REQ_PROXY
                 end,
                 ReqHeaders1 = [{ReqName, ReqData}|ReqHeaders],
                 {ok, Req#sipmsg{headers=ReqHeaders1}}
         end
     catch
-        throw:Error -> {error, Error}
+        throw:Error ->
+            {error, Error}
     end.
 
 
@@ -248,7 +252,7 @@ make_response(Realm, Req) ->
 authorize_data(Req, #call{srv=SrvId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
-        Reply = case ?CALL_SRV(SrvId, nksip_user_callback, [sip_get_user_pass, Args, SrvId]) of
+        Reply = case nksip_util:user_callback(SrvId, sip_get_user_pass, Args) of
             {ok, Reply0} ->
                 Reply0;
             error ->
@@ -613,9 +617,12 @@ parse_header_scheme([Ch|Rest], Acc) when Ch==32; Ch==9; Ch==13 ->
             error;
         _ -> 
             Scheme = case string:to_lower(lists:reverse(Acc)) of
-                "digest" -> digest;
-                "basic" -> basic;
-                Other -> list_to_binary(Other)
+                "digest" ->
+                    digest;
+                "basic" ->
+                    basic;
+                Other ->
+                    list_to_binary(Other)
             end,
             parse_header_key(strip(Rest), [], [{scheme, Scheme}])
     end;
@@ -634,8 +641,10 @@ parse_header_key([$=|Rest], Acc, Data) ->
 
 parse_header_key([Ch|Rest], Acc, Data) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
-        [$=|_]=Rest1 -> parse_header_key(Rest1, Acc, Data);
-        _ -> {error, ?LINE}
+        [$=|_]=Rest1 ->
+            parse_header_key(Rest1, Acc, Data);
+        _ ->
+            {error, ?LINE}
     end;
 
 parse_header_key([Ch|Rest], Acc, Data) ->
@@ -645,8 +654,10 @@ parse_header_key([Ch|Rest], Acc, Data) ->
 %% @private
 parse_header_value([], Key, Acc, Quoted, Data) ->
     case Acc==[] orelse Quoted of
-        true -> {error, ?LINE};
-        false -> [parse_header_value_check(Key, lists:reverse(Acc))|Data]
+        true ->
+            {error, ?LINE};
+        false ->
+            [parse_header_value_check(Key, lists:reverse(Acc))|Data]
     end;
 
 parse_header_value([92, $"|Rest], Key, Acc, true, Data) ->
@@ -666,9 +677,12 @@ parse_header_value([$,|Rest], Key, Acc, false, Data) ->
 
 parse_header_value([Ch|Rest], Key, Acc, false, Data) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
-        [] -> parse_header_value([], Key, Acc, false, Data);
-        [$,|_]=Rest1 -> parse_header_value(Rest1, Key, Acc, false, Data);
-        R -> {error, ?LINE, R}
+        [] ->
+            parse_header_value([], Key, Acc, false, Data);
+        [$,|_]=Rest1 ->
+            parse_header_value(Rest1, Key, Acc, false, Data);
+        R ->
+            {error, ?LINE, R}
     end;
 
 parse_header_value([Ch|Rest], Key, Acc, Quoted, Data) ->
@@ -679,26 +693,39 @@ parse_header_value([Ch|Rest], Key, Acc, Quoted, Data) ->
 parse_header_value_check(Key, Val) ->
     Val1 = string:strip(Val, both, $"),
     case string:to_lower(Key) of
-        "realm" -> {realm, list_to_binary(string:to_lower(Val1))};
-        "nonce" -> {nonce, list_to_binary(Val1)};
-        "opaque" -> {opaque, list_to_binary(Val1)};
-        "username" -> {username, list_to_binary(Val1)};
-        "uri" -> {uri, list_to_binary(Val1)};
-        "response" -> {response, list_to_binary(Val1)};
-        "cnonce" -> {cnonce, list_to_binary(Val1)};
-        "nc" -> {nc, list_to_binary(Val1)};
+        "realm" ->
+            {realm, list_to_binary(string:to_lower(Val1))};
+        "nonce" ->
+            {nonce, list_to_binary(Val1)};
+        "opaque" ->
+            {opaque, list_to_binary(Val1)};
+        "username" ->
+            {username, list_to_binary(Val1)};
+        "uri" ->
+            {uri, list_to_binary(Val1)};
+        "response" ->
+            {response, list_to_binary(Val1)};
+        "cnonce" ->
+            {cnonce, list_to_binary(Val1)};
+        "nc" ->
+            {nc, list_to_binary(Val1)};
         "algorithm" -> 
             {algorithm, 
                 case string:to_lower(Val1) of
-                    "md5" -> 'MD5';
-                    A0 -> list_to_binary(A0) 
+                    "md5" ->
+                        'MD5';
+                    A0 ->
+                        list_to_binary(A0)
                 end};
         "qop" -> 
             QOP = [
                 case string:to_lower(QOPToken) of
-                    "auth" -> auth;
-                    "auth-int" -> 'auth-int';
-                    _ -> list_to_binary(QOPToken)
+                    "auth" ->
+                        auth;
+                    "auth-int" ->
+                        'auth-int';
+                    _ ->
+                        list_to_binary(QOPToken)
                 end
                 || QOPToken <- string:tokens(Val1, " ,")
             ],

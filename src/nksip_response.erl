@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 
 -export([get_handle/1, srv_id/1, srv_name/1, code/1, body/1, call_id/1]).
--export([meta/2, metas/2, header/2]).
+-export([get_meta/2, get_metas/2, header/2]).
 -export([wait_491/0]).
 
 -include("nksip.hrl").
@@ -48,8 +48,10 @@
 
 get_handle(Term) ->
     case nksip_sipmsg:get_handle(Term) of
-        <<"S_", _/binary>> = Handle -> {ok, Handle};
-        _ -> error(invalid_response)
+        <<"S_", _/binary>> = Handle ->
+            {ok, Handle};
+        _ ->
+            error(invalid_response)
     end.
 
 
@@ -66,8 +68,10 @@ srv_id(#sipmsg{class={resp, _, _}, srv=SrvId}) ->
     {ok, SrvId};
 srv_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {resp, SrvId, _Id, _CallId} -> {ok, SrvId};
-        _ -> error(invalid_response)
+        {resp, SrvId, _Id, _CallId} ->
+            {ok, SrvId};
+        _ ->
+            error(invalid_response)
     end.
 
 
@@ -98,8 +102,10 @@ call_id(#sipmsg{class={resp, _, _}, call_id=CallId}) ->
     {ok, CallId};
 call_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {resp, _SrvId, _Id, CallId} -> {ok, CallId};
-        _ -> error(invalid_response)
+        {resp, _SrvId, _Id, CallId} ->
+            {ok, CallId};
+        _ ->
+            error(invalid_response)
     end.
 
 
@@ -116,7 +122,7 @@ call_id(Handle) ->
 code(#sipmsg{class={resp, Code, _Phrase}}) -> 
     {ok, Code};
 code(Term) when is_binary(Term) ->
-    meta(code, Term).
+    get_meta(code, Term).
 
 
 %%----------------------------------------------------------------
@@ -132,23 +138,23 @@ code(Term) when is_binary(Term) ->
 body(#sipmsg{class={resp, _, _}, body=Body}) -> 
     {ok, Body};
 body(Handle) ->
-    meta(body, Handle).
+    get_meta(body, Handle).
 
 
 %%----------------------------------------------------------------
 %% @doc Get a specific metadata
 %% @end
 %%----------------------------------------------------------------
--spec meta( Feild, Response ) -> Result when 
-        Feild       :: nksip_sipmsg:field(),
+-spec get_meta( Field, Response ) -> Result when
+        Field       :: nksip_sipmsg:field(),
         Response    :: nksip:response()
             | nksip:handle(),
         Result      :: {ok, term()} 
             | {error, term()}.
 
-meta(Field, #sipmsg{class={resp, _, _}}=Req) -> 
-    {ok, nksip_sipmsg:meta(Field, Req)};
-meta(Field, Handle) ->
+get_meta(Field, #sipmsg{class={resp, _, _}}=Req) ->
+    {ok, nksip_sipmsg:get_meta(Field, Req)};
+get_meta(Field, Handle) ->
     nksip_sipmsg:remote_meta(Field, Handle).
 
 
@@ -156,15 +162,15 @@ meta(Field, Handle) ->
 %% @doc Get a group of specific metadata
 %% @end
 %%----------------------------------------------------------------
--spec metas( FeildList, Response ) -> Result when 
-        FeildList   :: [ nksip_sipmsg:field() ],
+-spec get_metas( FieldList, Response ) -> Result when
+        FieldList   :: [ nksip_sipmsg:field() ],
         Response    :: nksip:response()
             | nksip:handle(),
         Result      :: {ok, [{nksip_sipmsg:field(), term()}]} | {error, term()}.
 
-metas(Fields, #sipmsg{class={resp, _, _}}=Req) when is_list(Fields) ->
-    {ok, nksip_sipmsg:metas(Fields, Req)};
-metas(Fields, Handle) when is_list(Fields) ->
+get_metas(Fields, #sipmsg{class={resp, _, _}}=Req) when is_list(Fields) ->
+    {ok, nksip_sipmsg:get_metas(Fields, Req)};
+get_metas(Fields, Handle) when is_list(Fields) ->
     nksip_sipmsg:remote_metas(Fields, Handle).
 
 
@@ -183,7 +189,7 @@ metas(Fields, Handle) when is_list(Fields) ->
 header(Name, #sipmsg{class={resp, _, _}}=Req) -> 
     {ok, nksip_sipmsg:header(Name, Req)};
 header(Name, Handle) when is_binary(Handle) ->
-    meta(nklib_util:to_binary(Name), Handle).
+    get_meta(nklib_util:to_binary(Name), Handle).
 
 
 %%----------------------------------------------------------------

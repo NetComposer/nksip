@@ -46,8 +46,10 @@ plugin_syntax() ->
 plugin_config(Config, #{id:=Id}) ->
     Trace = maps:get(sip_trace, Config, {console, all}),
     case nksip_trace:get_config(Id, Trace) of
-    	{ok, Cache} -> {ok, Config, Cache};
-    	{error, Error} -> {error, Error}
+    	{ok, Cache} ->
+            {ok, Config, Cache};
+    	{error, Error} ->
+            {error, Error}
     end.
    	
 

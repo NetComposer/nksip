@@ -26,7 +26,7 @@
 -include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
 
--export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
+-export([find/3, find/5, qfind/3, qfind/5, delete/5, clear/2]).
 -export([is_registered/1, request/1]).
 -export_type([reg_contact/0]).
 
@@ -45,68 +45,53 @@
 
 %% @doc Gets all current registered contacts for an AOR.
 %% Use nksip_gruu:find/2 to process gruu options.
--spec find(nkservice:name()|nkservice:id(), nksip:aor() | nksip:uri()) ->
+-spec find(nkservice:id(), nkservice:package_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
-find(Srv, {Scheme, User, Domain}) ->
-    find(Srv, Scheme, User, Domain);
+find(SrvId, PkgId, {Scheme, User, Domain}) ->
+    find(SrvId, PkgId, Scheme, User, Domain);
 
-find(Srv, Uri) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Uri);
-        _ -> []
-    end.
+find(SrvId, PkgId, Uri) ->
+    nksip_registrar_lib:find(SrvId, PkgId, Uri).
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nkservice:id(), nkservice:package_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
-find(Srv, Scheme, User, Domain) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Scheme, User, Domain);
-        _ -> []
-    end.
+find(SrvId, PkgId, Scheme, User, Domain) ->
+    nksip_registrar_lib:find(SrvId, PkgId, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:name()|nkservice:id(), AOR::nksip:aor()) ->
+-spec qfind(nkservice:id(), nkservice:package_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
-qfind(Srv, {Scheme, User, Domain}) ->
-    qfind(Srv, Scheme, User, Domain).
+qfind(SrvId, PkgId, {Scheme, User, Domain}) ->
+    qfind(SrvId, PkgId, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nkservice:id(), nkservice:package_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
-qfind(Srv, Scheme, User, Domain) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} -> nksip_registrar_lib:qfind(SrvId, Scheme, User, Domain);
-        _ ->
-            []
-    end.
+qfind(SrvId, PkgId, Scheme, User, Domain) ->
+    nksip_registrar_lib:qfind(SrvId, PkgId, Scheme, User, Domain).
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(nkservice:id(), nkservice:package_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
-delete(Srv, Scheme, User, Domain) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            AOR = {
-                nklib_parse:scheme(Scheme), 
-                nklib_util:to_binary(User), 
-                nklib_util:to_binary(Domain)
-            },
-            nksip_registrar_lib:store_del(SrvId, AOR);
-        _ ->
-            not_found
-    end.
+delete(SrvId, PkgId, Scheme, User, Domain) ->
+    AOR = {
+        nklib_parse:scheme(Scheme),
+        nklib_util:to_binary(User),
+        nklib_util:to_binary(Domain)
+    },
+    nksip_registrar_lib:store_del(SrvId, PkgId, AOR).
 
 
 %% @doc Finds if a request has a <i>From</i> that has been already registered
@@ -118,14 +103,18 @@ delete(Srv, Scheme, User, Domain) ->
 is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
     false;
 
-is_registered(#sipmsg{
-                srv = SrvId,
-                from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
-                nkport=NkPort
-            }) ->
-    case catch nksip_registrar_lib:store_get(SrvId, {Scheme, User, Domain}) of
-        {ok, Regs} -> nksip_registrar_lib:is_registered(Regs, NkPort);
-        _ -> false
+is_registered(SipMsg) ->
+    #sipmsg{
+        srv = SrvId,
+        package = PkgId,
+        from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
+        nkport=NkPort
+    } = SipMsg,
+    case catch nksip_registrar_lib:store_get(SrvId, PkgId, {Scheme, User, Domain}) of
+        {ok, Regs} ->
+            nksip_registrar_lib:is_registered(Regs, NkPort);
+        _ ->
+            false
     end.
 
 
@@ -156,17 +145,9 @@ request(Req) ->
 
 
 %% @doc Clear all stored records by a Service's core.
--spec clear(nkservice:name()|nksip:srv_id()) -> 
-    ok | callback_error | service_not_found.
+-spec clear(nkservice:id(), nkservice:package_id()) ->
+    ok.
 
-clear(Srv) -> 
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            case nksip_registrar_lib:store_del_all(SrvId) of
-                ok -> ok;
-                _ -> callback_error
-            end;
-        _ ->
-            service_not_found
-    end.
-
+clear(SrvId, PkgId) ->
+    nksip_registrar_lib:store_del_all(SrvId, PkgId),
+    ok.

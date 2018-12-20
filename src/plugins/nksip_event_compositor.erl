@@ -94,15 +94,17 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 
 
 %% @doc Clear all stored records by a Service's core.
--spec clear(nkservice:name()|nksip:srv_id()) -> 
+-spec clear(nkservice:name()|nkservice:id()) ->
     ok | callback_error | service_not_found.
 
 clear(Srv) -> 
     case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} ->
             case nksip_event_compositor_lib:store_del_all(SrvId) of
-                ok -> ok;
-                _ -> callback_error
+                ok ->
+                    ok;
+                _ ->
+                    callback_error
             end;
         _ ->
             service_not_found

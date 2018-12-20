@@ -145,14 +145,18 @@ cancel(TransId, Opts, From, #call{trans=Trans}=Call) when is_integer(TransId) ->
     case lists:keyfind(TransId, #trans.id, Trans) of
         #trans{class=uac, method='INVITE'} = UAC ->
             case From of
-                {srv, SrvFrom} -> gen_server:reply(SrvFrom, ok);
-                _ -> ok
+                {srv, SrvFrom} ->
+                    gen_server:reply(SrvFrom, ok);
+                _ ->
+                    ok
             end,
             cancel(UAC, Opts, Call);
         _ -> 
             case From of
-                {srv, SrvFrom} -> gen_server:reply(SrvFrom, {error, unknown_request});
-                _ -> ok
+                {srv, SrvFrom} ->
+                    gen_server:reply(SrvFrom, {error, unknown_request});
+                _ ->
+                    ok
             end,
             ?CALL_DEBUG("UAC ~p not found to CANCEL", [TransId], Call),
             Call
@@ -198,8 +202,10 @@ is_stateless(Resp) ->
                 [BaseBranch, NkSIP] ->
                     GlobalId = nksip_config_cache:global_id(),
                     case nklib_util:hash({BaseBranch, GlobalId, stateless}) of
-                        NkSIP -> true;
-                        _ -> false
+                        NkSIP ->
+                            true;
+                        _ ->
+                            false
                     end;
                 _ ->
                     false
@@ -217,11 +223,17 @@ make_trans(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId, ruri=RUri} = Req, 
     #call{next=TransId, trans=Trans, msgs=Msgs} = Call,
     Status = case Method of
-        'ACK' -> ack;
-        'INVITE'-> invite_calling;
-        _ -> trying
+        'ACK' ->
+            ack;
+        'INVITE'->
+            invite_calling;
+        _ ->
+            trying
     end,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of
+        {fork, _} -> true;
+        _ -> false
+    end,
     Opts1 = case 
         IsProxy andalso 
         (Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='REFER') 

@@ -86,7 +86,10 @@ response(Resp, UAC, Call) ->
                         [TransId, Method, Status, 
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call)
     end,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of
+        {fork, _} -> true;
+        _ -> false
+    end,
     Call3 = case NoDialog of
         false when is_record(Req, sipmsg) -> 
             nksip_call_uac_dialog:response(Req, Resp1, IsProxy, Call2);
@@ -124,8 +127,10 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code 
     Call1 = update(UAC1, Call),
     Call2 = nksip_call_uac_reply:reply({resp, Resp}, UAC1, Call1),
     Call3 = case Cancel of
-        to_cancel -> nksip_call_uac:cancel(UAC1, [], Call2);
-        _ -> Call2
+        to_cancel ->
+            nksip_call_uac:cancel(UAC1, [], Call2);
+        _ ->
+            Call2
     end,
     case ?CALL_SRV(SrvId, nksip_uac_response, [Req, Resp, UAC1, Call3]) of
         {continue, [_, _, _, Call4]} ->
@@ -282,8 +287,10 @@ response_status(completed, Resp, UAC, Call) ->
             ?CALL_LOG(info, "UAC ~p ~p (completed) received new ~p response",
                        [_TransId, _Method, _Code], Call),
             UAC1 = case lists:member(ToTag, ToTags) of
-                true -> UAC;
-                false -> UAC#trans{to_tags=ToTags++[ToTag]}
+                true ->
+                    UAC;
+                false ->
+                    UAC#trans{to_tags=ToTags++[ToTag]}
             end,
             update(UAC1, Call)
     end.
@@ -297,8 +304,10 @@ do_received_hangup(Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}, dialog_id=_DialogId} = Resp,
     #trans{id=_TransId, code=Code, status=_Status, to_tags=ToTags} = UAC,
     UAC1 = case lists:member(ToTag, ToTags) of
-        true -> UAC;
-        false -> UAC#trans{to_tags=ToTags++[ToTag]}
+        true ->
+            UAC;
+        false ->
+            UAC#trans{to_tags=ToTags++[ToTag]}
     end,
     case Code < 300 of
         true ->

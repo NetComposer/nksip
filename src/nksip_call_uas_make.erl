@@ -51,8 +51,10 @@ make(Req, Code, Opts) ->
         to_tag_candidate = NewToTag
     } = Req, 
     NewToTag1 = case NewToTag of
-        <<>> -> nklib_util:hash(make_ref());
-        _ -> NewToTag
+        <<>> ->
+            nklib_util:hash(make_ref());
+        _ ->
+            NewToTag
     end,
     case Code of
         100 -> 
@@ -97,8 +99,10 @@ make(Req, Code, Opts) ->
                         [secure|Opts];
                     [] ->
                         case Contacts of
-                            [#uri{scheme=sips}|_] -> [secure|Opts];
-                            _ -> Opts
+                            [#uri{scheme=sips}|_] ->
+                                [secure|Opts];
+                            _ ->
+                                Opts
                         end;
                     _ ->
                         Opts
@@ -108,7 +112,8 @@ make(Req, Code, Opts) ->
         {Resp3, Opts3} = parse_opts(Opts2, Req, Resp2, Code, []),
         {ok, Resp3, Opts3}
     catch
-        throw:Throw -> {error, Throw}
+        throw:Throw ->
+            {error, Throw}
     end.
 
 
@@ -165,18 +170,25 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         % Special parameters
         timestamp ->
             case nksip_sipmsg:header(<<"timestamp">>, Req, integers) of
-                [Time] -> {replace, <<"timestamp">>, Time};
-                _ -> ignore
+                [Time] ->
+                    {replace, <<"timestamp">>, Time};
+                _ ->
+                    ignore
             end;
         {body, Body} ->
             case lists:keymember(content_type, 1, Rest) of
                 false ->
                     ContentType = case Resp#sipmsg.content_type of
-                        undefined when is_binary(Body) -> undefined;
-                        undefined when is_list(Body), is_integer(hd(Body)) -> undefined;
-                        undefined when is_record(Body, sdp) -> <<"application/sdp">>;
-                        undefined -> <<"application/nksip.ebf.base64">>;
-                        CT0 -> CT0
+                        undefined when is_binary(Body) ->
+                            undefined;
+                        undefined when is_list(Body), is_integer(hd(Body)) ->
+                            undefined;
+                        undefined when is_record(Body, sdp) ->
+                            <<"application/sdp">>;
+                        undefined ->
+                            <<"application/nksip.ebf.base64">>;
+                        CT0 ->
+                            CT0
                     end,
                     {update, Resp#sipmsg{body=Body, content_type=ContentType}, Opts};
                 true ->
@@ -236,8 +248,10 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             {replace, <<"date">>, Date};
         allow_event ->
             case Config#config.events of
-                [] -> ignore;
-                Events -> {replace, <<"allow-event">>, Events}
+                [] ->
+                    ignore;
+                Events ->
+                    {replace, <<"allow-event">>, Events}
             end;
 
         % Authentication generation
@@ -264,8 +278,10 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         {service_route, Routes} when Code>=200, Code<300, 
                                      element(2, Req#sipmsg.class)=='REGISTER' ->
             case nklib_parse:uris(Routes) of
-                error -> throw({invalid_config, service_route});
-                Uris -> {replace, <<"service-route">>, Uris}
+                error ->
+                    throw({invalid_config, service_route});
+                Uris ->
+                    {replace, <<"service-route">>, Uris}
             end;
         {service_route, _} ->
             ignore;

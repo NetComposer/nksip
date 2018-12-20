@@ -34,15 +34,17 @@
 
 
 %% @doc Gets the last detected public GRUU
--spec get_gruu_pub(nkservice:name()|nksip:srv_id()) ->
+-spec get_gruu_pub(nkservice:name()|nkservice:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(Srv) ->
     case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_pub, SrvId}) of
-                undefined -> undefined;
-                Value -> {ok, Value}
+                undefined ->
+                    undefined;
+                Value ->
+                    {ok, Value}
             end;
         _ -> 
             {error, not_found}
@@ -50,15 +52,17 @@ get_gruu_pub(Srv) ->
 
 
 %% @doc Gets the last detected temporary GRUU
--spec get_gruu_temp(nkservice:name()|nksip:srv_id()) ->
+-spec get_gruu_temp(nkservice:name()|nkservice:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(Srv) ->
     case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_temp, SrvId}) of
-                undefined -> undefined;
-                Value -> {ok, Value}
+                undefined ->
+                    undefined;
+                Value ->
+                    {ok, Value}
             end;
         _ -> 
             {error, not_found}

@@ -27,7 +27,7 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([sip_registrar_store/2]).
+-export([sip_registrar_store/3]).
 -export([sip_register/2, nksip_authorize_data/3]).
 -export([nksip_registrar_request_opts/2, nksip_registrar_request_reply/3,
          nksip_registrar_get_index/2, nksip_registrar_update_regcontact/4]).
@@ -41,28 +41,29 @@
 
 % @doc Called when a operation database must be done on the registrar database.
 %% This default implementation uses the built-in memory database.
--spec sip_registrar_store(StoreOp, SrvId) ->
-    [RegContact] | ok | not_found when 
-        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
-                   {del, AOR} | del_all,
+-spec sip_registrar_store(SrvId, PkgId, StoreOp) ->
+    [RegContact] | ok | not_found when
         SrvId :: nkservice:id(),
+        PkgId :: nkservice:package_id(),
+        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} |
+                   {del, AOR} | del_all,
         AOR :: nksip:aor(),
         RegContact :: nksip_registrar:reg_contact(),
         TTL :: integer().
 
-sip_registrar_store(Op, SrvId) ->
+sip_registrar_store(SrvId, PkgId, Op) ->
     case Op of
         {get, AOR} ->
-            nklib_store:get({nksip_registrar, SrvId, AOR}, []);
+            nklib_store:get({nksip_registrar, SrvId, PkgId, AOR}, []);
         {put, AOR, Contacts, TTL} -> 
-            nklib_store:put({nksip_registrar, SrvId, AOR}, Contacts, [{ttl, TTL}]);
+            nklib_store:put({nksip_registrar, SrvId, PkgId, AOR}, Contacts, [{ttl, TTL}]);
         {del, AOR} ->
-            nklib_store:del({nksip_registrar, SrvId, AOR});
+            nklib_store:del({nksip_registrar, SrvId, PkgId, AOR});
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
-                    {nksip_registrar, SrvId, AOR} -> 
-                        nklib_store:del({nksip_registrar, SrvId, AOR});
+                    {nksip_registrar, SrvId, PkgId, AOR} ->
+                        nklib_store:del({nksip_registrar, SrvId, PkgId, AOR});
                     _ -> 
                         Acc
                 end
@@ -86,8 +87,10 @@ sip_register(Req, _Call) ->
 %% @private
 nksip_authorize_data(List, #trans{request=Req}=Trans, Call) ->
     case nksip_registrar:is_registered(Req) of
-        true -> {continue, [[register|List], Trans, Call]};
-        false -> continue
+        true ->
+            {continue, [[register|List], Trans, Call]};
+        false ->
+            continue
     end.
 
 

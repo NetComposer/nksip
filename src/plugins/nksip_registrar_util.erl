@@ -98,8 +98,10 @@ all() ->
 fold(Fun, Acc0) when is_function(Fun, 4) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_registrar, SrvId, AOR} -> Fun(SrvId, AOR, Value, Acc);
-            _ -> Acc
+            {nksip_registrar, SrvId, AOR} ->
+                Fun(SrvId, AOR, Value, Acc);
+            _ ->
+                Acc
         end
     end,
     nklib_store:fold(FoldFun, Acc0).

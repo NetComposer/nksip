@@ -40,9 +40,11 @@ get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
 
 get_session_expires(Handle) ->
     Fun = fun(#dialog{}=Dialog) -> get_session_expires(Dialog) end,
-    case nksip_dialog:meta({function, Fun}, Handle) of
-        {ok, Value} -> Value;
-        {error, Error} -> {error, Error}
+    case nksip_dialog:get_meta({function, Fun}, Handle) of
+        {ok, Value} ->
+            Value;
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -57,8 +59,10 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
             case is_reference(RefreshTimer) of
                 true -> 
                     case erlang:read_timer(RefreshTimer) of
-                        false -> {ok, expired};
-                        IR -> {ok, IR}
+                        false ->
+                            {ok, expired};
+                        IR ->
+                            {ok, IR}
                     end;
                 false ->
                     {ok, undefined}
@@ -69,9 +73,11 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
 
 get_session_refresh(Handle) ->
     Fun = fun(#dialog{}=Dialog) -> get_session_refresh(Dialog) end,
-    case nksip_dialog:meta({function, Fun}, Handle) of
-        {ok, Value} -> Value;
-        {error, Error} -> {error, Error}
+    case nksip_dialog:get_meta({function, Fun}, Handle) of
+        {ok, Value} ->
+            Value;
+        {error, Error} ->
+            {error, Error}
     end.
 
 

@@ -183,13 +183,16 @@ is_new(_, _) -> false.
 parse(Bin) ->
     try
         Terms = case binary:split(Bin, <<"\r\n">>, [global]) of
-            [_] -> binary:split(Bin, <<"\n">>, [global]);
-            OkTerms -> OkTerms
+            [_] ->
+                binary:split(Bin, <<"\n">>, [global]);
+            OkTerms ->
+                OkTerms
         end,
         Data = [{K, V} || <<K, $=, V/binary>> <- Terms],
         parse_sdp(v, Data, #sdp{})
     catch
-        _:_ -> error
+        _:_ ->
+            error
     end.
 
 
@@ -205,10 +208,30 @@ unparse(#sdp{}=SDP) ->
             nklib_util:to_binary(SDP#sdp.vsn), 32, OType, 32, OAddrType, 32, 
             OAddress, 13, 10,
         $s, $=, SDP#sdp.session, 13, 10,
-        case SDP#sdp.info of undefined -> []; I -> [$i, $=, I, 13, 10] end,
-        case SDP#sdp.uri of undefined -> []; U -> [$u, $=, U, 13, 10] end,
-        case SDP#sdp.email of undefined -> []; E -> [$e, $=, E, 13, 10] end,
-        case SDP#sdp.phone of undefined -> []; P -> [$p, $=, P, 13, 10] end,
+        case SDP#sdp.info of
+            undefined ->
+                [];
+            I ->
+                [$i, $=, I, 13, 10]
+        end,
+        case SDP#sdp.uri of
+            undefined ->
+                [];
+            U ->
+                [$u, $=, U, 13, 10]
+        end,
+        case SDP#sdp.email of
+            undefined ->
+                [];
+            E ->
+                [$e, $=, E, 13, 10]
+        end,
+        case SDP#sdp.phone of
+            undefined ->
+                [];
+            P ->
+                [$p, $=, P, 13, 10]
+        end,
         case SDP#sdp.connect of 
             undefined -> 
                 []; 
@@ -223,12 +246,24 @@ unparse(#sdp{}=SDP) ->
             ]
             || {Start, Stop, Reps} <- SDP#sdp.time
         ],
-        case SDP#sdp.zone of undefined -> []; Z -> [$z, $=, Z, 13, 10] end,
-        case SDP#sdp.key of undefined -> []; K -> [$k, $=, K, 13, 10] end,
+        case SDP#sdp.zone of
+            undefined ->
+                [];
+            Z ->
+                [$z, $=, Z, 13, 10]
+        end,
+        case SDP#sdp.key of
+            undefined ->
+                [];
+            K ->
+                [$k, $=, K, 13, 10]
+        end,
         [
             case Values of
-                [] -> [$a, $=, Attr, 13, 10];
-                _ -> [$a, $=, Attr, $:, join(Values), 13, 10]
+                [] ->
+                    [$a, $=, Attr, 13, 10];
+                _ ->
+                    [$a, $=, Attr, $:, join(Values), 13, 10]
             end
             || {Attr, Values} <- SDP#sdp.attributes 
         ],
@@ -236,18 +271,24 @@ unparse(#sdp{}=SDP) ->
             [
                 $m, $=, Media#sdp_m.media, 32, integer_to_list(Media#sdp_m.port), 
                 case Media#sdp_m.nports of 
-                    1 -> []; 
-                    NPorts -> [$/, integer_to_list(NPorts)] 
+                    1 ->
+                        [];
+                    NPorts ->
+                        [$/, integer_to_list(NPorts)]
                 end,
                 32, Media#sdp_m.proto,
                 case Media#sdp_m.fmt of
-                    [] -> [];
-                    Fmt -> [32, join(Fmt)]
+                    [] ->
+                        [];
+                    Fmt ->
+                        [32, join(Fmt)]
                 end,
                 13, 10,
                 case Media#sdp_m.info of 
-                    undefined -> []; 
-                    MI -> [$i, $=, MI, 13, 10] end,
+                    undefined ->
+                        [];
+                    MI ->
+                        [$i, $=, MI, 13, 10] end,
                 case Media#sdp_m.connect of 
                     undefined -> 
                         []; 
@@ -256,8 +297,10 @@ unparse(#sdp{}=SDP) ->
                 end,
                 [[$b, $=, MB, 13, 10] || MB <- Media#sdp_m.bandwidth],
                 case Media#sdp_m.key of 
-                    undefined -> []; 
-                    MK -> [$k, $=, MK, 13, 10] end,
+                    undefined ->
+                        [];
+                    MK ->
+                        [$k, $=, MK, 13, 10] end,
                 [
                     case MValues of
                         [] -> 
@@ -293,9 +336,12 @@ update_ip(#sdp{connect = {_, _, <<"auto.nksip">>}} = SDP, ListenAddr) ->
             Ip = ListenAddr, Class = <<"IP6">>;
         true ->
             case nkpacket_dns:ips(ListenAddr) of
-                [Ip|_] when size(Ip)==4 -> Class = <<"IP4">>;
-                [Ip|_] when size(Ip)==8 -> Class = <<"IP6">>;
-                _ -> Ip = {0,0,0,0}, Class = <<"IP4">>
+                [Ip|_] when size(Ip)==4 ->
+                    Class = <<"IP4">>;
+                [Ip|_] when size(Ip)==8 ->
+                    Class = <<"IP6">>;
+                _ ->
+                    Ip = {0,0,0,0}, Class = <<"IP4">>
             end
     end,
     Addr = {<<"IN">>, Class, nklib_util:to_host(Ip, false)}, 

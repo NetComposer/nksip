@@ -118,8 +118,10 @@ send({Resp, SendOpts}, UAS, Call) ->
             Call
     end,
     Call2 = case lists:member(no_dialog, Opts) of
-        true -> Call1;
-        false -> nksip_call_uas_dialog:response(Req, Resp2, Call1)
+        true ->
+            Call1;
+        false ->
+            nksip_call_uas_dialog:response(Req, Resp2, Call1)
     end,
     Msg = {MsgId, Id, DialogId},
     Call3 = Call2#call{msgs=[Msg|Msgs]},

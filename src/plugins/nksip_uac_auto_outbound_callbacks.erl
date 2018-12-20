@@ -104,8 +104,11 @@ service_handle_call(nksip_uac_auto_outbound_get_regs, _From, SrvState) ->
         ||
         #sipreg{id=RegId, ok=Ok, next=Next} <- Regs,
             case lists:keyfind(RegId, #sipreg_ob.id, RegsOb) of
-                false -> Fails=0, false;
-                #sipreg_ob{fails=Fails} -> true
+                false ->
+                    Fails=0,
+                    false;
+                #sipreg_ob{fails=Fails} ->
+                    true
             end
     ],
     {reply, Info, SrvState};
@@ -171,12 +174,16 @@ service_terminate(_Reason, SrvState) ->
             lists:foreach(
                 fun(#sipreg_ob{conn_monitor=Monitor, conn_pid=Pid}) -> 
                     case is_reference(Monitor) of
-                        true -> erlang:demonitor(Monitor);
-                        false -> ok
+                        true ->
+                            erlang:demonitor(Monitor);
+                        false ->
+                            ok
                     end, 
                     case is_pid(Pid) of
-                        true -> nksip_protocol:stop_refresh(Pid);
-                        false -> ok
+                        true ->
+                            nksip_protocol:stop_refresh(Pid);
+                        false ->
+                            ok
                     end
                 end,
                 RegsOb),
@@ -201,8 +208,10 @@ nksip_uac_auto_register_send_reg(Reg, Sync, SrvState) ->
             RegOb1 = case lists:keyfind(RegId, #sipreg_ob.id, RegsOb) of
                 false ->
                     Pos = case nklib_util:get_value(reg_id, Opts) of
-                        UserPos when is_integer(UserPos), UserPos>0 -> UserPos;
-                        _ -> NextPos
+                        UserPos when is_integer(UserPos), UserPos>0 ->
+                            UserPos;
+                        _ ->
+                            NextPos
                     end,
                     #sipreg_ob{id=RegId, cseq=CSeq, pos=Pos, fails=0};
                 #sipreg_ob{pos=Pos} = RegOb0 ->
@@ -210,12 +219,14 @@ nksip_uac_auto_register_send_reg(Reg, Sync, SrvState) ->
             end,
             RegsOb1 = lists:keystore(RegId, #sipreg_ob.id, RegsOb, RegOb1),
             Meta = [cseq_num, retry_after, remote, require, <<"flow-timer">>],
-            Opts1 = [contact, {cseq_num, CSeq}, {meta, Meta}, {reg_id, Pos} | Opts],
+            Opts1 = [contact, {cseq_num, CSeq}, {get_meta, Meta}, {reg_id, Pos} | Opts],
             Self = self(),
             Fun = fun() ->
-                case nksip_uac:register(SrvId, RUri, Opts1) of
-                    {ok, Code, Meta1} -> ok;
-                    _ -> Code=500, Meta1=[{cseq_num, CSeq}]
+                {Code, Meta1} = case nksip_uac:register(SrvId, RUri, Opts1) of
+                    {ok, Code0, Meta0} ->
+                        {Code0, Meta0};
+                    _ ->
+                        {500, [{cseq_num, CSeq}]}
                 end,
                 Msg1 = {nksip_uac_auto_register_reg_reply, RegId, Code, Meta1},
                 gen_server:cast(Self, Msg1)
@@ -247,12 +258,16 @@ nksip_uac_auto_register_send_unreg(Reg, Sync, SrvState)->
     case lists:keytake(RegId, #sipreg_ob.id, State#state_ob.regs) of
         {value, #sipreg_ob{pos=Pos, conn_monitor=Monitor, conn_pid=Pid}, RegsOb1} -> 
             case is_reference(Monitor) of
-                true -> erlang:demonitor(Monitor);
-                false -> ok
+                true ->
+                    erlang:demonitor(Monitor);
+                false ->
+                    ok
             end, 
             case is_pid(Pid) of
-                true -> nksip_protocol:stop_refresh(Pid);
-                false -> ok
+                true ->
+                    nksip_protocol:stop_refresh(Pid);
+                false ->
+                    ok
             end,
             Opts1 = [contact, {cseq_num, CSeq}, {reg_id, Pos} |
                      nklib_util:store_value(expires, 0, Opts)],
@@ -288,8 +303,10 @@ nksip_uac_auto_register_upd_reg(Reg, Code, Meta, SrvState) when Code<300 ->
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
         {value, #sipreg_ob{conn_monitor=Monitor}=RegOb1, RegsOb1} ->
             case is_reference(Monitor) of
-                true -> erlang:demonitor(Monitor);
-                false -> ok
+                true ->
+                    erlang:demonitor(Monitor);
+                false ->
+                    ok
             end,
             {Transp, Ip, Port, Path} = nklib_util:get_value(remote, Meta),
             Require = nklib_util:get_value(require, Meta),
@@ -329,12 +346,16 @@ nksip_uac_auto_register_upd_reg(Reg, Code, Meta, SrvState) ->
         {value, RegOb1, RegsOb1} ->
             #sipreg_ob{conn_monitor=Monitor, conn_pid=Pid, fails=Fails} = RegOb1,
             case is_reference(Monitor) of
-                true -> erlang:demonitor(Monitor);
-                false -> ok
+                true ->
+                    erlang:demonitor(Monitor);
+                false ->
+                    ok
             end,
             case is_pid(Pid) of
-                true -> nksip_protocol:stop_refresh(Pid);
-                false -> ok
+                true ->
+                    nksip_protocol:stop_refresh(Pid);
+                false ->
+                    ok
             end,
             Config = SrvId:config_nksip_uac_auto_outbound(),
             #nksip_uac_auto_outbound{
@@ -343,8 +364,10 @@ nksip_uac_auto_register_upd_reg(Reg, Code, Meta, SrvState) ->
                 any_ok = AnyOK
             } = Config,
             BaseTime = case [true || #sipreg_ob{fails=0} <- RegsOb] of
-                [] -> AllFail;
-                _ -> AnyOK
+                [] ->
+                    AllFail;
+                _ ->
+                    AnyOK
             end,
             Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
             Time = round(nklib_util:rand(50, 101) * Upper / 100),
@@ -374,14 +397,19 @@ nksip_uac_auto_register_upd_reg(Reg, Code, Meta, SrvState) ->
 start_refresh(SrvId, Meta, Transp, Pid, Reg) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
     FlowTimer = case nklib_util:get_value(<<"flow-timer">>, Meta) of
-        [FlowTimer0] -> nklib_util:to_integer(FlowTimer0);
-        _ -> undefined
+        [FlowTimer0] ->
+            nklib_util:to_integer(FlowTimer0);
+        _ ->
+            undefined
     end,
     Config = SrvId:config_nksip_uac_auto_outbound(),
     Secs = case FlowTimer of
-        FT when is_integer(FT), FT > 5 -> FT;
-        _ when Transp==udp -> Config#nksip_uac_auto_outbound.udp_ttl;
-        _ -> Config#nksip_uac_auto_outbound.tcp_ttl
+        FT when is_integer(FT), FT > 5 ->
+            FT;
+        _ when Transp==udp ->
+            Config#nksip_uac_auto_outbound.udp_ttl;
+        _ ->
+            Config#nksip_uac_auto_outbound.tcp_ttl
     end,
     Rand = nklib_util:rand(80, 101),
     Time = (Rand*Secs) div 100,

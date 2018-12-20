@@ -87,8 +87,10 @@ uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
             uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
             case Code>=200 andalso Code<300 of
-                true -> ?CALL_LOG(notice, "UAC event ignoring ~p ~p", [Method, Code], Call);
-                false -> ok
+                true ->
+                    ?CALL_LOG(notice, "UAC event ignoring ~p ~p", [Method, Code], Call);
+                false ->
+                    ok
             end,
             Dialog
     end;
@@ -161,8 +163,10 @@ uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             {ok, Dialog};
         not_found when Method=='NOTIFY' ->
             case is_prov_event(Req, Call) of
-                true -> {ok, Dialog};
-                false -> {error, no_transaction}
+                true ->
+                    {ok, Dialog};
+                false ->
+                    {error, no_transaction}
             end;
         _ ->
             ?CALL_LOG(notice, "UAS event ignoring ~p", [Method], Call),
@@ -274,14 +278,20 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     #call{srv=SrvId, package=PkgId, times=#call_times{t1=T1, tc=TC}} = Call,
     Config = nksip_plugin:get_config(SrvId, PkgId),
     ReqExpires = case Req#sipmsg.expires of
-        RE0 when is_integer(RE0), RE0>=0 -> RE0;
-        _ when Method=='REFER' -> TC;
-        _ -> Config#config.event_expires
+        RE0 when is_integer(RE0), RE0>=0 ->
+            RE0;
+        _ when Method=='REFER' ->
+            TC;
+        _ ->
+            Config#config.event_expires
     end,
     RespExpires = case Resp#sipmsg.expires of
-        SE0 when is_integer(SE0), SE0>=0 -> SE0;
-        _ when Method=='REFER' -> TC;
-        _ -> Config#config.event_expires
+        SE0 when is_integer(SE0), SE0>=0 ->
+            SE0;
+        _ when Method=='REFER' ->
+            TC;
+        _ ->
+            Config#config.event_expires
     end,
     Expires = min(ReqExpires, RespExpires),
     ?CALL_DEBUG("Event ~s expires updated to ~p", [Id, Expires], Call),
@@ -299,8 +309,10 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
             start_timer(1000*(Expires+Offset), {timeout, Id}, Dialog)
     end,
     TimerMiddle1= case Expires of
-        0 -> undefined;
-        _ -> start_timer(500*Expires, {middle, Id}, Dialog)
+        0 ->
+            undefined;
+        _ ->
+            start_timer(500*Expires, {middle, Id}, Dialog)
     end,
     Subs1 = Subs#subscription{
         expires = Expires,
@@ -343,8 +355,10 @@ update({Status, Expires}, Subs, Dialog, Call)
     cancel_timer(TimerMiddle),
     ?CALL_DEBUG("Event ~s expires updated to ~p", [Id, Expires], Call),
     Answered1 = case Answered of
-        undefined -> nklib_util:timestamp();
-        _ -> Answered
+        undefined ->
+            nklib_util:timestamp();
+        _ ->
+            Answered
     end,
     #call{srv=SrvId, package=PkgId} = Call,
     Config = nksip_plugin:get_config(SrvId, PkgId),
@@ -408,8 +422,10 @@ remove_prov_event({Id, FromTag}, #call{events=Events}=Call) ->
 %% @private
 stop(#subscription{id=Id}, Dialog, Call) ->
     case nksip_subscription_lib:find(Id, Dialog) of
-        not_found -> Call;
-        Subs -> update({terminated, forced, undefined}, Subs, Dialog, Call)
+        not_found ->
+            Call;
+        Subs ->
+            update({terminated, forced, undefined}, Subs, Dialog, Call)
     end.
 
 
@@ -556,15 +572,19 @@ store(Subs, Dialog, Call) ->
         {terminated, _Reason} ->
             ?CALL_DEBUG("~s removing event ~s", [_Class, Id], Call),
             Subscriptions1 = case IsFirst of
-                true -> Rest;
-                false -> lists:keydelete(Id, #subscription.id, Subscriptions)
+                true ->
+                    Rest;
+                false ->
+                    lists:keydelete(Id, #subscription.id, Subscriptions)
             end,
             Dialog#dialog{subscriptions=Subscriptions1};
         _ ->
             ?CALL_DEBUG("~s storing event ~s: ~p", [_Class, Id, Status], Call),
             Subscriptions1 = case IsFirst of
-                true -> [Subs|Rest];
-                false -> lists:keystore(Id, #subscription.id, Subscriptions, Subs)
+                true ->
+                    [Subs|Rest];
+                false ->
+                    lists:keystore(Id, #subscription.id, Subscriptions, Subs)
             end,
             Dialog#dialog{subscriptions=Subscriptions1}
     end.
@@ -583,7 +603,7 @@ dialog_update(Status, Subs, Dialog, #call{srv=SrvId}=Call) ->
             Status
     end,
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
-    ?CALL_SRV(SrvId, nksip_user_callback, [sip_dialog_update, Args, SrvId]).
+    nksip_util:user_callback(SrvId, sip_dialog_update, Args).
 
 
 %% @private

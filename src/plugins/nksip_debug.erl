@@ -46,8 +46,10 @@ start(Srv) ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
             case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>true}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
+                ok ->
+                    ok;
+                {error, Error} ->
+                    {error, Error}
             end;
         not_found ->
             {error, service_not_found}
@@ -63,8 +65,10 @@ stop(Srv) ->
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_debug],
             case nksip:update(Srv, #{plugins=>Plugins, sip_debug=>false}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
+                ok ->
+                    ok;
+                {error, Error} ->
+                    {error, Error}
             end;
         not_found ->
             {error, service_not_found}

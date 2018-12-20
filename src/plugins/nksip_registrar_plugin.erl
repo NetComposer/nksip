@@ -24,7 +24,7 @@
 
 -include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
--export([plugin_deps/0, plugin_config/3]).
+-export([plugin_deps/0, plugin_config/3, get_config/2]).
 
 
 %% ===================================================================
@@ -51,13 +51,13 @@ plugin_config(?PACKAGE_CLASS_SIP, #{id:=PkgId, config:=Config}=Spec, _Service) -
             Config3 = Config2#{sip_allow=>Allow2},
             Spec3 = Spec#{config := Config3},
             CacheItems = #{
-                nksip_reigstrar => #nksip_registrar_time{
+                nksip_registrar => #nksip_registrar_time{
                     min = maps:get(sip_registrar_min_time, Config2, 60),
                     max = maps:get(sip_registrar_max_time, Config2, 86400),
                     default = maps:get(sip_registrar_default_time, Config2, 3600)
                 }
             },
-            Spec4 = nkservice_config_util:set_debug_items(nksip, PkgId, CacheItems, Spec3),
+            Spec4 = nkservice_config_util:set_cache_items(nksip, PkgId, CacheItems, Spec3),
             {ok, Spec4};
         {error, Error} ->
             {error, Error}
@@ -65,6 +65,14 @@ plugin_config(?PACKAGE_CLASS_SIP, #{id:=PkgId, config:=Config}=Spec, _Service) -
 
 plugin_config(_Class, _Package, _Service) ->
     continue.
+
+
+%% @doc
+get_config(SrvId, PkgId) ->
+    nkservice_util:get_cache(SrvId, nksip, PkgId, nksip_registrar).
+
+
+
 
 
 %%plugin_stop(?PACKAGE_CLASS_SIP, #{id:=PkgId, config:=Config}=Spec, _Pid, #{id:=SrvId}) ->

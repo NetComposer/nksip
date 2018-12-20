@@ -125,20 +125,19 @@ sip_notify(Req, Call) ->
 
 %% @doc This plugin callback function is used to call application-level 
 %% Service callbacks.
--spec nksip_user_callback(atom(), list(), nksip:srv_id()) ->
+-spec nksip_user_callback(nkservice:id(), atom(), list()) ->
     continue.
 
-nksip_user_callback(sip_dialog_update,
-          [
-            {
-                subscription_status, 
-                Status, 
-                {user_subs, #subscription{event={<<"refer">>, _}}, _}=Subs
-            }, 
-            _Dialog, Call
-          ], 
-          _SrvId) ->
-    #call{srv=SrvId} = Call,
+nksip_user_callback(_SrvId, sip_dialog_update, List) ->
+    [
+        {
+            subscription_status,
+            Status,
+            {user_subs, #subscription{event = {<<"refer">>, _}}, _} = Subs
+        },
+        _Dialog, Call
+    ] = List,
+    #call{srv = SrvId} = Call,
     {ok, SubsId} = nksip_subscription:get_handle(Subs),
     Status1 = case Status of
         init -> init;
@@ -175,8 +174,10 @@ nksip_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
                 {body, Sipfrag},
                 {subscription_state, 
                     case Code>=200 of 
-                        true -> {terminated, noresource}; 
-                        false -> active
+                        true ->
+                            {terminated, noresource};
+                        false ->
+                            active
                     end}
             ],
             nksip_uac:notify(SubsId, NotifyOpts)

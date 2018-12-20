@@ -22,7 +22,7 @@
 -module(nksip_subscription_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, parse_handle/1, meta/2, metas/2]).
+-export([get_handle/1, parse_handle/1, get_meta/2, get_metas/2]).
 -export([remote_meta/2, remote_metas/2]).
 -export([make_id/1, find/2, state/1, remote_id/2]).
 
@@ -77,10 +77,10 @@ parse_handle(_) ->
 
 
 %% @doc
--spec meta(nksip_subscription:field(), nksip:subscription()) -> 
+-spec get_meta(nksip_subscription:field(), nksip:subscription()) ->
     term().
 
-meta(Field, {user_subs, U, D}) ->
+get_meta(Field, {user_subs, U, D}) ->
     case Field of
         id ->
             get_handle({user_subs, U, D});
@@ -101,15 +101,15 @@ meta(Field, {user_subs, U, D}) ->
         expires ->
             undefined;
        _ ->
-            nksip_dialog:meta(Field, D)
+            nksip_dialog:get_meta(Field, D)
     end.
 
 
--spec metas([nksip_subscription:field()], nksip:subscription()) -> 
+-spec get_metas([nksip_subscription:field()], nksip:subscription()) ->
     [{nksip_subscription:field(), term()}].
 
-metas(Fields, {user_subs, U, D}) when is_list(Fields) ->
-    [{Field, meta(Field, {user_subs, U, D})} || Field <- Fields].
+get_metas(Fields, {user_subs, U, D}) when is_list(Fields) ->
+    [{Field, get_meta(Field, {user_subs, U, D})} || Field <- Fields].
 
 
 %% @doc Extracts remote meta
@@ -118,8 +118,10 @@ metas(Fields, {user_subs, U, D}) when is_list(Fields) ->
 
 remote_meta(Field, Handle) ->
     case remote_metas([Field], Handle) of
-        {ok, [{_, Value}]} -> {ok, Value};
-        {error, Error} -> {error, Error}
+        {ok, [{_, Value}]} ->
+            {ok, Value};
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -132,7 +134,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
     Fun = fun(Dialog) ->
         case find(SubsId, Dialog) of
             #subscription{} = U -> 
-                case catch metas(Fields, {user_subs, U, Dialog}) of
+                case catch get_metas(Fields, {user_subs, U, Dialog}) of
                     {'EXIT', {{invalid_field, Field}, _}} -> 
                         {error, {invalid_field, Field}};
                     Values -> 
@@ -221,47 +223,63 @@ remote_id(Handle, Srv) ->
 
 state(#sipmsg{}=SipMsg) ->
     try
-        case nksip_sipmsg:header(<<"subscription-state">>, SipMsg, tokens) of
-            [{Name, Opts}] -> ok;
-            _ -> Name = Opts = throw(invalid)
+        {Name, Opts} = case nksip_sipmsg:header(<<"subscription-state">>, SipMsg, tokens) of
+            [{Name0, Opts0}] ->
+                {Name0, Opts0};
+            _ ->
+                throw(invalid)
         end,
         case Name of
             <<"active">> -> 
                 case nklib_util:get_integer(<<"expires">>, Opts, -1) of
-                    -1 -> Expires = undefined;
-                    Expires when is_integer(Expires), Expires>=0 -> ok;
-                    _ -> Expires = throw(invalid)
+                    -1 ->
+                        Expires = undefined;
+                    Expires when is_integer(Expires), Expires>=0 ->
+                        ok;
+                    _ ->
+                        Expires = throw(invalid)
                 end,
                  {active, Expires};
             <<"pending">> -> 
                 case nklib_util:get_integer(<<"expires">>, Opts, -1) of
-                    -1 -> Expires = undefined;
-                    Expires when is_integer(Expires), Expires>=0 -> ok;
-                    _ -> Expires = throw(invalid)
+                    -1 ->
+                        Expires = undefined;
+                    Expires when is_integer(Expires), Expires>=0 ->
+                        ok;
+                    _ ->
+                        Expires = throw(invalid)
                 end,
                 {pending, Expires};
             <<"terminated">> ->
-                case nklib_util:get_integer(<<"retry-after">>, Opts, -1) of
-                    -1 -> Retry = undefined;
-                    Retry when is_integer(Retry), Retry>=0 -> ok;
-                    _ -> Retry = throw(invalid)
+                Retry = case nklib_util:get_integer(<<"retry-after">>, Opts, -1) of
+                    -1 ->
+                        undefined;
+                    Retry0 when is_integer(Retry0), Retry0>=0 ->
+                        Retry0;
+                    _ ->
+                        throw(invalid)
                 end,
                 case nklib_util:get_value(<<"reason">>, Opts) of
                     undefined -> 
                         {terminated, undefined, undefined};
                     Reason0 ->
                         case catch binary_to_existing_atom(Reason0, latin1) of
-                            {'EXIT', _} -> {terminated, undefined, undefined};
-                            probation -> {terminated, probation, Retry};
-                            giveup -> {terminated, giveup, Retry};
-                            Reason -> {terminated, Reason, undefined}
+                            {'EXIT', _} ->
+                                {terminated, undefined, undefined};
+                            probation ->
+                                {terminated, probation, Retry};
+                            giveup ->
+                                {terminated, giveup, Retry};
+                            Reason ->
+                                {terminated, Reason, undefined}
                         end
                 end;
             _ ->
                 throw(invalid)
         end
     catch
-        throw:invalid -> invalid
+        throw:invalid ->
+            invalid
     end.
 
 

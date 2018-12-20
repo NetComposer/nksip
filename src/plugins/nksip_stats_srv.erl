@@ -126,8 +126,10 @@ terminate(_Reason, _State) ->
 %% @private
 timeout(#state{last_check=Last, period=Period}) ->
     case (Last+Period) - nklib_util:timestamp() of
-        Time when Time > 0 -> 1000*Time;
-        _ -> 0
+        Time when Time > 0 ->
+            1000*Time;
+        _ ->
+            0
     end.
 
 
@@ -154,8 +156,14 @@ avg(List) ->
 avg([], Min, Max, Sum, Total) -> 
     {Min, Max, round(Sum/Total)};
 avg([Num|Rest], Min, Max, Sum, Total) -> 
-    Min1 = case Num < Min of true -> Num; false -> Min end,
-    Max1 = case Num > Max of true -> Num; false -> Max end,
+    Min1 = case Num < Min of
+        true -> Num;
+        false -> Min
+    end,
+    Max1 = case Num > Max of
+        true -> Num;
+        false -> Max
+    end,
     avg(Rest, Min1, Max1, Sum+Num, Total+1).
 
 

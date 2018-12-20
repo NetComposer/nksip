@@ -63,7 +63,10 @@ check_auth(Req, Resp, UAC, Call) ->
         from = From,
         iter = Iters
     } = UAC,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of
+        {fork, _} -> true;
+        _ -> false
+    end,
     case 
         (Code==401 orelse Code==407) andalso Method/='CANCEL' andalso 
         (not IsProxy)
@@ -78,8 +81,10 @@ check_auth(Req, Resp, UAC, Call) ->
             end,
             DefPasses = get_config(SrvId, pass),
             Passes = case nklib_util:get_value(sip_pass, Opts) of
-                undefined -> DefPasses;
-                Passes0 -> Passes0++DefPasses
+                undefined ->
+                    DefPasses;
+                Passes0 ->
+                    Passes0++DefPasses
             end,
             case 
                 Passes/=[] andalso Iters < Max andalso 

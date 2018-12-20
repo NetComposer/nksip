@@ -235,7 +235,7 @@ worker_name(CallId) ->
     {ok, #state{}} | {error, looped_process | service_not_found | too_many_calls}.
 
 send_work_sync(SrvId, PkgId, CallId, Work, Caller, From, State) ->
-    case nksip_call_srv:find_call(CallId) of
+    case nksip_call_srv:find_call(SrvId, PkgId, CallId) of
         Caller ->
             {error, looped_process};
         CallPid when is_pid(CallPid) ->
@@ -255,6 +255,9 @@ do_send_work_sync(SrvId, PkgId, CallId, CallPid, Work, From, #state{calls=Calls}
     nksip_call_srv:sync_work(CallPid, WorkRef, self(), Work, From),
     WorkList1 = case maps:find(CallPid, Calls) of
         {ok, {SrvId, PkgId, CallId, WorkList0}} ->
+            WorkList0;
+        {ok, {SrvId2, PkgId2, CallId, WorkList0}} ->
+            ?LLOG(warning, "invalid stored work piece: ~p", [{SrvId, PkgId, SrvId2, PkgId2}]),
             WorkList0;
         error ->
             []
@@ -278,7 +281,7 @@ do_call_start(SrvId, PkgId, CallId, Work, From, State) ->
             case nklib_counters:value({nksip_calls, SrvId, PkgId}) < SrvMax of
                 true ->
                     {ok, CallPid} = nksip_call_srv:start(SrvId, PkgId, CallId),
-                    CallPid = nksip_call_srv:find_call(CallId),
+                    CallPid = nksip_call_srv:find_call(SrvId, PkgId, CallId),
                     erlang:monitor(process, CallPid),
                     do_send_work_sync(SrvId, PkgId, CallId, CallPid, Work, From, State);
                 false ->

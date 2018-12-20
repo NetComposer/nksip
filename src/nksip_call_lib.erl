@@ -259,8 +259,10 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
     cancel_timer(Trans#trans.retrans_timer),
     #call{times=#call_times{t1=T1, t2=T2}} = Call,
     Time = case is_integer(Next) of
-        true -> Next;
-        false -> T1
+        true ->
+            Next;
+        false ->
+            T1
     end,
     Trans#trans{
         retrans_timer = start_timer(Time, Tag, Trans),
@@ -287,8 +289,10 @@ expire_timer(expire, Trans, Call) ->
                     undefined;
                 _ -> 
                     Time = case Class of 
-                        uac -> 1000*Expires;
-                        uas -> 1000*Expires+100     % UAC fires first
+                        uac ->
+                            1000*Expires;
+                        uas ->
+                            1000*Expires+100     % UAC fires first
                     end,
                     start_timer(Time, expire, Trans)
             end;

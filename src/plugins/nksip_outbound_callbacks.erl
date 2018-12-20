@@ -82,13 +82,17 @@ nksip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
 %% @private
 nksip_registrar_request_opts(Req, Opts) ->
 	nksip_outbound:check_several_reg_id(Req#sipmsg.contacts),
-    case nksip_outbound:registrar(Req) of
-        {true, Req1} -> Opts1 = [{outbound, true}|Opts];
-        {false, Req1} -> Opts1 = [{outbound, false}|Opts];
-        no_outbound -> Req1 = Req, Opts1 = Opts;
-        {error, OutError} -> Req1 = Opts1 = throw(OutError)
+    {Req2, Opts2} = case nksip_outbound:registrar(Req) of
+        {true, Req1} ->
+            {Req1, [{outbound, true}|Opts]};
+        {false, Req1} ->
+            {Req1, [{outbound, false}|Opts]};
+        no_outbound ->
+            {Req, Opts};
+        {error, OutError} ->
+            throw(OutError)
     end,
-    {continue, [Req1, Opts1]}.
+    {continue, [Req2, Opts2]}.
 
 
 %% @private
@@ -99,8 +103,10 @@ nksip_registrar_request_reply(Reply, Regs, Opts) ->
 	            lists:member({outbound, true}, Opts) andalso
 	            [true || #reg_contact{index={ob, _, _}} <- Regs] 
 	        of
-	            [_|_] -> {ok, [{require, <<"outbound">>}|ReplyOpts]};
-	            _ -> {ok, ReplyOpts}
+	            [_|_] ->
+                    {ok, [{require, <<"outbound">>}|ReplyOpts]};
+	            _ ->
+                    {ok, ReplyOpts}
 	        end;
 	    Other ->
 	    	Other
@@ -111,18 +117,27 @@ nksip_registrar_request_reply(Reply, Regs, Opts) ->
 %% @private
 nksip_registrar_get_index(#uri{ext_opts=ExtOpts}=Contact, Opts) ->
     InstId = case nklib_util:get_value(<<"+sip.instance">>, ExtOpts) of
-        undefined -> <<>>;
-        Inst0 -> nklib_util:hash(Inst0)
+        undefined ->
+            <<>>;
+        Inst0 ->
+            nklib_util:hash(Inst0)
     end,
     Outbound = nklib_util:get_value(outbound, Opts),
     RegId = case nklib_util:get_value(<<"reg-id">>, ExtOpts) of
-        undefined -> <<>>;
-        _ when Outbound == undefined -> <<>>;
-        _ when Outbound == false -> throw(first_hop_lacks_outbound);
-        _ when InstId == <<>> -> <<>>;
-        RegId0 -> RegId0
+        undefined ->
+            <<>>;
+        _ when Outbound == undefined ->
+            <<>>;
+        _ when Outbound == false ->
+            throw(first_hop_lacks_outbound);
+        _ when InstId == <<>> ->
+            <<>>;
+        RegId0 ->
+            RegId0
     end,
     case RegId of
-        <<>> -> {continue, [Contact, Opts]};
-        _ -> {ok, {ob, InstId, RegId}}
+        <<>> ->
+            {continue, [Contact, Opts]};
+        _ ->
+            {ok, {ob, InstId, RegId}}
     end.

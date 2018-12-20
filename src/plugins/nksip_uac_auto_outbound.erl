@@ -51,7 +51,7 @@ stop_register(Srv, RegId) ->
     
 
 %% @doc Get current registration status.
--spec get_registers(nkservice:name()|nksip:srv_id()) -> 
+-spec get_registers(nkservice:name()|nkservice:id()) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(Srv) ->

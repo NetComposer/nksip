@@ -61,24 +61,33 @@ send_prack(Resp, Id, DialogId, Call) ->
     #call{trans=Trans} = Call,
     try
         case nksip_sipmsg:header(<<"rseq">>, Resp, integers) of
-            [RSeq] when RSeq > 0 -> ok;
-            _ -> RSeq = throw(invalid_rseq)
+            [RSeq] when RSeq > 0 ->
+                ok;
+            _ ->
+                RSeq = throw(invalid_rseq)
         end,
-        case lists:keyfind(Id, #trans.id, Trans) of
-            #trans{} = UAC -> ok;
-            _ -> UAC = throw(no_transaction)
+        UAC = case lists:keyfind(Id, #trans.id, Trans) of
+            #trans{} = UAC0 ->
+                UAC0;
+            _ ->
+                throw(no_transaction)
         end,
         #trans{method=Method, meta=Meta, opts=UACOpts} = UAC,
         PRAcks = nklib_util:get_value(nksip_100rel_pracks, Meta, []),
         LastRSeq = nklib_util:get_value(nksip_100rel_rseq, Meta, 0),
         case LastRSeq of
-            0 -> ok;
-            _ when RSeq==LastRSeq+1 -> ok;
-            _ -> throw(rseq_out_of_order)
+            0 ->
+                ok;
+            _ when RSeq==LastRSeq+1 ->
+                ok;
+            _ ->
+                throw(rseq_out_of_order)
         end,
-        case nksip_call_dialog:find(DialogId, Call) of
-            #dialog{invite=#invite{sdp_offer={remote, invite, RemoteSDP}}} -> ok;
-            _ -> RemoteSDP = <<>>
+        RemoteSDP = case nksip_call_dialog:find(DialogId, Call) of
+            #dialog{invite=#invite{sdp_offer={remote, invite, RemoteSDP0}}} ->
+                RemoteSDP0;
+            _ ->
+                <<>>
         end,
         Body = case nklib_util:get_value(prack_callback, UACOpts) of
             Fun when is_function(Fun, 2) -> 
@@ -145,8 +154,10 @@ uas_store_info(Resp, UAS) ->
     case nklib_util:get_value(nksip_100rel_pracks, Meta, []) of
         [] ->
             RSeq = case nklib_util:get_value(nksip_100rel_rseq, Meta, 0) of
-                0 -> nklib_util:rand(1, 2147483647);
-                LastRSeq -> LastRSeq+1
+                0 ->
+                    nklib_util:rand(1, 2147483647);
+                LastRSeq ->
+                    LastRSeq+1
             end,
             Headers1 = nksip_headers:update(Resp, [{single, <<"rseq">>, RSeq}]),
             Resp1 = Resp#sipmsg{headers=Headers1},
@@ -227,8 +238,10 @@ retrans_timer(UAS, Call) ->
     #call{times=#call_times{t1=T1}} = Call,
     nksip_call_lib:cancel_timer(Retrans0),
     Time = case is_integer(Next) of
-        true -> Next;
-        false -> T1
+        true ->
+            Next;
+        false ->
+            T1
     end, 
     Retrans1 = nksip_call_lib:start_timer(Time, nksip_100rel_prack_retrans, UAS),
     UAS#trans{retrans_timer=Retrans1, next_retrans = 2*Time}.

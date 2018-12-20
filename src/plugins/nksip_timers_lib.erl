@@ -185,17 +185,22 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
             {SE0, Refresh0};
         undefined ->            
             case parse(Req) of
-                {ok, SE0, Refresh0} -> {SE0, Refresh0};
-                _ -> {Default, undefined}
+                {ok, SE0, Refresh0} ->
+                    {SE0, Refresh0};
+                _ ->
+                    {Default, undefined}
             end;
         invalid ->
             ?CALL_LOG(warning, "Invalid Session-Expires in response", [], Call),
             {Default, undefined}
     end,
     Type = case Class==Refresh of
-        true -> refresher;
-        false when Refresh/=undefined -> refreshed;
-        false -> none
+        true ->
+            refresher;
+        false when Refresh/=undefined ->
+            refreshed;
+        false ->
+            none
     end,
     ?CALL_LOG(info, "session timer updated (~p, ~p)", [{Class, Refresh, Type}, SE], Call),
     {Type, SE}.
@@ -213,21 +218,26 @@ make_uac_dialog(Method, Dialog, Call) ->
             {SE1, MinSE} = case 
                 nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
             of
-                undefined -> {SE, undefined};
-                CurrMinSE -> {max(SE, CurrMinSE), CurrMinSE}
+                undefined ->
+                    {SE, undefined};
+                CurrMinSE ->
+                    {max(SE, CurrMinSE), CurrMinSE}
             end,
             % Do not change the roles, if a refresh is sent from the 
             % refreshed instead of the refresher
             RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
             Class = case is_reference(RefreshTimer) of
-                true -> uac;
-                false -> uas
+                true ->
+                    uac;
+                false ->
+                    uas
             end,
             [
                 {sip_timers_se, {SE1, Class}} |
                 case is_integer(MinSE) of true -> 
                     [{sip_timers_min_se, MinSE}]; 
-                    false -> [] 
+                    false ->
+                        []
                 end
             ];
         _ ->
@@ -259,8 +269,10 @@ uac_received_422(Req, Resp, UAC, Call) ->
                     CurrentMinSE = case 
                         nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                     of
-                        undefined -> ConfigMinSE;
-                        CurrentMinSE0 -> CurrentMinSE0
+                        undefined ->
+                            ConfigMinSE;
+                        CurrentMinSE0 ->
+                            CurrentMinSE0
                     end,
                     NewMinSE = max(CurrentMinSE, RespMinSE),
                     Call1 = case NewMinSE of 
@@ -274,9 +286,12 @@ uac_received_422(Req, Resp, UAC, Call) ->
                         {ok, SE0, Class0} ->
                             SE1 = max(SE0, NewMinSE),
                             SEHd = case Class0 of
-                                uac -> {SE1, [{<<"refresher">>, <<"uac">>}]};
-                                uas -> {SE1, [{<<"refresher">>, <<"uas">>}]};
-                                undefined -> SE1
+                                uac ->
+                                    {SE1, [{<<"refresher">>, <<"uac">>}]};
+                                uas ->
+                                    {SE1, [{<<"refresher">>, <<"uas">>}]};
+                                undefined ->
+                                    SE1
                             end,
                             Headers1 = nksip_headers:update(Req, [
                                 {single, <<"session-expires">>, SEHd},
@@ -315,8 +330,10 @@ uas_check_422(#sipmsg{srv=SrvId, class={req, Method}}=Req, Call) ->
                             Call1 = case 
                                 nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                             of
-                                MinSE -> Call;
-                                _ -> nksip_call_dialog:update_meta(nksip_min_se, MinSE, 
+                                MinSE ->
+                                    Call;
+                                _ ->
+                                    nksip_call_dialog:update_meta(nksip_min_se, MinSE,
                                                                    DialogId, Call)
                             end,
                             case nksip_sipmsg:supported(<<"timer">>, Req) of
@@ -353,19 +370,25 @@ uas_dialog_response(
             #sipmsg{require=Require} = Resp,
             ReqSupport = nksip_sipmsg:supported(<<"timer">>, Req),
             ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
-                [ReqMinSE0] -> ReqMinSE0;
-                _ -> 90
+                [ReqMinSE0] ->
+                    ReqMinSE0;
+                _ ->
+                    90
             end,
             {ReqSE, ReqRefresh} = case 
                 ReqSupport andalso parse(Req) 
             of
-                {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
-                _ -> {0, undefined}
+                {ok, ReqSE0, ReqRefresh0} ->
+                    {ReqSE0, ReqRefresh0};
+                _ ->
+                    {0, undefined}
             end,
             {Default, _} = SrvId:config_nksip_timers(),
             SE = case ReqSE of
-                0 -> max(ReqMinSE, Default);
-                _ -> max(ReqMinSE, min(ReqSE, Default))
+                0 ->
+                    max(ReqMinSE, Default);
+                _ ->
+                    max(ReqMinSE, min(ReqSE, Default))
             end,
             Refresh = case ReqRefresh of
                 uac -> <<"uac">>;
@@ -377,8 +400,10 @@ uas_dialog_response(
                             [{default_single, <<"session-expires">>, SE_Token}]),
             % Add 'timer' to response's Require only if supported by uac
             Require1 = case ReqSupport of
-                true -> nklib_util:store_value(<<"timer">>, Require);
-                false -> Require
+                true ->
+                    nklib_util:store_value(<<"timer">>, Require);
+                false ->
+                    Require
             end,
             Resp#sipmsg{require=Require1, headers=Headers1};
         false ->
@@ -396,17 +421,23 @@ uas_dialog_response(_Req, Resp, _Call) ->
 uac_pre_request(#sipmsg{srv=SrvId, class={req, Method}}=Req, _Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
     ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
-        [ReqMinSE0] -> ReqMinSE0;
-        _ -> 90
+        [ReqMinSE0] ->
+            ReqMinSE0;
+        _ ->
+            90
     end,
     ReqSE = case parse(Req) of
-        {ok, ReqSE0, _} -> ReqSE0;
-        _ -> 0
+        {ok, ReqSE0, _} ->
+            ReqSE0;
+        _ ->
+            0
     end,
     {Default, _} = SrvId:config_nksip_timers(),
     SE = case ReqSE of
-        0 -> max(ReqMinSE, Default);
-        _ -> max(ReqMinSE, min(ReqSE, Default))
+        0 ->
+            max(ReqMinSE, Default);
+        _ ->
+            max(ReqMinSE, min(ReqSE, Default))
     end,
     case SE of
         ReqSE -> 
@@ -462,9 +493,12 @@ parse(SipMsg) ->
             case nklib_util:to_integer(SE) of
                 SE1 when is_integer(SE1), SE1>0 -> 
                     case nklib_util:get_binary(<<"refresher">>, Opts) of
-                        <<"uac">> -> {ok, SE1, uac};
-                        <<"uas">> -> {ok, SE1, uas};
-                        _ -> {ok, SE1, undefined}
+                        <<"uac">> ->
+                            {ok, SE1, uac};
+                        <<"uas">> ->
+                            {ok, SE1, uas};
+                        _ ->
+                            {ok, SE1, undefined}
                     end;
                 _ ->
                     invalid

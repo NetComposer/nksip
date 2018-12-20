@@ -53,7 +53,8 @@ parse(Name, Value) when is_binary(Name) ->
         {Result, _} = header(Name, Value),
         {Name, Result}
     catch
-        throw:invalid -> throw({invalid, Name})
+        throw:invalid ->
+            throw({invalid, Name})
     end.
 
 
@@ -67,33 +68,46 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
         case header(Name, Value) of
             {Result, Pos} when is_integer(Pos) -> 
                 Result1 = case Name of
-                    <<"from">> -> update_tag(Result, Req#sipmsg.from);
-                    <<"to">> -> update_tag(Result, Req#sipmsg.to);
-                    _ -> Result
+                    <<"from">> ->
+                        update_tag(Result, Req#sipmsg.from);
+                    <<"to">> ->
+                        update_tag(Result, Req#sipmsg.to);
+                    _ ->
+                        Result
                 end,
                 setelement(Pos, Req, Result1);
             {Result, {add, Pos}} ->
                 Old = element(Pos, Req),
                 Value1 = case Policy of
-                    pre when is_list(Old), is_list(Result) -> Result++Old;
-                    post when is_list(Old), is_list(Result) -> Old++Result;
-                    replace when Value == <<>>; Value== [] -> [];
-                    replace -> Result;  
-                    _ -> throw(invalid)
+                    pre when is_list(Old), is_list(Result) ->
+                        Result++Old;
+                    post when is_list(Old), is_list(Result) ->
+                        Old++Result;
+                    replace when Value == <<>>; Value== [] ->
+                        [];
+                    replace ->
+                        Result;
+                    _ ->
+                        throw(invalid)
                 end,
                 setelement(Pos, Req, Value1);
             {Result, add} ->
                 Old = Req#sipmsg.headers,
                 Headers = case Policy of
-                    pre -> [{Name, Result}|Old]; 
-                    post -> Old++[{Name, Result}];
-                    replace when Value == <<>>; Value==[] -> nklib_util:delete(Old, Name);
-                    replace -> [{Name, Result}|nklib_util:delete(Old, Name)]
+                    pre ->
+                        [{Name, Result}|Old];
+                    post ->
+                        Old++[{Name, Result}];
+                    replace when Value == <<>>; Value==[] ->
+                        nklib_util:delete(Old, Name);
+                    replace ->
+                        [{Name, Result}|nklib_util:delete(Old, Name)]
                 end,
                 Req#sipmsg{headers=Headers}
         end
     catch
-        throw:invalid -> throw({invalid, Name})
+        throw:invalid ->
+            throw({invalid, Name})
     end.
 
 
@@ -140,8 +154,10 @@ header(<<"max-forwards">>, Value) ->
 
 header(<<"call-id">>, Value) -> 
     case nklib_util:to_binary(Value) of
-        <<>> -> throw(invalid);
-        CallId -> {CallId, #sipmsg.call_id}
+        <<>> ->
+            throw(invalid);
+        CallId ->
+            {CallId, #sipmsg.call_id}
     end;
 
 header(<<"route">>, Value) ->
@@ -180,8 +196,10 @@ header(<<"reason">>, Value) ->
             {Value, add};
         false ->
             case nksip_unparse:error_reason(Value) of
-                error -> throw(invalid);
-                Bin -> {Bin, add}
+                error ->
+                    throw(invalid);
+                Bin ->
+                    {Bin, add}
             end
     end;
 
@@ -196,26 +214,34 @@ header(_Name, Value) ->
 
 single_uri(Data) ->
     case nklib_parse:uris(Data) of
-        [#uri{} = Uri] -> Uri;
-        _ -> throw(invalid)
+        [#uri{} = Uri] ->
+            Uri;
+        _ ->
+            throw(invalid)
     end.
 
 uris(Data) ->
     case nklib_parse:uris(Data) of
-        error -> throw(invalid);
-        Uris -> Uris
+        error ->
+            throw(invalid);
+        Uris ->
+            Uris
     end.
 
 vias(Data) ->
     case nksip_parse:vias(Data) of
-        [_|_] = Vias -> Vias;
-        _ -> throw(invalid)
+        [_|_] = Vias ->
+            Vias;
+        _ ->
+            throw(invalid)
     end.
 
 single_token(Data) ->
     case nklib_parse:tokens(Data) of
-        [Token] -> Token;
-        _ -> throw(invalid)
+        [Token] ->
+            Token;
+        _ ->
+            throw(invalid)
     end.
 
 % tokens(Data) ->
@@ -226,8 +252,10 @@ single_token(Data) ->
 
 names(Data) ->
     case nklib_parse:tokens(Data) of
-        error -> throw(invalid);
-        Tokens -> [Token || {Token, _} <- Tokens]
+        error ->
+            throw(invalid);
+        Tokens ->
+            [Token || {Token, _} <- Tokens]
     end.
 
 cseq(Data) ->
@@ -245,8 +273,10 @@ cseq(Data) ->
 
 integer(Data, Min, Max) ->
     case nklib_util:to_integer(Data) of
-        Int when is_integer(Int), Int>=Min, Int=<Max -> Int;
-        _ -> throw(invalid)
+        Int when is_integer(Int), Int>=Min, Int=<Max ->
+            Int;
+        _ ->
+            throw(invalid)
     end.
 
 
@@ -275,9 +305,12 @@ name(Name) when is_binary(Name) ->
 name(Name) when is_atom(Name) ->
     List = [
         case Ch of 
-            $_ -> $-; 
-            _ when Ch>=$A, Ch=<$Z -> Ch+32;
-            _ -> Ch 
+            $_ ->
+                $-;
+            _ when Ch>=$A, Ch=<$Z ->
+                Ch+32;
+            _ ->
+                Ch
         end 
         || Ch <- atom_to_list(Name)
     ],

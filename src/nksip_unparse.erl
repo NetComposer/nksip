@@ -88,8 +88,10 @@ header(Other) ->
 packet(#sipmsg{class={resp, Code, Reason}}=Response) ->
     list_to_binary([<<"SIP/2.0 ">>, nklib_util:to_binary(Code), 32, 
         case Reason of
-            <<>> -> response_phrase(Code);
-            RespText -> RespText
+            <<>> ->
+                response_phrase(Code);
+            RespText ->
+                RespText
         end,
         <<"\r\n">>, serialize(Response)]);
 
@@ -109,8 +111,10 @@ response(Headers, Code, Reason) ->
    list_to_binary([
         "SIP/2.0 ", nklib_util:to_list(Code), 32,
             case Reason of
-                <<>> -> response_phrase(Code);
-                _ -> Reason
+                <<>> ->
+                    response_phrase(Code);
+                _ ->
+                    Reason
             end,
             "\r\n",
         "Via: ", nklib_util:get_binary(<<"via">>, Headers), "\r\n",
@@ -304,8 +308,10 @@ raw_via(#via{}=Via) ->
         <<"SIP/2.0/">>, string:to_upper(nklib_util:to_list(Via#via.transp)), 
         32, Via#via.domain, 
         case Via#via.port of
-            0 -> [];
-            Port -> [$:, integer_to_list(Port)]
+            0 ->
+                [];
+            Port ->
+                [$:, integer_to_list(Port)]
         end,
         nklib_unparse:gen_opts(Via#via.opts)
     ].
@@ -360,10 +366,14 @@ serialize(#sipmsg{
             body = Body
         }) ->
     Body1 = case Body of
-        _ when is_binary(Body) -> Body;
-        [F|_]=Body when is_integer(F) -> Body; 
-        #sdp{} -> nksip_sdp:unparse(Body);
-        _ -> base64:encode(term_to_binary(Body))
+        _ when is_binary(Body) ->
+            Body;
+        [F|_]=Body when is_integer(F) ->
+            Body;
+        #sdp{} ->
+            nksip_sdp:unparse(Body);
+        _ ->
+            base64:encode(term_to_binary(Body))
     end,
     Headers1 = [
         [{<<"Via">>, Via} || Via <- Vias],

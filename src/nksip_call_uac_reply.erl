@@ -167,19 +167,21 @@ response(Resp, Opts) ->
             Handle = nksip_subscription_lib:get_handle(Resp),
             [{subscription, Handle}];
         'PUBLISH' when Code>=200, Code<300 ->
-            Expires = nksip_sipmsg:meta(expires, Resp),
+            Expires = nksip_sipmsg:get_meta(expires, Resp),
             case nksip_sipmsg:header(<<"sip-etag">>, Resp) of
-                [SipETag] -> [{sip_etag, SipETag}, {expires, Expires}];
-                _ -> []
+                [SipETag] ->
+                    [{sip_etag, SipETag}, {expires, Expires}];
+                _ ->
+                    []
             end;
         _ -> 
             []
     end,
-    Metas = case nklib_util:get_value(meta, Opts, []) of
+    Metas = case nklib_util:get_value(get_meta, Opts, []) of
         [] ->
             Metas0;
         Fields when is_list(Fields) ->
-            Metas0 ++ nksip_sipmsg:metas(Fields, Resp);
+            Metas0 ++ nksip_sipmsg:get_metas(Fields, Resp);
         _ ->
             Metas0
     end,

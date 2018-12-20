@@ -299,7 +299,7 @@ service_terminate(_Reason, SrvState) ->
 
 % @doc Called when the status of an automatic registration status changes.
 -spec sip_uac_auto_register_updated_reg(RegId::term(), OK::boolean(),
-                                        SrvId::nksip:srv_id()) ->
+                                        SrvId::nkservice:id()) ->
     ok.
 
 sip_uac_auto_register_updated_reg(_RegId, _OK, _SrvId) ->
@@ -308,7 +308,7 @@ sip_uac_auto_register_updated_reg(_RegId, _OK, _SrvId) ->
 
 %% @doc Called when the status of an automatic ping status changes.
 -spec sip_uac_auto_register_updated_ping(PingId::term(), OK::boolean(),
-                                         SrvId::nksip:srv_id()) ->
+                                         SrvId::nkservice:id()) ->
     ok.
 
 sip_uac_auto_register_updated_ping( _PingId, _OK, _SrvId) ->
@@ -379,13 +379,18 @@ nksip_uac_auto_register_upd_reg(Reg, Code, _Meta, SvcState) when Code<200 ->
 nksip_uac_auto_register_upd_reg(Reg, Code, Meta, SvcState) ->
     #sipreg{interval=Interval, from=From} = Reg,
     case From of
-        undefined -> ok;
-        _ -> gen_server:reply(From, {ok, Code<300})
+        undefined ->
+            ok;
+        _ ->
+            gen_server:reply(From, {ok, Code<300})
     end,
     Time = case Code==503 andalso nklib_util:get_value(retry_after, Meta) of
-        false -> Interval;
-        undefined -> Interval;
-        Retry -> Retry
+        false ->
+            Interval;
+        undefined ->
+            Interval;
+        Retry ->
+            Retry
     end,
     Reg1 = Reg#sipreg{
         ok = Code < 300,
@@ -431,13 +436,18 @@ nksip_uac_auto_register_upd_ping(Ping, Code, _Meta, SvcState) when Code<200 ->
 nksip_uac_auto_register_upd_ping(Ping, Code, Meta, SvcState) ->
     #sipreg{from=From, interval=Interval} = Ping,
     case From of
-        undefined -> ok;
-        _ -> gen_server:reply(From, {ok, Code<300})
+        undefined ->
+            ok;
+        _ ->
+            gen_server:reply(From, {ok, Code<300})
     end,
     Time = case Code==503 andalso nklib_util:get_value(retry_after, Meta) of
-        false -> Interval;
-        undefined -> Interval;
-        Retry -> Retry
+        false ->
+            Interval;
+        undefined ->
+            Interval;
+        Retry ->
+            Retry
     end,
     Ping1 = Ping#sipreg{
         ok = Code < 300,

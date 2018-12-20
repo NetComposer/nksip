@@ -458,15 +458,15 @@ nksip_preparse(SipMsg, Headers) ->
 %% Service callbacks.
 %% @end
 %%----------------------------------------------------------------
--spec nksip_user_callback( Function, Args, ServiceId ) -> Result when
-			Function 			:: atom(),
+-spec nksip_user_callback( ServiceId, Function, Args ) -> Result when
+            ServiceId 			:: nkservice:id(),
+            Function 			:: atom(),
 			Args 				:: list(),
-			ServiceId 			:: nkservice:id(),
-			Result 				:: {ok, term()} 
+			Result 				:: {ok, term()}
 				| error 
 				| continue().
 
-nksip_user_callback(Fun, Args, SrvId) ->
+nksip_user_callback(SrvId, Fun, Args) ->
 	case catch apply(SrvId, Fun, Args) of
 	    {'EXIT', Error} -> 
 	        ?CALL_LOG(error, "Error calling callback ~p/~p: ~p", [Fun, length(Args), Error]),
@@ -494,8 +494,10 @@ nksip_user_callback(Fun, Args, SrvId) ->
 nksip_authorize_data(List, #trans{request=Req}, Call) ->
 	Digest = nksip_auth:authorize_data(Req, Call),
 	Dialog = case nksip_call_lib:check_auth(Req, Call) of
-        true -> dialog;
-        false -> []
+        true ->
+			dialog;
+        false ->
+			[]
     end,
     {ok, lists:flatten([Digest, Dialog, List])}.
 

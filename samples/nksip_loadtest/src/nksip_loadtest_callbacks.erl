@@ -47,6 +47,6 @@ sip_route(_Request, _Scheme, _User, _Domain, _From) ->
 
 %% @doc Answer the call with the same SDP body
 sip_invite(Req, _Call) ->
-	{ok, SDP} = nksip_request:meta(body, Req),
+	{ok, SDP} = nksip_request:get_meta(body, Req),
     {reply, {ok, [{body, SDP}]}}.
 

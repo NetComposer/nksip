@@ -109,8 +109,10 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     Call1 = update(UAC1, Call),
     Call2 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call1),
     case lists:member(no_dialog, Opts) of
-        true -> Call1;
-        false -> nksip_call_uac_dialog:request(Req, undefined, Call2)
+        true ->
+            Call1;
+        false ->
+            nksip_call_uac_dialog:request(Req, undefined, Call2)
     end;
 
 sent_request(Req, UAC, Call) ->
@@ -138,7 +140,10 @@ sent_request(Req, UAC, Call) ->
         false when ToTag == <<>> -> 
             Call1;
         false -> 
-            IsProxy = case From of {fork, _} -> true; _ -> false end,
+            IsProxy = case From of
+                {fork, _} -> true;
+                _ -> false
+            end,
             nksip_call_uac_dialog:request(Req, IsProxy, Call1)
     end,
     Call3 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call2),
@@ -174,8 +179,10 @@ sent_update(#sipmsg{class={req, Method}}=Req, #trans{transp=Transp}=UAC, Call) -
     Call1 = case 
         (Method=='SUBSCRIBE' orelse Method=='REFER') andalso ToTag == <<>> 
     of
-        true -> nksip_call_event:create_prov_event(Req, Call);
-        false -> Call
+        true ->
+            nksip_call_event:create_prov_event(Req, Call);
+        false ->
+            Call
     end,
     update(UAC3, Call1).
 

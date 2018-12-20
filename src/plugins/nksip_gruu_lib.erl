@@ -39,8 +39,10 @@
 update_gruu(#sipmsg{srv=SrvId, contacts=Contacts, class={resp, Code, _},
                       cseq={_, Method}}) ->
     case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
-        true -> find_gruus(SrvId, Contacts);
-        false -> ok
+        true ->
+            find_gruus(SrvId, Contacts);
+        false ->
+            ok
     end.
 
 
@@ -71,8 +73,10 @@ find_gruus(SrvId, [#uri{ext_opts=Opts}|Rest]) ->
             end
     end,
     case HasPubGruu andalso HasTmpGruu of
-        true -> ok;
-        false -> find_gruus(SrvId, Rest)
+        true ->
+            ok;
+        false ->
+            find_gruus(SrvId, Rest)
     end;
 
 find_gruus(_, []) ->
@@ -154,8 +158,10 @@ update_regcontact(RegContact, Base, Req, Opts) ->
     end,
     #uri{scheme=Scheme, ext_opts=ExtOpts} = Contact,
     InstId = case nklib_util:get_value(<<"+sip.instance">>, ExtOpts) of
-        undefined -> <<>>;
-        Inst0 -> nklib_util:hash(Inst0)
+        undefined ->
+            <<>>;
+        Inst0 ->
+            nklib_util:hash(Inst0)
     end,
     Expires = nklib_util:get_integer(<<"expires">>, ExtOpts),
     case 
@@ -164,8 +170,10 @@ update_regcontact(RegContact, Base, Req, Opts) ->
     of
         true ->
             case Scheme of
-                sip -> ok;
-                _ -> throw({forbidden, "Invalid Contact"})
+                sip ->
+                    ok;
+                _ ->
+                    throw({forbidden, "Invalid Contact"})
             end,
             {AORScheme, AORUser, AORDomain} = aor(To),
             PubUri = #uri{

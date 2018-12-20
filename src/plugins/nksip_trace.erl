@@ -53,8 +53,10 @@
 get_all() ->
     Fun = fun({SrvId, SrvName, _Pid}, Acc) ->
         case catch SrvId:config_nksip_trace() of
-            {'EXIT', _} -> Acc;
-            {File, IpList} -> [{SrvName, File, IpList}]
+            {'EXIT', _} ->
+                Acc;
+            {File, IpList} ->
+                [{SrvName, File, IpList}]
         end
     end,
     lists:foldl(Fun, [], nkservice:get_all(nksip)).
@@ -96,8 +98,10 @@ start(Srv, File, IpList) ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
             case nksip:update(SrvId, #{plugins=>Plugins2, sip_trace=>{File, IpList}}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
+                ok ->
+                    ok;
+                {error, Error} ->
+                    {error, Error}
             end;
         not_found ->
             {error, service_not_found}
@@ -123,8 +127,10 @@ stop(Srv) ->
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_trace],
             case nksip:update(Srv, #{plugins=>Plugins}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
+                ok ->
+                    ok;
+                {error, Error} ->
+                    {error, Error}
             end;
         not_found ->
             {error, service_not_found}
@@ -192,8 +198,10 @@ get_config(Id, Trace) ->
                 case norm_file(File0) of
                     {ok, File1} ->
                         case norm_iplist(IpList0, []) of
-                            {ok, IpList1} -> {File1, IpList1};
-                            error -> throw({invalid_re, IpList0})
+                            {ok, IpList1} ->
+                                {File1, IpList1};
+                            error ->
+                                throw({invalid_re, IpList0})
                         end;
                     error ->
                         throw({invalid_file, File0})
@@ -220,7 +228,8 @@ get_config(Id, Trace) ->
                 throw({invalid_config, {could_not_open, File}})
         end
     catch
-        throw:Error -> {error, Error}
+        throw:Error ->
+            {error, Error}
     end.
 
 
@@ -290,8 +299,10 @@ compile_ips([], Acc) ->
 
 compile_ips([Ip|Rest], Acc) when is_binary(Ip) ->
     case re:compile(Ip) of
-        {ok, Comp} -> compile_ips(Rest, [Comp|Acc]);
-        {error, _Error} -> error
+        {ok, Comp} ->
+            compile_ips(Rest, [Comp|Acc]);
+        {error, _Error} ->
+            error
     end;
 
 compile_ips([Re|Rest], Acc) when element(1, Re)==re_pattern ->
@@ -325,15 +336,21 @@ print_packet(SrvId, Info,
                     remote_port = RPort
                 }, 
                 Binary) ->
-    case catch inet_parse:ntoa(RIp) of
-        {error, _} -> RHost = <<"undefined">>;
-        {'EXIT', _} -> RHost = <<"undefined">>;
-        RHost -> ok
+    RHost = case catch inet_parse:ntoa(RIp) of
+        {error, _} ->
+            <<"undefined">>;
+        {'EXIT', _} ->
+            <<"undefined">>;
+        RHost0 ->
+            RHost0
     end,
-    case catch inet_parse:ntoa(LIp) of
-        {error, _} -> LHost = <<"undefined">>;
-        {'EXIT', _} -> LHost = <<"undefined">>;
-        LHost -> ok
+    LHost = case catch inet_parse:ntoa(LIp) of
+        {error, _} ->
+            <<"undefined">>;
+        {'EXIT', _} ->
+            <<"undefined">>;
+        LHost0 ->
+            LHost0
     end,
     Lines = [
         [<<"        ">>, Line, <<"\n">>]
@@ -350,8 +367,10 @@ has_ip([], _) ->
     false;
 has_ip([Ip|Rest], IpList) ->
     case has_ip2(Ip, IpList) of
-        true -> true;
-        false -> has_ip(Rest, IpList)
+        true ->
+            true;
+        false ->
+            has_ip(Rest, IpList)
     end.
 
 
@@ -360,8 +379,10 @@ has_ip2(_Ip, []) ->
     false;
 has_ip2(Ip, [Re|Rest]) ->
     case re:run(inet_parse:ntoa(Ip), Re) of
-        {match, _} -> true;
-        nomatch -> has_ip2(Ip, Rest)
+        {match, _} ->
+            true;
+        nomatch ->
+            has_ip2(Ip, Rest)
     end.
 
 
