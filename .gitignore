@@ -13,3 +13,5 @@ edocs/
 .tags_sorted_by_file
 _build
 rebar.lock
+/.rebar3
+/_checkouts

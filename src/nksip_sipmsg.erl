@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -67,8 +67,8 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
     case Name of
         handle -> get_handle(S);
         internal_id -> S#sipmsg.id;
-        srv_id -> S#sipmsg.srv_id;
-        srv_name -> apply(S#sipmsg.srv_id, name, []);
+        srv_id -> S#sipmsg.srv;
+        srv_name -> apply(S#sipmsg.srv, name, []);
         dialog_handle -> nksip_dialog_lib:get_handle(S);
         subscription_handle -> nksip_subscription_lib:get_handle(S);
         transp -> 
@@ -78,9 +78,9 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
             end;
         local -> 
             case S#sipmsg.nkport of 
-                #nkport{transp=T, local_ip=Ip, local_port=Port, meta=Meta} 
+                #nkport{transp=T, local_ip=Ip, local_port=Port, opts=Opts}
                         when T==ws; T==wss -> 
-                    {T, Ip, Port, maps:get(path, Meta, <<>>)};
+                    {T, Ip, Port, maps:get(path, Opts, <<>>)};
                 #nkport{transp=T, local_ip=Ip, local_port=Port} -> 
                     {T, Ip, Port, <<>>};
                 _ -> 
@@ -88,9 +88,9 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
             end;
         remote -> 
             case S#sipmsg.nkport of 
-                #nkport{transp=T, remote_ip=Ip, remote_port=Port, meta=Meta} 
+                #nkport{transp=T, remote_ip=Ip, remote_port=Port, opts=Opts}
                         when T==ws; T==wss -> 
-                    {T, Ip, Port, maps:get(path, Meta, <<>>)};
+                    {T, Ip, Port, maps:get(path, Opts, <<>>)};
                 #nkport{transp=T, remote_ip=Ip, remote_port=Port} -> 
                     {T, Ip, Port, <<>>};
                 _ -> 
@@ -344,34 +344,45 @@ expired(#sipmsg{expires=Expires, start=Start}=Req) ->
 
 
 
-%% @private
--spec get_handle(nksip:request()|nksip:response()|nksip:handle()) ->
+
+
+-spec get_handle(nksip:request()|nksip:response()) ->
     nksip:handle().
 
-get_handle(<<Ch, _/binary>>=Handle) when Ch==$R; Ch==$S ->
-    Handle;
+get_handle(#sipmsg{id=MsgId, call_id=CallId}) ->
+    {sipmsg, MsgId, CallId, self()}.
 
-get_handle(#sipmsg{srv_id=SrvId, class=Class, id=MsgId, call_id=CallId}) ->
-    <<
-        case Class of
-            {req, _} -> $R;
-            {resp, _, _} -> $S
-        end,
-        $_,
-        MsgId/binary,
-        $_,
-        (atom_to_binary(SrvId, latin1))/binary,
-        $_,
-        CallId/binary
-    >>;
 
-get_handle(_) ->
-    error(invalid_handle).
+
+
+%%%% @private
+%%-spec get_handle(nksip:request()|nksip:response()|nksip:handle()) ->
+%%    nksip:handle().
+%%
+%%get_handle(<<Ch, _/binary>>=Handle) when Ch==$R; Ch==$S ->
+%%    Handle;
+%%
+%%get_handle(#sipmsg{srv=SrvId, class=Class, id=MsgId, call_id=CallId}) ->
+%%    <<
+%%        case Class of
+%%            {req, _} -> $R;
+%%            {resp, _, _} -> $S
+%%        end,
+%%        $_,
+%%        MsgId/binary,
+%%        $_,
+%%        (atom_to_binary(SrvId, latin1))/binary,
+%%        $_,
+%%        CallId/binary
+%%    >>;
+%%
+%%get_handle(_) ->
+%%    error(invalid_handle).
     
 
-%% @private
+%% @private TODO: MUST REPLY PKGID
 -spec parse_handle(nksip:handle()) -> 
-    {req|resp, nksip:srv_id(), id(), nksip:call_id()}.
+    {req|resp, nkservice:id(), nkservice:package_id(), id(), nksip:call_id()}.
 
 parse_handle(<<Ch, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>>)
          when Ch==$R; Ch==$S ->

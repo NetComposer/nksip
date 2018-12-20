@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,7 +27,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
-
+-include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -36,14 +36,14 @@
 
 
 -type work() :: 
-    {send, nksip:request(), nksip:optslist()} |
-    {send, nksip:method(), nksip:user_uri(), nksip:optslist()} |
-    {send_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
+    {send, nksip:request(), [nksip_uac:req_option()]} |
+    {send, nksip:method(), nksip:user_uri(), [nksip_uac:req_option()]} |
+    {send_dialog, nksip_dialog_lib:id(), nksip:method(), [nksip_uac:req_option()]} |
     {send_cancel, nksip_sipmsg:id(), nksip:sipreply()} |
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
-    {incoming, nksip:srv_id(), nksip:call_id(), nkpacket:nkport(), binary()} | 
+    {incoming, nkservice:id(), nkservide:package_id(), nksip:call_id(), nkpacket:nkport(), binary()} |
     info |
     get_all_dialogs | 
     {stop_dialog, nksip_dialog_lib:id()} |
@@ -69,9 +69,8 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{srv_id=SrvId, call_id=CallId} = Call,
-    Opts1 = [{call_id, CallId} | Opts],
-    case nksip_call_uac_make:make(SrvId, Method, Uri, Opts1) of
+    #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
+    case nksip_call_uac_make:make(SrvId, PkgId, Method, Uri, CallId, Opts) of
         {ok, Req, ReqOpts} -> 
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
@@ -112,7 +111,7 @@ work({send_reply, ReqId, SipReply}, From, Call) ->
             Call
     end;
 
-work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
+work({incoming, #sipmsg{class={req, _}}=Req}, _From, Call) ->
     nksip_call_uas:request(Req, Call);
 
 work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
@@ -123,25 +122,26 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
             nksip_call_uac:response(Resp, Call)
     end;
 
-work({incoming, SrvId, CallId, NkPort, Msg}, none, Call) ->
-    case nksip_parse:packet(SrvId, CallId, NkPort, Msg) of
+work({incoming, NkPort, Msg}, _From, Call) ->
+    #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
+    case nksip_parse:packet(SrvId, PkgId, CallId, NkPort, Msg) of
         {ok, SipMsg} ->
-            SrvId:nks_sip_connection_recv(SipMsg, Msg),
+            ?CALL_SRV(SrvId, nks_sip_connection_recv, [SipMsg, Msg]),
             work({incoming, SipMsg}, none, Call);
-        {error, Error} ->
-            ?call_warning("Error parsing SipMsg1: ~p", [Error]),
+        {error, _Error} ->
+            ?CALL_LOG(warning, "Error parsing SipMsg1: ~p", [_Error], Call),
             Call;
-        {reply_error, Error, Reply} ->
+        {reply_error, _Error, Reply} ->
             case nksip_util:get_connected(SrvId, NkPort) of
                 [Pid|_] -> 
                     case nkpacket_connection:send(Pid, Reply) of
                         ok -> 
                             ok;
                         {error, _SendError} -> 
-                            ?call_warning("Error parsing SipMsg2: ~p", [Error])
+                            ?CALL_LOG(warning, "Error parsing SipMsg2: ~p", [_Error], Call)
                     end;
                 [] ->
-                    ?call_warning("Error parsing SipMsg3: ~p", [Error])
+                    ?CALL_LOG(warning, "Error parsing SipMsg3: ~p", [_Error], Call)
             end,
             Call
     end;
@@ -154,10 +154,10 @@ work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
 work({stop_dialog, DialogId}, From, Call) ->
     case get_dialog(DialogId, Call) of
         {ok, Dialog} ->
-            gen_fsm:reply(From, ok),
+            gen_statem:reply(From, ok),
             nksip_call_dialog:stop(forced, Dialog, Call);
         not_found ->
-            gen_fsm:reply(From, {error, unknown_dialog}),
+            gen_statem:reply(From, {error, unknown_dialog}),
             Call
     end;
 
@@ -213,7 +213,7 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
 
 work(info, From, Call) -> 
     #call{
-        srv_id = SrvId, 
+        srv = SrvId,
         call_id = CallId, 
         trans = Trans, 
         dialogs = Dialogs,

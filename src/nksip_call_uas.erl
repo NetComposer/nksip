@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -104,7 +104,7 @@ is_trans_ack(_, _) ->
     nksip_call:call().
 
 process_trans_ack(InvUAS, Call) ->
-    #trans{id=Id, status=Status, transp=Transp} = InvUAS,
+    #trans{id=_Id, status=Status, transp=Transp} = InvUAS,
     case Status of
         invite_completed ->
             InvUAS1 = InvUAS#trans{response=undefined},
@@ -117,13 +117,13 @@ process_trans_ack(InvUAS, Call) ->
                     InvUAS3 = InvUAS2#trans{status=finished},
                     nksip_call_lib:timeout_timer(cancel, InvUAS3, Call)
             end,
-            ?call_debug("InvUAS ~p received in-transaction ACK", [Id]),
+            ?CALL_DEBUG("InvUAS ~p received in-transaction ACK", [_Id], Call),
             update(InvUAS4, Call);
         invite_confirmed ->
-            ?call_debug("InvUAS ~p received non 2xx ACK in ~p", [Id, Status]),
+            ?CALL_DEBUG("InvUAS ~p received non 2xx ACK in ~p", [_Id, Status], Call),
             Call;
         _ ->
-            ?call_notice("InvUAS ~p received non 2xx ACK in ~p", [Id, Status]),
+            ?CALL_LOG(notice, "InvUAS ~p received non 2xx ACK in ~p", [_Id, Status], Call),
             Call
     end.
 
@@ -147,24 +147,24 @@ is_retrans(Req, #call{trans=Trans}) ->
     nksip_call:call().
 
 process_retrans(UAS, Call) ->
-    #trans{id=Id, status=Status, method=Method, response=Resp} = UAS,
+    #trans{id=_Id, status=Status, method=_Method, response=Resp} = UAS,
     case 
         Status==invite_proceeding orelse Status==invite_completed
         orelse Status==proceeding orelse Status==completed
     of
         true when is_record(Resp, sipmsg) ->
-            #sipmsg{class={resp, Code, _Reason}} = Resp,
+            #sipmsg{class={resp, _Code, _Reason}} = Resp,
             case nksip_call_uas_transp:resend_response(Resp, []) of
                 {ok, _} ->
-                    ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
-                               [Id, Method, Status, Code]);
+                    ?CALL_LOG(info, "UAS ~p ~p (~p) sending ~p retransmission",
+                               [_Id, _Method, Status, _Code], Call);
                 {error, _} ->
-                    ?call_notice("UAS ~p ~p (~p) could not send ~p retransmission", 
-                                  [Id, Method, Status, Code])
+                    ?CALL_LOG(notice, "UAS ~p ~p (~p) could not send ~p retransmission",
+                                  [_Id, _Method, Status, _Code], Call)
             end;
         _ ->
-            ?call_info("UAS ~p ~p received retransmission in ~p", 
-                       [Id, Method, Status])
+            ?CALL_LOG(info, "UAS ~p ~p received retransmission in ~p",
+                       [_Id, _Method, Status], Call)
     end,
     Call.
 
@@ -205,7 +205,7 @@ process_request(Req, UASTransId, Call) ->
         next = NextId, 
         msgs = Msgs
     } = Call,
-    ?call_debug("UAS ~p started for ~p (~s)", [NextId, Method, MsgId]),
+    ?CALL_DEBUG("UAS ~p started for ~p (~s)", [NextId, Method, MsgId], Call),
     LoopId = loop_id(Req1),
     DialogId = nksip_dialog_lib:make_id(uas, Req1),
     Status = case Method of
@@ -342,7 +342,7 @@ preprocess(Req) ->
 %%   in the ruri
 %%
 %% TODO: Is this working?
-strict_router(#sipmsg{srv_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
+strict_router(#sipmsg{srv=SrvId, ruri=RUri, routes=Routes}=Request) ->
     case 
         nklib_util:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
         andalso nksip_util:is_local(SrvId, RUri) of
@@ -351,7 +351,7 @@ strict_router(#sipmsg{srv_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
             [] ->
                 Request;
             [RUri1|RestRoutes] ->
-                ?call_notice("recovering RURI from strict router request", []),
+                ?CALL_LOG(notice, "recovering RURI from strict router request", []),
                 Request#sipmsg{ruri=RUri1, routes=lists:reverse(RestRoutes)}
         end;
     false ->
@@ -364,7 +364,7 @@ strict_router(#sipmsg{srv_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
 % this address, default port and no transport parameter
 ruri_has_maddr(Request) ->
     #sipmsg{
-        srv_id = SrvId, 
+        srv = SrvId,
         ruri = RUri, 
         nkport = NkPort
     } = Request,

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -274,7 +274,7 @@ unparse(#sdp{}=SDP) ->
 
 unparse(_) ->
     undefined.
-    
+
 
 
 %% ===================================================================
@@ -465,6 +465,7 @@ join([], Acc) -> lists:reverse(Acc).
 %% ===================================================================
 
 
+% -define(TEST, 1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -654,6 +655,8 @@ sdp4_test() ->
     >>,
     ?assertMatch(Bin, unparse(SDP)),
     ?assertMatch(SDP, parse(Bin)).
+
+
 
 
 -endif.

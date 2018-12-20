@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -202,13 +202,25 @@
                 | {error, term()}.
 
 start(Name, Opts) ->
-    Opts1 = nklib_util:to_map(Opts),
-    Opts2 = Opts1#{
-        class => nksip,
-        plugins => [nksip|maps:get(plugins, Opts1, [])],
-        sip_listen => maps:get(sip_listen, Opts1, "sip:all")
+    Plugins = maps:get(plugins, Opts, []),
+    Listen = maps:get(sip_listen, Opts, "sip:all"),
+    Config = maps:without([callback, plugins], Opts),
+    Service1 = #{
+        plugins => Plugins,
+        packages => [
+            #{
+                class => ?PACKAGE_CLASS_SIP,
+                config => Config#{sip_listen => Listen}
+            }
+        ]
     },
-    nkservice:start(Name, Opts2).
+    Service2 = case maps:find(callback, Opts) of
+        {ok, Callback} ->
+            Service1#{callback => Callback};
+        error ->
+            Service1
+    end,
+    nkservice:start(Name, Service2).
 
 
 %%----------------------------------------------------------------
