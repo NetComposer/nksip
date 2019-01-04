@@ -40,7 +40,7 @@
 
 %% @doc Service intialization.
 service_init(_Opts, State) ->
-    nkservice:put(server, started, httpd_util:rfc1123_date()),
+     nkserver:put(server, started, httpd_util:rfc1123_date()),
     {ok, State}.
 
 

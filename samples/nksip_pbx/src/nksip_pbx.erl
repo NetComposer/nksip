@@ -58,7 +58,7 @@ check_speed(Bool) ->
 
 %% @doc Get all registered endpoints with their last respnse time.
 get_speed() ->
-    nkservice:call(pbx, get_speed).
+     nkserver_srv:call(pbx, get_speed).
 
 
 %% @doc Enables SIP trace messages to console.
