@@ -15,8 +15,8 @@
 -module(nksip_timers).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -export([get_session_expires/1, get_session_refresh/1]).
 
@@ -40,9 +40,11 @@ get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
 
 get_session_expires(Handle) ->
     Fun = fun(#dialog{}=Dialog) -> get_session_expires(Dialog) end,
-    case nksip_dialog:meta({function, Fun}, Handle) of
-        {ok, Value} -> Value;
-        {error, Error} -> {error, Error}
+    case nksip_dialog:get_meta({function, Fun}, Handle) of
+        {ok, Value} ->
+            Value;
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -55,23 +57,27 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
         true ->
             RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
             case is_reference(RefreshTimer) of
-                true -> 
+                true ->
                     case erlang:read_timer(RefreshTimer) of
-                        false -> {ok, expired};
-                        IR -> {ok, IR}
+                        false ->
+                            {ok, expired};
+                        IR ->
+                            {ok, IR}
                     end;
                 false ->
                     {ok, undefined}
             end;
-        false -> 
+        false ->
             {ok, undefined}
     end;
 
 get_session_refresh(Handle) ->
     Fun = fun(#dialog{}=Dialog) -> get_session_refresh(Dialog) end,
-    case nksip_dialog:meta({function, Fun}, Handle) of
-        {ok, Value} -> Value;
-        {error, Error} -> {error, Error}
+    case nksip_dialog:get_meta({function, Fun}, Handle) of
+        {ok, Value} ->
+            Value;
+        {error, Error} ->
+            {error, Error}
     end.
 
 

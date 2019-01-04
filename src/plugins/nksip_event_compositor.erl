@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,8 +28,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_event_compositor.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 -export([find/3, request/1, clear/1]).
 -export_type([reg_publish/0]).
@@ -47,12 +48,11 @@
 %% ===================================================================
 
 %% @doc Finds a stored published information
--spec find(nksip:srv_id()|term(), nksip:aor(), binary()) ->
+-spec find(nkserver:id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
-find(Srv, AOR, Tag) ->
-    {ok, SrvId} = nkservice_srv:get_srv_id(Srv),
-    nksip_event_compositor_lib:store_get(SrvId, AOR, Tag).
+find(PkgId, AOR, Tag) ->
+    nksip_event_compositor_lib:store_get(PkgId, AOR, Tag).
 
 
 %% @doc Processes a PUBLISH request according to RFC3903
@@ -60,12 +60,12 @@ find(Srv, AOR, Tag) ->
     nksip:sipreply().
 
 request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
-    #sipmsg{srv_id=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
+    #sipmsg{pkg_id=PkgId, ruri=RUri, expires=Expires, body=Body} = Req,
     Expires1 = case is_integer(Expires) andalso Expires>0 of
         true -> 
             Expires;
         _ -> 
-            SrvId:config_nksip_event_compositor()
+            nkserver:get_plugin_config(PkgId, nksip_event_compositor, expires)
     end,
     AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
     case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
@@ -73,19 +73,19 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
             {invalid_request, <<"No Body">>};
         [] ->
             Tag = nklib_util:uid(),
-            nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Body);
+            nksip_event_compositor_lib:store_put(PkgId, AOR, Tag, Expires1, Body);
         [Tag] ->
-            case find(SrvId, AOR, Tag) of
+            case find(PkgId, AOR, Tag) of
                 {ok, _Reg} when Expires==0 -> 
-                    nksip_event_compositor_lib:store_del(SrvId, AOR, Tag);
+                    nksip_event_compositor_lib:store_del(PkgId, AOR, Tag);
                 {ok, Reg} when Body == <<>> -> 
-                    nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Reg);
+                    nksip_event_compositor_lib:store_put(PkgId, AOR, Tag, Expires1, Reg);
                 {ok, _} -> 
-                    nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Body);
+                    nksip_event_compositor_lib:store_put(PkgId, AOR, Tag, Expires1, Body);
                 not_found ->    
                     conditional_request_failed;
                 {error, Error} ->
-                    ?warning(SrvId, <<>>, "Error calling callback: ~p", [Error]),
+                    ?SIP_LOG(warning, "Error calling callback: ~p", [Error]),
                     {internal_error, <<"Callback Invalid Response">>}
             end;
         _ ->
@@ -94,18 +94,15 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 
 
 %% @doc Clear all stored records by a Service's core.
--spec clear(nkservice:name()|nksip:srv_id()) -> 
+-spec clear(nkserver:id()) ->
     ok | callback_error | service_not_found.
 
-clear(Srv) -> 
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            case nksip_event_compositor_lib:store_del_all(SrvId) of
-                ok -> ok;
-                _ -> callback_error
-            end;
+clear(PkgId) ->
+    case nksip_event_compositor_lib:store_del_all(PkgId) of
+        ok ->
+            ok;
         _ ->
-            service_not_found
+            callback_error
     end.
 
 

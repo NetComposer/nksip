@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -100,35 +100,33 @@ update(New, Call) ->
     #trans{
         id = TransId, 
         class = Class, 
-        status = NewStatus, 
-        method = Method
+        status = NewStatus
     } = New,
     #call{
-        trans= Trans,
+        trans = Trans,
         hibernate = Hibernate
     } = Call,
-    case Trans of
-        [#trans{id=TransId, status=OldStatus}|Rest] -> 
-            ok;
+    {OldStatus, Rest} = case Trans of
+        [#trans{id=TransId, status=OldStatus0}|Rest0] ->
+            {OldStatus0, Rest0};
         _ -> 
             case lists:keytake(TransId, #trans.id, Trans) of 
-                {value, #trans{status=OldStatus}, Rest} -> ok;
-                false -> OldStatus=finished, Rest=Trans
+                {value, #trans{status=OldStatus0}, Rest0} ->
+                    {OldStatus0, Rest0};
+                false ->
+                    {finished, Trans}
             end
-    end,
-    CS = case Class of 
-        uac -> <<"UAC">>; 
-        uas -> <<"UAS">> 
     end,
     NewTrans = case NewStatus of
         finished ->
-            ?call_debug("~s ~p ~p (~p) removed", 
-                        [CS, TransId, Method, OldStatus]),
+            ?CALL_DEBUG("~s ~p ~p (~p) removed",
+                        [Class, TransId, New#trans.method, OldStatus], Call),
             Rest;
         _ when NewStatus==OldStatus -> 
             [New|Rest];
         _ -> 
-            ?call_debug("~s ~p ~p ~p -> ~p", [CS, TransId, Method, OldStatus, NewStatus]),
+            ?CALL_DEBUG("~s ~p ~p ~p -> ~p",
+                        [Class, TransId, New#trans.method, OldStatus, NewStatus], Call),
             [New|Rest]
     end,
     NewHibernate = if
@@ -149,17 +147,18 @@ update(New, Call) ->
 update_auth(<<>>, _SipMsg, Call) ->
     Call;
 
-update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
+update_auth(DialogId, SipMsg, #call{auths=AuthList}=Call) ->
     case SipMsg of
         #sipmsg{nkport=NkPort} ->
             {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-            case lists:member({DialogId, Transp, Ip, Port}, Auths) of
+            case lists:member({DialogId, Transp, Ip, Port}, AuthList) of
                 true ->
                     Call;
                 false -> 
-                    ?call_debug("added cached auth for dialog ~s (~p:~p:~p)", 
-                                [DialogId, Transp, Ip, Port]),
-                    Call#call{auths=[{DialogId, Transp, Ip, Port}|Auths]}
+                    %lager:error("NKLOG UPDATED AUTH ~p", [{DialogId, Transp, Ip, Port}]),
+                    ?CALL_DEBUG("added cached auth for dialog ~s (~p:~p:~p)",
+                                [DialogId, Transp, Ip, Port], Call),
+                    Call#call{auths=[{DialogId, Transp, Ip, Port}|AuthList]}
             end;
         _ ->
             Call
@@ -175,17 +174,17 @@ check_auth(#sipmsg{dialog_id = <<>>}, _Call) ->
 
 check_auth(#sipmsg{dialog_id=DialogId, nkport=NkPort}, Call) when is_tuple(NkPort)->
     {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-    #call{auths=Auths} = Call,
-    case lists:member({DialogId, Transp, Ip, Port}, Auths) of
+    #call{auths=AuthList} = Call,
+    % lager:error("NKLOG CHECK AUTH (~p) ~p IN ~p", [PkgId, {DialogId, Transp, Ip, Port}, AuthList]),
+    case lists:member({DialogId, Transp, Ip, Port}, AuthList) of
         true ->
-            ?call_debug("Origin ~p:~p:~p is in dialog ~s authorized list", 
-                        [Transp, Ip, Port, DialogId]),
+            ?CALL_DEBUG("Origin ~p:~p:~p is in dialog ~s authorized list",
+                        [Transp, Ip, Port, DialogId], Call),
             true;
         false ->
-            AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DialogId],
-            ?call_debug("Origin ~p:~p:~p is NOT in dialog ~s "
+            ?CALL_DEBUG("Origin ~p:~p:~p is NOT in dialog ~s "
                         "authorized list (~p)", 
-                        [Transp, Ip, Port, DialogId, AuthList]),
+                        [Transp, Ip, Port, DialogId, [{O, I, P} || {D, O, I, P}<-AuthList, D==DialogId]], Call),
             false
     end;
 
@@ -229,11 +228,6 @@ timeout_timer(timer_c, Trans, Call) ->
     #call{times=#call_times{tc=TC}} = Call,
     Trans#trans{timeout_timer=start_timer(1000*TC, timer_c, Trans)}.
 
-% timeout_timer(sipapp_call, Trans, Call) ->
-%     cancel_timer(Trans#trans.timeout_timer),
-%     #call{timers={_, _, _, _, Time}} = Call,
-%     Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
-
 
 %% @private
 -spec retrans_timer(retrans_timer(), trans(), call()) ->
@@ -262,8 +256,10 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
     cancel_timer(Trans#trans.retrans_timer),
     #call{times=#call_times{t1=T1, t2=T2}} = Call,
     Time = case is_integer(Next) of
-        true -> Next;
-        false -> T1
+        true ->
+            Next;
+        false ->
+            T1
     end,
     Trans#trans{
         retrans_timer = start_timer(Time, Tag, Trans),
@@ -279,19 +275,21 @@ expire_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.expire_timer),
     Trans#trans{expire_timer=undefined};
 
-expire_timer(expire, Trans, _Call) ->
-    #trans{id=TransId, class=Class, request=Req, opts=Opts} = Trans,
+expire_timer(expire, Trans, Call) ->
+    #trans{class=Class, request=Req, opts=Opts} = Trans,
     cancel_timer(Trans#trans.expire_timer),
     Timer = case Req#sipmsg.expires of
         Expires when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> 
-                    ?call_debug("UAC ~p skipping INVITE expire", [TransId]),
+                    ?CALL_DEBUG("UAC ~p skipping INVITE expire", [Trans#trans.id], Call),
                     undefined;
                 _ -> 
                     Time = case Class of 
-                        uac -> 1000*Expires;
-                        uas -> 1000*Expires+100     % UAC fires first
+                        uac ->
+                            1000*Expires;
+                        uas ->
+                            1000*Expires+100     % UAC fires first
                     end,
                     start_timer(Time, expire, Trans)
             end;

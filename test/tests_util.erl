@@ -22,7 +22,7 @@
 
 -module(tests_util).
 
--export([start_nksip/0, start/3, start_debug/3, empty/0, wait/2, log/0, log/1]).
+-export([start_nksip/0, start_debug/3, empty/0, wait/2, log/0, log/1]).
 -export([get_ref/0, save_ref/1, update_ref/3, send_ref/2, dialog_update/2, session_update/2]).
 
 -define(LOG_LEVEL, notice).    % debug, info, notice, warning, error
@@ -34,17 +34,18 @@
 -endif.
 
 start_nksip() ->
-    nksip_app:start(),
-    log().
+    application:ensure_all_started(lager),
+    log(),
+    nksip_app:start().
 
 
-start(Name, Module, Opts) ->
-    Opts1 = nklib_util:to_map(Opts),
-    Opts2 = Opts1#{
-        callback => Module
-    },
-    {ok, _} = nksip:start(Name, Opts2),
-    ok.
+%%start(Name, Module, Opts) ->
+%%    Opts1 = nklib_util:to_map(Opts),
+%%    Opts2 = Opts1#{
+%%        callback => Module
+%%    },
+%%    {ok, _} = nksip:start(Name, Opts2),
+%%    ok.
 
 
 start_debug(Name, Module, Opts) ->
@@ -109,41 +110,41 @@ save_ref(Req) ->
     case nksip_request:header(<<"x-nk-reply">>, Req) of
         {ok, [RepBin]} -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-            {ok, SrvId} = nksip_request:srv_id(Req),
-            Dialogs = nkservice:get(SrvId, dialogs, []),
+            {ok, PkgId} = nksip_request:pkg_id(Req),
+            Dialogs = nkserver:get(PkgId, dialogs, []),
             {ok, DialogId} = nksip_dialog:get_handle(Req),
-            ok = nkservice:put(SrvId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
+            ok =  nkserver:put(PkgId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
         {ok, _O} ->
             ok
     end.
 
 
-update_ref(SrvId, Ref, DialogId) ->
-    Dialogs = nkservice:get(SrvId, dialogs, []),
-    ok = nkservice:put(SrvId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
+update_ref(PkgId, Ref, DialogId) ->
+    Dialogs = nkserver:get(PkgId, dialogs, []),
+    ok =  nkserver:put(PkgId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
 
 
 send_ref(Msg, Req) ->
     {ok, DialogId} = nksip_dialog:get_handle(Req),
-    {ok, SrvId} = nksip_request:srv_id(Req),
-    Dialogs = nkservice:get(SrvId, dialogs, []),
+    {ok, PkgId} = nksip_request:pkg_id(Req),
+    Dialogs = nkserver:get(PkgId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
-            % lager:warning("FOUND ~p, ~p", [SrvId, _D]),
-            Pid ! {Ref, {SrvId:name(), Msg}};
+            % lager:warning("FOUND ~p, ~p", [PkgId, _D]),
+            Pid ! {Ref, {PkgId, Msg}};
         false ->
-            % lager:warning("NOT FOUND: ~p", [SrvId]),
+            % lager:warning("NOT FOUND: ~p", [PkgId]),
             ok
     end.
 
 dialog_update(Update, Dialog) ->
-    {ok, SrvId} = nksip_dialog:srv_id(Dialog),
-    case catch nkservice:get(SrvId, dialogs, []) of
+    {ok, PkgId} = nksip_dialog:pkg_id(Dialog),
+    case catch nkserver:get(PkgId, dialogs, []) of
         Dialogs when is_list(Dialogs) ->
             {ok, DialogId} = nksip_dialog:get_handle(Dialog),
             case lists:keyfind(DialogId, 1, Dialogs) of
                 {DialogId, Ref, Pid} ->
-                    SrvName = SrvId:name(),
+                    SrvName = PkgId,
                     case Update of
                         start -> ok;
                         target_update -> Pid ! {Ref, {SrvName, target_update}};
@@ -166,24 +167,24 @@ dialog_update(Update, Dialog) ->
 
 
 session_update(Update, Dialog) ->
-    {ok, SrvId} = nksip_dialog:srv_id(Dialog),
-    Dialogs = nkservice:get(SrvId, dialogs, []),
+    {ok, PkgId} = nksip_dialog:pkg_id(Dialog),
+    Dialogs = nkserver:get(PkgId, dialogs, []),
     {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             ok;
         {DialogId, Ref, Pid} ->
-            SrvName = SrvId:name(),
+            SrvName = PkgId,
             case Update of
                 {start, Local, Remote} ->
                     Pid ! {Ref, {SrvName, sdp_start}},
-                    Sessions = nkservice:get(SrvId, sessions, []),
-                    nkservice:put(SrvId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Sessions = nkserver:get(PkgId, sessions, []),
+                     nkserver:put(PkgId, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 {update, Local, Remote} ->
                     Pid ! {Ref, {SrvName, sdp_update}},
-                    Sessions = nkservice:get(SrvId, sessions, []),
-                    nkservice:put(SrvId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Sessions = nkserver:get(PkgId, sessions, []),
+                     nkserver:put(PkgId, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 stop ->
                     Pid ! {Ref, {SrvName, sdp_stop}},

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -40,7 +40,7 @@
 
 %% @doc Service intialization.
 service_init(_Opts, State) ->
-    nkservice:put(server, started, httpd_util:rfc1123_date()),
+     nkserver:put(server, started, httpd_util:rfc1123_date()),
     {ok, State}.
 
 
@@ -105,8 +105,10 @@ sip_route(Scheme, User, <<"nksip">>, _Req, _Call) ->
     {proxy, UriList, [record_route]};
 sip_route(_Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:is_local_ruri(Req) of
-        true -> process;
-        false -> proxy
+        true ->
+            process;
+        false ->
+            proxy
     end.
 
 

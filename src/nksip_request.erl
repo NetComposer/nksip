@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,8 +22,8 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, srv_id/1, srv_name/1, method/1, body/1, call_id/1]).
--export([meta/2, metas/2, header/2, reply/2, is_local_ruri/1]).
+-export([get_handle/1, pkg_id/1, method/1, body/1, call_id/1]).
+-export([get_meta/2, get_metas/2, header/2, reply/2, is_local_ruri/1]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -44,41 +44,33 @@
 
 get_handle(Term) ->
     case nksip_sipmsg:get_handle(Term) of
-        <<"R_", _/binary>> = Handle -> {ok, Handle};
-        _ -> error(invalid_request)
+        <<"R_", _/binary>> = Handle ->
+            {ok, Handle};
+        _ ->
+            lager:error("NKLOG IVALID HANDLE ~p", [Term]),
+            error(invalid_request)
     end.
 
 %%----------------------------------------------------------------
 %% @doc Gets internal app's id
 %% @end
 %%----------------------------------------------------------------
--spec srv_id( Request ) -> Result when
+-spec pkg_id( Request ) -> Result when
         Request     :: nksip:request()
             | nksip:handle(),
-        Result      :: {ok, nksip:srv_id()}.
+        Result      :: {ok, nkserver:id()}.
 
-srv_id(#sipmsg{class={req, _}, srv_id=SrvId}) ->
-    {ok, SrvId};
+pkg_id(#sipmsg{class={req, _}, pkg_id=PkgId}) ->
+    {ok, PkgId};
     
-srv_id(Handle) ->
+pkg_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, SrvId, _Id, _CallId} -> {ok, SrvId};
-        _ -> error(invalid_request)
+        {req, PkgId, _Id, _CallId} ->
+            {ok, PkgId};
+        _ ->
+            error(invalid_request)
     end.
 
-
-%%----------------------------------------------------------------
-%% @doc Gets app's name
-%% @end
-%%----------------------------------------------------------------
--spec srv_name( Request ) -> Result when
-        Request     :: nksip:request()
-            | nksip:handle(),
-        Result      :: {ok, nkservice:name()}.
-
-srv_name(Req) -> 
-    {ok, SrvId} = srv_id(Req),
-    {ok, SrvId:name()}.
 
 
 %%----------------------------------------------------------------
@@ -94,8 +86,10 @@ call_id(#sipmsg{class={req, _}, call_id=CallId}) ->
     {ok, CallId};
 call_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, _SrvId, _Id, CallId} -> {ok, CallId};
-        _ -> error(invalid_request)
+        {req, _PkgId, _Id, CallId} ->
+            {ok, CallId};
+        _ ->
+            error(invalid_request)
     end.
 
 
@@ -112,7 +106,7 @@ call_id(Handle) ->
 method(#sipmsg{class={req, Method}}) ->
     {ok, Method};
 method(Handle) ->
-    meta(method, Handle).
+    get_meta(method, Handle).
 
 %%----------------------------------------------------------------
 %% @doc Gets the body of the request
@@ -124,25 +118,25 @@ method(Handle) ->
         Result      :: {ok, nksip:body()} 
             | {error, term()}.
 
-body(#sipmsg{class={req, _}, body=Body}) -> 
+body(#sipmsg{class={req, _}, body=Body}) ->
     {ok, Body};
 body(Handle) ->
-    meta(body, Handle).
+    get_meta(body, Handle).
 
 
 %%----------------------------------------------------------------
 %% @doc Get a specific metadata
 %% @end
 %%----------------------------------------------------------------
--spec meta( Field, Request ) -> Result when 
+-spec get_meta( Field, Request ) -> Result when
         Field       :: nksip_sipmsg:field(),
         Request     :: nksip:request()
             | nksip:handle(),
         Result      :: {ok, term()} | {error, term()}.
 
-meta(Field, #sipmsg{class={req, _}}=Req) -> 
-    {ok, nksip_sipmsg:meta(Field, Req)};
-meta(Field, Handle) ->
+get_meta(Field, #sipmsg{class={req, _}}=Req) ->
+    {ok, nksip_sipmsg:get_meta(Field, Req)};
+get_meta(Field, Handle) ->
     nksip_sipmsg:remote_meta(Field, Handle).
 
 
@@ -150,16 +144,16 @@ meta(Field, Handle) ->
 %% @doc Get a group of specific metadata
 %% @end
 %%----------------------------------------------------------------
--spec metas( FieldList, Request ) -> Result when 
+-spec get_metas( FieldList, Request ) -> Result when
         FieldList   :: [ nksip_sipmsg:field() ],
         Request     :: nksip:request()
             | nksip:handle(),
-        Result      :: {ok, [ {nksip_sipmsg:field(), term()} ]} 
+        Result      :: {ok, [ {nksip_sipmsg:field(), term()} ]}
             | {error, term()}.
 
-metas(Fields, #sipmsg{class={req, _}}=Req) when is_list(Fields) ->
-    {ok, nksip_sipmsg:metas(Fields, Req)};
-metas(Fields, Handle) when is_list(Fields) ->
+get_metas(Fields, #sipmsg{class={req, _}}=Req) when is_list(Fields) ->
+    {ok, nksip_sipmsg:get_metas(Fields, Req)};
+get_metas(Fields, Handle) when is_list(Fields) ->
     nksip_sipmsg:remote_metas(Fields, Handle).
 
 
@@ -174,10 +168,10 @@ metas(Fields, Handle) when is_list(Fields) ->
         Result  :: {ok, [binary()]} 
             | {error, term()}.
 
-header(Name, #sipmsg{class={req, _}}=Req) -> 
+header(Name, #sipmsg{class={req, _}}=Req) ->
     {ok, nksip_sipmsg:header(Name, Req)};
 header(Name, Handle) when is_binary(Handle) ->
-    meta(nklib_util:to_binary(Name), Handle).
+    get_meta(nklib_util:to_binary(Name), Handle).
 
 
 %%----------------------------------------------------------------
@@ -194,8 +188,8 @@ header(Name, Handle) when is_binary(Handle) ->
             | {error, term()}.
 
 reply(SipReply, Handle) ->
-    {req, SrvId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
-    nksip_call:send_reply(SrvId, CallId, ReqId, SipReply).
+    {req, PkgId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
+    nksip_call:send_reply(PkgId, CallId, ReqId, SipReply).
 
 
 %%----------------------------------------------------------------
@@ -206,6 +200,6 @@ reply(SipReply, Handle) ->
         Request :: nksip:request(),
         Result  :: boolean().
 
-is_local_ruri(#sipmsg{class={req, _}, srv_id=SrvId, ruri=RUri}) ->
-    nksip_util:is_local(SrvId, RUri).
+is_local_ruri(#sipmsg{class={req, _}, pkg_id=PkgId, ruri=RUri}) ->
+    nksip_util:is_local(PkgId, RUri).
 

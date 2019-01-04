@@ -1,14 +1,6 @@
-deps/
 ebin
 log/
-*.beam
 .eunit
-uuid_*
-/nksip.profile
-/.nksip.plt
 .DS_Store
-.rebar
-edocs/
-.tags
-.tags_sorted_by_file
-/.rebar3
+_build
+.rebar3

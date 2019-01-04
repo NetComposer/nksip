@@ -3,7 +3,7 @@
 %%
 %% nksip_call.hrl: SIP call processing types
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,52 +26,38 @@
 
 -include_lib("nklib/include/nklib.hrl").
 
--define(DO_CALL_LOG(Level, Text, List), 
-    ?DO_LOG(Level, erlang:get(nksip_srv_name), erlang:get(nksip_call_id), Text, List)).
 
--define(DO_DEBUG(Level, Text, List),
-    (erlang:get(nksip_srv_id)):nks_sip_debug(erlang:get(nksip_srv_id), 
-                                             erlang:get(nksip_call_id),
-                                             {Level, Text, List})).
-
-
-
--define(call_debug(Text, List),
-    ?DO_DEBUG(debug, Text, List),
-    case erlang:get(nksip_log_level)>=8 of
-        true -> ?DO_CALL_LOG(debug, Text, List);
-        false -> ok
+-define(CALL_DEBUG(Txt, Args),
+    case erlang:get(nksip_debug) of
+        true -> ?CALL_LOG(debug, Txt, Args);
+        _ -> ok
     end).
 
--define(call_info(Text, List),
-    ?DO_DEBUG(info, Text, List),
-    case erlang:get(nksip_log_level)>=7 of
-        true -> ?DO_CALL_LOG(info, Text, List);
-        false -> ok
+
+-define(CALL_DEBUG(Txt, Args, Call),
+    case erlang:get(nksip_debug) of
+        true -> ?CALL_LOG(debug, Txt, Args, Call);
+        _ -> ok
     end).
 
--define(call_notice(Text, List),
-    ?DO_DEBUG(notice, Text, List),
-    case erlang:get(nksip_log_level)>=6 of
-        true -> ?DO_CALL_LOG(notice, Text, List);
-        false -> ok
-    end).
 
--define(call_warning(Text, List),
-    ?DO_DEBUG(warning, Text, List),
-    case erlang:get(nksip_log_level)>=5 of
-        true -> ?DO_CALL_LOG(warning, Text, List);
-        false -> 
-            ok
-    end).
+-define(CALL_LOG(Type, Txt, Args),
+    lager:Type("NkSIP CALL " ++ Txt, Args)).
 
--define(call_error(Text, List),
-    ?DO_DEBUG(error, Text, List),
-    case erlang:get(nksip_log_level)>=4 of
-        true -> ?DO_CALL_LOG(error, Text, List);
-        false -> ok
-    end).
 
+-define(CALL_LOG(Type, Txt, Args, Call),
+    lager:Type(
+        [
+            {package, Call#call.pkg_id},
+            {call_id, Call#call.call_id}
+        ],
+        "NKSIP CALL '~s' (~s) " ++ Txt,
+        [
+            Call#call.call_id,
+            Call#call.pkg_id |
+            Args
+        ]
+    )).
 
 
 -type prack() :: {
@@ -141,7 +127,7 @@
 
 
 -type call_msg() :: {
-    nksip_sipmsg:id(), 
+    nksip_sipmsg:id(),
     nksip_call:trans_id(),
     nksip_dialog_lib:id()
 }.
@@ -161,7 +147,8 @@
 %% - nksip_min_se: Pre-dialog received MinSE header
 
 -record(call, {
-    srv_id :: nkservice:service_id(),
+    pkg_id :: nkservice:package_id(),
+    pkg_ref :: reference(),
     call_id :: nksip:call_id(),
     hibernate :: atom(),
     next :: integer(),
@@ -172,11 +159,12 @@
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
     times :: #call_times{},
+    dests = #{} :: #{},
     meta = [] :: nksip:optslist()
 }).
 
 
--define(GET_CONFIG(SrvId, Key), (SrvId:config_nksip())#config.Key).
+%%-define(GET_CONFIG(SrvId, Key), (SrvId:config_nksip())#config.Key).
 
 
 -record(config, {
@@ -193,7 +181,7 @@
     max_calls :: integer(),
     local_host :: auto | binary(),
     local_host6 :: auto | binary(),
-    debug :: boolean(),
+    debug :: [atom()],
     times :: #call_times{},
     udp_max_size :: integer()
 }).

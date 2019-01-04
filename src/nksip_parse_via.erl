@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -67,9 +67,12 @@ vias(String) when is_list(String) ->
 %% @private
 vias(String, Acc) ->
     case header(strip(String), #via{}) of
-        {#via{}=Via, []} when Acc==[]-> [Via];
-        {#via{}=Via, []} -> lists:reverse([Via|Acc]);
-        {#via{}=Via, Rest} -> vias(Rest, [Via|Acc]);
+        {#via{}=Via, []} when Acc==[] ->
+            [Via];
+        {#via{}=Via, []} ->
+            lists:reverse([Via|Acc]);
+        {#via{}=Via, Rest} ->
+            vias(Rest, [Via|Acc]);
         {error, _Type, _Line} -> 
             % lager:debug("Error parsing via ~s: ~p (~p)", [String, _Type, _Line]),
             error
@@ -83,8 +86,10 @@ header("SIP"++Rest1, Via) ->
             case strip(Rest2) of
                 "2.0"++Rest3 ->
                     case strip(Rest3) of
-                        [$/|Rest4] -> proto(strip(Rest4), [], Via);
-                        _ -> {error, header, ?LINE}
+                        [$/|Rest4] ->
+                            proto(strip(Rest4), [], Via);
+                        _ ->
+                            {error, header, ?LINE}
                     end;
                 _ ->
                     {error, header, ?LINE}
@@ -144,14 +149,18 @@ domain([Ch|_]=Rest, Acc, Ip6, Via) when Ch==$;; Ch==$?; Ch==$, ->
 
 domain([$[|Rest], Acc, Ip6, Via) ->
     case Acc==[] andalso not Ip6 of
-        true -> domain(Rest, [$[|Acc], true, Via);
-        false -> {error, domain, ?LINE}
+        true ->
+            domain(Rest, [$[|Acc], true, Via);
+        false ->
+            {error, domain, ?LINE}
     end;
 
 domain([$]|Rest], Acc, Ip6, Via) ->
     case Acc/=[] andalso Ip6 of
-        true -> domain(Rest, [$]|Acc], false, Via);
-        false -> {error, domain, ?LINE}
+        true ->
+            domain(Rest, [$]|Acc], false, Via);
+        false ->
+            {error, domain, ?LINE}
     end;
 
 domain([$:|Rest], Acc, false, Via) ->
@@ -229,8 +238,10 @@ opts([Ch|Rest], Via) ->
             opts_key(strip(Rest), [], Via);
         $, -> 
             case strip(Rest) of 
-                [] -> {error, opts, ?LINE};
-                Rest1 -> {Via, Rest1}
+                [] ->
+                    {error, opts, ?LINE};
+                Rest1 ->
+                    {Via, Rest1}
             end;
         _ when Ch==32; Ch==9; Ch==13 -> 
             opts(strip(Rest), Via);
@@ -262,15 +273,20 @@ opts_key([Ch|_]=Rest, Acc, Via) when Ch==$;; Ch==$, ->
 
 opts_key([$=|Rest], Acc, Via) ->
     case Acc of
-        [] -> {error, opts_key, ?LINE};
-        _ -> opts_value(strip(Rest), lists:reverse(Acc), [], Via)
+        [] ->
+            {error, opts_key, ?LINE};
+        _ ->
+            opts_value(strip(Rest), lists:reverse(Acc), [], Via)
     end;
 
 opts_key([Ch|_]=Rest, Acc, Via) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
-        [] -> opts_key([], Acc, Via);
-        [Ch1|_]=Rest1 when Ch1==$;; Ch1==$,; Ch1==$= -> opts_key(Rest1, Acc, Via);
-        _ -> {error, opts_key, ?LINE}
+        [] ->
+            opts_key([], Acc, Via);
+        [Ch1|_]=Rest1 when Ch1==$;; Ch1==$,; Ch1==$= ->
+            opts_key(Rest1, Acc, Via);
+        _ ->
+            {error, opts_key, ?LINE}
     end;
 
 opts_key([Ch|Rest], Acc, Via) ->
@@ -300,9 +316,12 @@ opts_value([Ch|_]=Rest, Key, Acc, Via) when Ch==$;; Ch==$, ->
 
 opts_value([Ch|_]=Rest, Key, Acc, Via) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
-        [] -> opts_value([], Key, Acc, Via);
-        [Ch1|_]=Rest1 when Ch1==$;; Ch1==$, -> opts_value(Rest1, Key, Acc, Via);
-        _ -> {error, opts_value, ?LINE}
+        [] ->
+            opts_value([], Key, Acc, Via);
+        [Ch1|_]=Rest1 when Ch1==$;; Ch1==$, ->
+            opts_value(Rest1, Key, Acc, Via);
+        _ ->
+            {error, opts_value, ?LINE}
     end;
 
 opts_value([Ch|Rest], Key, Acc, Via) ->

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,32 +22,22 @@
 -module(nksip_uac_auto_auth).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
--export([get_config/2, make_config/2, check_auth/4]).
+-export([syntax/0, check_auth/4]).
 
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
--record(nksip_uac_auto_auth, {
-    max_tries,
-    pass
- }).
-
-
-%% @doc Get cached config
-get_config(SrvId, max_tries) ->
-    (SrvId:config_nksip_uac_auto_auth())#nksip_uac_auto_auth.max_tries;
-get_config(SrvId, pass) ->
-    (SrvId:config_nksip_uac_auto_auth())#nksip_uac_auto_auth.pass.
-
-
-%% @private
-make_config(Tries, Pass) ->
-    #nksip_uac_auto_auth{max_tries=Tries, pass=Pass}.
+syntax() ->
+    #{
+        sip_uac_auto_auth_max_tries => {integer, 1, none},
+        sip_pass => fun parse_passes/3
+    }.
 
 
 % @doc Called after the UAC processes a response
@@ -56,30 +46,35 @@ make_config(Tries, Pass) ->
 
 check_auth(Req, Resp, UAC, Call) ->
      #trans{
-        id = TransId,
+        id = _TransId,
         opts = Opts,
         method = Method, 
         code = Code, 
         from = From,
         iter = Iters
     } = UAC,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of
+        {fork, _} -> true;
+        _ -> false
+    end,
     case 
         (Code==401 orelse Code==407) andalso Method/='CANCEL' andalso 
         (not IsProxy)
     of
         true ->
-            #call{srv_id=SrvId, call_id=CallId} = Call,
+            #call{pkg_id=PkgId, call_id=_CallId} = Call,
             Max = case nklib_util:get_value(sip_uac_auto_auth_max_tries, Opts) of
-                undefined -> 
-                    get_config(SrvId, max_tries);
+                undefined ->
+                    nkserver:get_plugin_config(PkgId, nksip_uac_auto_auth, max_tries);
                 Max0 ->
                     Max0
             end,
-            DefPasses = get_config(SrvId, pass),
+            ConfigPasses = nkserver:get_plugin_config(PkgId, nksip_uac_auto_auth, passwords),
             Passes = case nklib_util:get_value(sip_pass, Opts) of
-                undefined -> DefPasses;
-                Passes0 -> Passes0++DefPasses
+                undefined ->
+                    ConfigPasses;
+                Passes0 ->
+                    Passes0++ConfigPasses
             end,
             case 
                 Passes/=[] andalso Iters < Max andalso 
@@ -87,10 +82,9 @@ check_auth(Req, Resp, UAC, Call) ->
             of
                 {ok, Req1} ->
                     {ok, nksip_call_uac:resend(Req1, UAC, Call)};
-                {error, Error} ->
-                    ?debug(SrvId, CallId, 
-                           "UAC ~p could not generate new auth request: ~p", 
-                           [TransId, Error]),    
+                {error, _Error} ->
+                    ?CALL_DEBUG("UAC ~p could not generate new auth request: ~p",
+                                [_TransId, _Error], Call),
                     continue;
                 false ->
                     continue
@@ -100,5 +94,34 @@ check_auth(Req, Resp, UAC, Call) ->
     end.
 
 
+parse_passes(_, [], _) ->
+    {ok, []};
+
+parse_passes(_, Passes, _) when is_list(Passes), not is_integer(hd(Passes)) ->
+    check_passes(Passes, []);
+
+parse_passes(_, Pass, _) ->
+    check_passes([Pass], []).
+
+
+
+%% @private
+check_passes([], Acc) ->
+    {ok, lists:reverse(Acc)};
+
+check_passes([PassTerm|Rest], Acc) ->
+    case PassTerm of
+        _ when is_list(PassTerm) ->
+            check_passes(Rest, [{<<>>, list_to_binary(PassTerm)}|Acc]);
+        _ when is_binary(PassTerm) ->
+            check_passes(Rest, [{<<>>, PassTerm}|Acc]);
+        {Realm, Pass} when
+            (is_list(Realm) orelse is_binary(Realm)) andalso
+                (is_list(Pass) orelse is_binary(Pass)) ->
+            Acc1 = [{nklib_util:to_binary(Realm), nklib_util:to_binary(Pass)}|Acc],
+            check_passes(Rest, Acc1);
+        _ ->
+            error
+    end.
 
 

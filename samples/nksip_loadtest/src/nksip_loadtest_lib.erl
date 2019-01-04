@@ -2,7 +2,7 @@
 %%
 %% Utilities for speed testing
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -50,8 +50,10 @@ start_server(Name, Port) ->
         sip_no_100 => true
     },
     case nksip:start(Name, Opts) of
-        {ok, _} -> ok;
-        {error, already_started} -> ok
+        {ok, _} ->
+            ok;
+        {error, already_started} ->
+            ok
     end.
 
 
@@ -135,23 +137,32 @@ launch(Opts) ->
             tls;
         false ->
             case lists:member(tcp, Opts) of
-                true -> tcp;
-                false -> udp           
+                true ->
+                    tcp;
+                false ->
+                    udp
             end
     end,
     Messages = proplists:get_value(messages, Opts, 1),
     Processes = case proplists:get_value(clients, Opts, 10) of
-        P when P < Messages -> P;
-        _ -> 1
+        P when P < Messages ->
+            P;
+        _ ->
+            1
     end,
     State = case lists:member(stateless, Opts) of
-        true -> "stateless";
-        false -> "stateful"
+        true ->
+            "stateless";
+        false ->
+            "stateful"
     end,
     Port = case proplists:get_value(port, Opts) of
-        undefined when Transport==tls -> 5061;
-        undefined -> 5060;
-        P0 -> P0
+        undefined when Transport==tls ->
+            5061;
+        undefined ->
+            5060;
+        P0 ->
+            P0
     end,
     MsgType = case lists:member(invite, Opts) of
         true -> 
@@ -168,13 +179,18 @@ launch(Opts) ->
 
     PerProcess = round(Messages/Processes),
     Total = Processes * PerProcess,
-    Raw = case lists:member(raw, Opts) of true -> raw; _ -> full end,
+    Raw = case lists:member(raw, Opts) of
+        true -> raw;
+        _ -> full
+    end,
     {ok, [Ip|_]} = inet:getaddrs(proplists:get_value(host, Opts, "127.0.0.1"), inet),
     Host = inet_parse:ntoa(Ip),
     NoAutoStart = lists:member(no_auto_start, Opts),
     case NoAutoStart of
-        true -> ok;
-        false -> start_server()
+        true ->
+            ok;
+        false ->
+            start_server()
     end,
     Pid = self(),
     CallId = integer_to_list(nklib_util:timestamp() - ?BASE),
@@ -211,8 +227,10 @@ launch(Opts) ->
             Stop = now();
         full ->
             case NoAutoStart of
-                true -> ok;
-                false -> ok = start_clients(Processes)
+                true ->
+                    ok;
+                false ->
+                    ok = start_clients(Processes)
             end,
             RUri = "<sip:"++State++"@"++Host++":"++integer_to_list(Port)++";transport="++
                     atom_to_list(Transport) ++ ">",
@@ -226,8 +244,10 @@ launch(Opts) ->
             Ok = wait(Total, 0),
             Stop = now(),
             case NoAutoStart of
-                true -> ok;
-                false -> ok = stop_clients(Processes)
+                true ->
+                    ok;
+                false ->
+                    ok = stop_clients(Processes)
             end
     end,
     io:format("\n"),
@@ -249,9 +269,12 @@ start_clients(Pos, Max) ->
         callback => nksip_loadtest_callbacks
     },
     case nksip:start({client, Pos}, Opts) of
-        {ok, _} -> start_clients(Pos+1, Max);
-        {error, already_started} -> start_clients(Pos+1, Max);
-        _ -> error
+        {ok, _} ->
+            start_clients(Pos+1, Max);
+        {error, already_started} ->
+            start_clients(Pos+1, Max);
+        _ ->
+            error
     end.
                     
 
@@ -283,15 +306,19 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
         case MsgType of
             options -> 
                 case nksip_uac:options({client, Pos}, RUri, Opts) of
-                    {ok, 200, []} -> ok;
-                    Other -> throw({invalid_options_response, Other})
+                    {ok, 200, []} ->
+                        ok;
+                    Other ->
+                        throw({invalid_options_response, Other})
                 end;
             register ->
                 From = <<"sip:", (nklib_util:to_binary(Pos))/binary, "@localhost">>,
                 Opts1 = [contact, {from, From}, to_as_from|Opts],
                 case nksip_uac:register({client, Pos}, RUri, Opts1) of
-                    {ok, 200, []} -> ok;
-                    Other -> throw({invalid_register_response, Other})
+                    {ok, 200, []} ->
+                        ok;
+                    Other ->
+                        throw({invalid_register_response, Other})
                 end;
             invite ->
                 case nksip_uac:invite({client, Pos}, RUri, Opts) of
@@ -299,8 +326,10 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
                         case nksip_uac:ack(D, []) of
                             ok -> 
                                 case nksip_uac:bye(D, []) of
-                                    {ok, 200, []} -> ok;
-                                    Other3 -> throw({invalid_bye_response, Other3}) 
+                                    {ok, 200, []} ->
+                                        ok;
+                                    Other3 ->
+                                        throw({invalid_bye_response, Other3})
                                 end;
                             Other2 ->
                                 throw({invalid_ack_response, Other2})   
@@ -329,8 +358,10 @@ iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages)
     CallId = list_to_binary([integer_to_list(Pos), $-, integer_to_list(Messages),
                              $-, CallId0]),
     Msg = case MsgType of
-        options -> options(State++"@"++Host, TransStr, CallId);
-        register -> register(State++"@"++Host, TransStr, CallId)
+        options ->
+            options(State++"@"++Host, TransStr, CallId);
+        register ->
+            register(State++"@"++Host, TransStr, CallId)
     end,
     send(Transport, Msg),
     Ok = try 

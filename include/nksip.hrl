@@ -1,7 +1,7 @@
 %%
 %% nksip.hrl: Common types and records definition
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,62 +22,101 @@
 -ifndef(NKSIP_HRL_).
 -define(NKSIP_HRL_, 1).
 
+-define(PACKAGE_CLASS_SIP, <<"Sip">>).
+
+
 %% ===================================================================
 %% Defines
 %% ===================================================================
 
 -define(VERSION, "0.5.0").
 
--define(
-    DO_LOG(Level, Srv, CallId, Text, Opts),
-    case CallId of
-        <<>> ->
-            lager:Level([{app, Srv}], "~p "++Text, [Srv|Opts]);
-        _ -> 
-            lager:Level([{app, Srv}, {call_id, CallId}], "~p (~s) "++Text, [Srv, CallId|Opts])
+%%-define(
+%%    DO_LOG(Level, Srv, CallId, Text, Opts),
+%%    case CallId of
+%%        <<>> ->
+%%            lager:Level([{app, Srv}], "~p "++Text, [Srv|Opts]);
+%%        _ ->
+%%            lager:Level([{app, Srv}, {call_id, CallId}], "~p (~s) "++Text, [Srv, CallId|Opts])
+%%    end).
+%%
+%%-define(DO_DEBUG(SrvId, CallId, Level, Text, List),
+%%    case element(1, SrvId:config_nksip()) of
+%%        false -> ok;
+%%        _ -> SrvId:nks_sip_debug(SrvId, CallId, {Level, Text, List})
+%%    end).
+%%
+%%
+%%-define(debug(SrvId, CallId, Text, List),
+%%    ?DO_DEBUG(SrvId, CallId, debug, Text, List),
+%%    case SrvId:log_level() >= 8 of
+%%        true -> ?DO_LOG(debug, SrvId:name(), CallId, Text, List);
+%%        false -> ok
+%%    end).
+%%
+%%-define(info(SrvId, CallId, Text, List),
+%%    ?DO_DEBUG(SrvId, CallId, info, Text, List),
+%%    case SrvId:log_level() >= 7 of
+%%        true -> ?DO_LOG(info, SrvId:name(), CallId, Text, List);
+%%        false -> ok
+%%    end).
+%%
+%%-define(notice(SrvId, CallId, Text, List),
+%%    ?DO_DEBUG(SrvId, CallId, notice, Text, List),
+%%    case SrvId:log_level() >= 6 of
+%%        true -> ?DO_LOG(notice, SrvId:name(), CallId, Text, List);
+%%        false -> ok
+%%    end).
+%%
+%%-define(warning(SrvId, CallId, Text, List),
+%%    ?DO_DEBUG(SrvId, CallId, warning, Text, List),
+%%    case SrvId:log_level() >= 5 of
+%%        true -> ?DO_LOG(warning, SrvId:name(), CallId, Text, List);
+%%        false -> ok
+%%    end).
+%%
+%%-define(error(SrvId, CallId, Text, List),
+%%    ?DO_DEBUG(SrvId, CallId, error, Text, List),
+%%    case SrvId:log_level() >= 4 of
+%%        true -> ?DO_LOG(error, SrvId:name(), CallId, Text, List);
+%%        false -> ok
+%%    end).
+
+
+
+
+-define(SIP_DEBUG(Txt, Args),
+    case erlang:get(nksip_debug) of
+        true -> ?SIP_LOG(debug, Txt, Args);
+        _ -> ok
     end).
 
--define(DO_DEBUG(SrvId, CallId, Level, Text, List),
-    case element(1, SrvId:config_nksip()) of
-        false -> ok;
-        _ -> SrvId:nks_sip_debug(SrvId, CallId, {Level, Text, List})
+
+-define(SIP_DEBUG(Txt, Args, State),
+    case erlang:get(nksip_debug) of
+        true -> ?SIP_LOG(debug, Txt, Args, State);
+        _ -> ok
     end).
 
 
--define(debug(SrvId, CallId, Text, List), 
-    ?DO_DEBUG(SrvId, CallId, debug, Text, List),
-    case SrvId:log_level() >= 8 of
-        true -> ?DO_LOG(debug, SrvId:name(), CallId, Text, List);
-        false -> ok
-    end).
+-define(SIP_LOG(Type, Txt, Args),
+    lager:Type("NkSIP " ++ Txt, Args)).
 
--define(info(SrvId, CallId, Text, List), 
-    ?DO_DEBUG(SrvId, CallId, info, Text, List),
-    case SrvId:log_level() >= 7 of
-        true -> ?DO_LOG(info, SrvId:name(), CallId, Text, List);
-        false -> ok
-    end).
 
--define(notice(SrvId, CallId, Text, List), 
-    ?DO_DEBUG(SrvId, CallId, notice, Text, List),
-    case SrvId:log_level() >= 6 of
-        true -> ?DO_LOG(notice, SrvId:name(), CallId, Text, List);
-        false -> ok
-    end).
-
--define(warning(SrvId, CallId, Text, List), 
-    ?DO_DEBUG(SrvId, CallId, warning, Text, List),
-    case SrvId:log_level() >= 5 of
-        true -> ?DO_LOG(warning, SrvId:name(), CallId, Text, List);
-        false -> ok
-    end).
-
--define(error(SrvId, CallId, Text, List), 
-    ?DO_DEBUG(SrvId, CallId, error, Text, List),
-    case SrvId:log_level() >= 4 of
-        true -> ?DO_LOG(error, SrvId:name(), CallId, Text, List);
-        false -> ok
-    end).
+-define(SIP_LOG(Type, Txt, Args, SipMsg),
+    lager:Type(
+        [
+            {srv, SipMsg#sipmsg.srv},
+            {package, SipMsg#sipmsg.pkg_id},
+            {call_id, SipMsg#sipmsg.call_id}
+        ],
+        "NKSIP (~s/~s/~s) " ++ Txt,
+        [
+            SipMsg#sipmsg.srv,
+            SipMsg#sipmsg.pkg_id,
+            SipMsg#sipmsg.call_id
+        ]
+    )).
 
 
 
@@ -94,7 +133,7 @@
 -record(sipmsg, {
     id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
-    srv_id :: nkservice:service_id(),
+    pkg_id :: nkserver:id(),
     dialog_id :: nksip_dialog_lib:id(),
     ruri :: nksip:uri(),
     vias = [] :: [nksip:via()],
@@ -171,7 +210,7 @@
 
 -record(dialog, {
     id :: nksip_dialog_lib:id(),
-    srv_id :: nkservice:service_id(),
+    pkg_id :: nkservice:package_id(),
     call_id :: nksip:call_id(),
     created :: nklib_util:timestamp(),
     updated :: nklib_util:timestamp(),
