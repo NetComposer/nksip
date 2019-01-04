@@ -29,7 +29,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Types
@@ -55,12 +55,12 @@
 
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=_MsgId} = Req,
-    #call{srv=SrvId} = Call,
+    #call{pkg_id=PkgId} = Call,
     {continue, [Req1, Opts1, From1, Call1]} = 
-        ?CALL_SRV(SrvId, nksip_uac_pre_request, [Req, Opts, From, Call]),
+        ?CALL_PKG(PkgId, nksip_uac_pre_request, [Req, Opts, From, Call]),
     {#trans{id=_TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
     case lists:member(async, Opts1) andalso From1 of
-        {srv, SrvFrom} when Method=='ACK' -> 
+        {srv, SrvFrom} when Method=='ACK' ->
             gen_server:reply(SrvFrom, async);
         {srv, SrvFrom} ->
             Handle = nksip_sipmsg:get_handle(Req),
@@ -97,10 +97,10 @@ dialog(DialogId, Method, Opts, Call) ->
     {ok, nksip:request(), nksip:optslist(), nksip_call:call()} | {error, term()}.
 
 make_dialog(DialogId, Method, Opts, Call) ->
-    #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
+    #call{pkg_id=PkgId, call_id=CallId} = Call,
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
         {ok, RUri, Opts2, Call1} ->
-            case nksip_call_uac_make:make(SrvId, PkgId, Method, RUri, CallId, Opts2) of
+            case nksip_call_uac_make:make(PkgId, Method, RUri, CallId, Opts2) of
                 {ok, Req, ReqOpts} ->
                     {ok, Req, ReqOpts, Call1};
                 {error, Error} ->
@@ -151,7 +151,7 @@ cancel(TransId, Opts, From, #call{trans=Trans}=Call) when is_integer(TransId) ->
                     ok
             end,
             cancel(UAC, Opts, Call);
-        _ -> 
+        _ ->
             case From of
                 {srv, SrvFrom} ->
                     gen_server:reply(SrvFrom, {error, unknown_request});
@@ -200,7 +200,7 @@ is_stateless(Resp) ->
         <<"z9hG4bK", Branch/binary>> ->
             case binary:split(Branch, <<"-">>) of
                 [BaseBranch, NkSIP] ->
-                    GlobalId = nksip_config_cache:global_id(),
+                    GlobalId = nksip_config:get_config(global_id),
                     case nklib_util:hash({BaseBranch, GlobalId, stateless}) of
                         NkSIP ->
                             true;
@@ -276,11 +276,11 @@ make_trans(Req, Opts, From, Call) ->
 -spec response(nksip:response(), nksip_call:call()) ->
     nksip_call:call().
 
-response(Resp, #call{srv=SrvId, trans=Trans}=Call) ->
+response(Resp, #call{pkg_id=PkgId, trans=Trans}=Call) ->
     #sipmsg{class={resp, _Code, _Reason}, cseq={_, _Method}} = Resp,
     TransId = nksip_call_lib:uac_transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
-        #trans{class=uac, from=From, ruri=RUri}=UAC -> 
+        #trans{class=uac, from=From, ruri=RUri}=UAC ->
             IsProxy = case From of 
                 {fork, _} ->
                     true;
@@ -289,13 +289,13 @@ response(Resp, #call{srv=SrvId, trans=Trans}=Call) ->
             end,
             DialogId = nksip_call_uac_dialog:uac_dialog_id(Resp, IsProxy, Call),
             Resp2 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
-            case ?CALL_SRV(SrvId, nksip_uac_pre_response, [Resp2, UAC, Call]) of
+            case ?CALL_PKG(PkgId, nksip_uac_pre_response, [Resp2, UAC, Call]) of
                 {continue, [Resp3, UAC2, Call2]} ->
                     nksip_call_uac_resp:response(Resp3, UAC2, Call2);
                 {ok, Call2} ->
                     Call2
             end;
-        _ -> 
+        _ ->
             ?CALL_LOG(info, "UAC received ~p ~p response for unknown transaction",
                       [_Method, _Code], Call),
             Call

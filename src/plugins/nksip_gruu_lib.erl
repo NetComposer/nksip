@@ -23,8 +23,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
 -export([find/2, update_gruu/1, check_gr/2, update_regcontact/4]).
@@ -36,39 +36,39 @@
 -spec update_gruu(nksip:response()) ->
     ok.
 
-update_gruu(#sipmsg{srv=SrvId, contacts=Contacts, class={resp, Code, _},
+update_gruu(#sipmsg{pkg_id=PkgId, contacts=Contacts, class={resp, Code, _},
                       cseq={_, Method}}) ->
     case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
         true ->
-            find_gruus(SrvId, Contacts);
+            find_gruus(PkgId, Contacts);
         false ->
             ok
     end.
 
 
 %% @private
-find_gruus(SrvId, [#uri{ext_opts=Opts}|Rest]) ->
+find_gruus(PkgId, [#uri{ext_opts=Opts}|Rest]) ->
     HasPubGruu = case nklib_util:get_value(<<"pub-gruu">>, Opts) of
-        undefined -> 
+        undefined ->
             false;
         PubGruu ->
             case nksip_parse:ruris(nklib_util:unquote(PubGruu)) of
-                [PubUri] -> 
-                    nksip_app:put({nksip_gruu_pub, SrvId}, PubUri),
+                [PubUri] ->
+                    nksip_app:put({nksip_gruu_pub, PkgId}, PubUri),
                     true;
-                _ -> 
+                _ ->
                     false
             end
     end,
     HasTmpGruu = case nklib_util:get_value(<<"temp-gruu">>, Opts) of
-        undefined -> 
+        undefined ->
             false;
         TempGruu ->
             case nksip_parse:ruris(nklib_util:unquote(TempGruu)) of
-                [TempUri] -> 
-                    nksip_app:put({nksip_gruu_temp, SrvId}, TempUri),
+                [TempUri] ->
+                    nksip_app:put({nksip_gruu_temp, PkgId}, TempUri),
                     true;
-                _ -> 
+                _ ->
                     false
             end
     end,
@@ -76,7 +76,7 @@ find_gruus(SrvId, [#uri{ext_opts=Opts}|Rest]) ->
         true ->
             ok;
         false ->
-            find_gruus(SrvId, Rest)
+            find_gruus(PkgId, Rest)
     end;
 
 find_gruus(_, []) ->
@@ -84,12 +84,12 @@ find_gruus(_, []) ->
 
 
 %% @private
--spec find(nkservice:id(), nksip:uri()) ->
+-spec find(nkserver:id(), nksip:uri()) ->
     [nksip:uri()].
 
-find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
+find(PkgId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
     case lists:member(<<"gr">>, Opts) of
-        true -> 
+        true ->
             % It is probably a tmp GRUU
             case catch decrypt(User) of
                 Tmp when is_binary(Tmp) ->
@@ -97,23 +97,23 @@ find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
                     [
                         nksip_registrar_lib:make_contact(Reg) 
                         || #reg_contact{meta=Meta}=Reg 
-                        <- nksip_registrar_lib:get_info(SrvId, Scheme1, User1, Domain1), 
+                        <- nksip_registrar_lib:get_info(PkgId, Scheme1, User1, Domain1),
                         nklib_util:get_value(nksip_gruu_instance_id, Meta)==InstId,
                         nklib_util:get_value(nksip_gruu_tmp_min, Meta, 0)=<Pos
                     ];
                 _ ->
                     ?SIP_LOG(notice, "private GRUU not recognized: ~p", [User]),
-                    nksip_registrar_lib:find(SrvId, Scheme, User, Domain)
+                    nksip_registrar_lib:find(PkgId, Scheme, User, Domain)
             end;
         false ->
             case nklib_util:get_value(<<"gr">>, Opts) of
-                undefined -> 
-                    nksip_registrar_lib:find(SrvId, Scheme, User, Domain);
+                undefined ->
+                    nksip_registrar_lib:find(PkgId, Scheme, User, Domain);
                 InstId ->
                     [
                         nksip_registrar_lib:make_contact(Reg) 
                             || #reg_contact{meta=Meta}=Reg 
-                            <- nksip_registrar_lib:get_info(SrvId, Scheme, User, Domain), 
+                            <- nksip_registrar_lib:get_info(PkgId, Scheme, User, Domain),
                             nklib_util:get_value(nksip_gruu_instance_id, Meta)==InstId
                     ]
             end
@@ -129,9 +129,9 @@ check_gr(Contact, Req) ->
                 LoopTmp when is_binary(LoopTmp) ->
                     {{LScheme, LUser, LDomain}, _, _} = binary_to_term(LoopTmp),
                     case aor(To) of
-                        {LScheme, LUser, LDomain} -> 
+                        {LScheme, LUser, LDomain} ->
                             throw({forbidden, "Invalid Contact"});
-                        _ -> 
+                        _ ->
                             ok
                     end;
                 _ ->
@@ -151,7 +151,7 @@ update_regcontact(RegContact, Base, Req, Opts) ->
     Meta1 = case CallId of
         BaseCallId ->
             Meta;
-        _ -> 
+        _ ->
             % We have changed the Call-ID for this AOR and index, invalidate all
             % temporary GRUUs
             nklib_util:store_value(nksip_gruu_tmp_min, Next, Meta)
@@ -204,33 +204,21 @@ aor(#uri{scheme=Scheme, user=User, domain=Domain}) ->
 
 %% @private
 encrypt(Bin) ->
-    <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
+    <<Key:16/binary, _/binary>> = nksip_config:get_config(global_id),
     base64:encode(do_encrypt(Key, Bin)).
 
 
 %% @private
 decrypt(Bin) ->
-    <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
+    <<Key:16/binary, _/binary>> = nksip_config:get_config(global_id),
     do_decrypt(Key, base64:decode(Bin)).
 
-
--ifdef(old_crypto_block).
-
-do_encrypt(Key, Bin) ->
-    crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin).
-
-do_decrypt(Key, Dec) ->
-    crypto:aes_cfb_128_decrypt(Key, ?AES_IV, Dec).
-
--else.
 
 do_encrypt(Key, Bin) ->
     crypto:block_encrypt(aes_cfb128, Key, ?AES_IV, Bin).
 
 do_decrypt(Key, Dec) ->
     crypto:block_decrypt(aes_cfb128, Key, ?AES_IV, Dec).
-
--endif.
 
 
 

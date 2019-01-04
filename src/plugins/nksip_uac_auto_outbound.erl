@@ -22,7 +22,7 @@
 -module(nksip_uac_auto_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_register/5, stop_register/2, get_registers/1]).
+-export([start_register/4, stop_register/2, get_registers/1]).
 
 -include("nksip_uac_auto_outbound.hrl").
 
@@ -33,28 +33,28 @@
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nkservice:id(), nkservice:package_id(), term(), nksip:user_uri(),
+-spec start_register(nkserver:id(), term(), nksip:user_uri(),
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(SrvId, PkgId, RegId, Uri, Opts) when is_list(Opts) ->
+start_register(PkgId, RegId, Uri, Opts) when is_list(Opts) ->
     Opts1 = [{user, [nksip_uac_auto_outbound]}|Opts],
-    nksip_uac_auto_register:start_register(SrvId, PkgId, RegId, Uri, Opts1).
+    nksip_uac_auto_register:start_register(PkgId, RegId, Uri, Opts1).
 
 
-%% @doc Stops a previously started registration serie.
--spec stop_register(nkservice:name()|nkservice:id(), term()) ->
+%% @doc Stops a previously started registration series.
+-spec stop_register(nkserver:id(), term()) ->
     ok | not_found.
 
-stop_register(Srv, RegId) ->
-    nksip_uac_auto_register:stop_register(Srv, RegId).
+stop_register(PkgId, RegId) ->
+    nksip_uac_auto_register:stop_register(PkgId, RegId).
     
 
 %% @doc Get current registration status.
--spec get_registers(nkservice:name()|nkservice:id()) ->
+-spec get_registers(nkserver:id()) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(Srv) ->
-    nkservice:call(Srv, nksip_uac_auto_outbound_get_regs).
+get_registers(PkgId) ->
+     nkserver_srv:call(PkgId, nksip_uac_auto_outbound_get_regs).
 
     

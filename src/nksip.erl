@@ -29,18 +29,17 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/2, stop/1, stop_all/0, update/2]).
--export([get_uuid/1]).
+-export([start_link/2, stop/1, update/2]).
 
 % -export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 
--export_type([srv_id/0, srv_name/0, handle/0]).
+
+-export_type([id/0, handle/0]).
 -export_type([request/0, response/0, sipreply/0, optslist/0]).
 -export_type([call/0, uri/0, user_uri/0]).
 -export_type([header/0, header_name/0, header_value/0]).
@@ -54,11 +53,8 @@
 %% Types
 %% ===================================================================
 
-%% User Name of each started Service
--type srv_name() :: nkservice:name().
-
 %% Internal Name of each started Service
--type srv_id() :: nkservice:id().
+-type id() :: nkserver:id().
 
 %% External handle for a request, response, dialog or event
 %% It is a binary starting with:
@@ -164,121 +160,33 @@
 %% Public functions
 %% ===================================================================
 
-%%----------------------------------------------------------------
-%% @doc Starts a new Service.
-%%
-%% Example(s) Starting a process 
-%% ```
-%% > nksip:start(server, #{
-%%         sip_local_host => "localhost",
-%%         callback => nksip_tutorial_server_callbacks,
-%%         plugins => [nksip_registrar],
-%%         transports => "sip:all:5060, <sip:all:5061;transport=tls>"
-%%     }).
-%% ok
-%% '''
+%% @doc Starts a new nksip package
+%% Module must implement nksip behaviour
 
-%% @end
-%%----------------------------------------------------------------
--spec start( ServiceName, OptionsMapOrList ) -> Result when 
-            ServiceName      :: srv_name(), 
-            OptionsMapOrList     :: optslist(),
-            Result          :: {ok, srv_id()} 
-                | {error, term()}.
+-spec start_link(id(), map()) ->
+    {ok, pid()} | {error, term()}.
 
-start(Name, Opts) ->
-    SipKeys = lists:filter(
-        fun(Key) ->
-            case nklib_util:to_list(Key) of
-                "sip_" ++ _ -> true;
-                "tls_" ++ _ -> true;
-                _ -> false
-            end
-        end,
-        maps:keys(Opts)),
-    Base = maps:without(SipKeys, Opts),
-    Config = maps:with(SipKeys, Opts),
-    Listen = maps:get(sip_listen, Opts, "sip:all"),
-    Service = Base#{
-        class => <<"nksip">>,
-        packages => [
-            #{
-                class => ?PACKAGE_CLASS_SIP,
-                config => Config#{sip_listen => Listen}
-            }
-        ]
-    },
-    nkservice:start(Name, Service).
+start_link(Id, Config) ->
+    Config2 = nklib_util:to_map(Config),
+    Plugins = maps:get(plugins, Config, []),
+    Config3 = Config2#{plugins => [nksip|Plugins]},
+    nkserver:start_link(?PACKAGE_CLASS_SIP, Id, Config3).
 
 
-%%----------------------------------------------------------------
-%% @doc Stops a started Service, stopping any registered transports.
-%% @end
-%%----------------------------------------------------------------
--spec stop( ServiceNameOrId ) -> Result when 
-        ServiceNameOrId     :: srv_name()  
-            | srv_id(),
-        Result              :: ok 
-            |  {error, not_running}.
-
-stop(Srv) ->
-    nkservice:stop(Srv).
+stop(Id) ->
+    nkserver_package_sup:stop(Id).
 
 
-%%----------------------------------------------------------------
-%% @doc Stops all started Services.
-%% @end
-%%----------------------------------------------------------------
--spec stop_all() -> 
-    ok.
+-spec update(id(), map()) ->
+    ok | {error, term()}.
 
-stop_all() ->
-    nkservice_srv:stop_all(<<"nksip">>).
-
-
-%%----------------------------------------------------------------
-%% @doc Updates the callback module or options of a running Service.
-%% It is not allowed to change transports
-%%
-%% Example(s) 
-%% ```
-%% > nksip:update(me, #{log_level => debug}).     %% NOTE: Using map() for options
-%%   ok
-%% '''
-%% or 
-%% ```
-%% > nksip:update(me, [{log_level,debug}]).     %% NOTE: Using list() and tuples for options
-%%   ok
-%% '''
-%% @end
-%%----------------------------------------------------------------
--spec update( ServiceNameOrId, OptionsMapOrList ) -> Result when 
-            ServiceNameOrId     :: srv_name()
-                | srv_id(),
-            OptionsMapOrList         :: optslist(),
-            Result              ::  {ok, srv_id()} 
-                | {error, term()}.
-
-update(Srv, Opts) ->
-    Opts1 = nklib_util:to_map(Opts),
-    Opts2 = case Opts1 of
+update(Id, Config) ->
+    Config2 = nklib_util:to_map(Config),
+    Config3 = case Config2 of
         #{plugins:=Plugins} ->
-            Opts1#{plugins=>[nksip|Plugins]};
+            Config2#{plugins:=[nksip|Plugins]};
         _ ->
-            Opts1
+            Config2
     end,
-    nkservice:update(Srv, Opts2).
-
-    
-
-%%----------------------------------------------------------------
-%% @doc Gets service's UUID
-%% @end
-%%----------------------------------------------------------------
--spec get_uuid( ServiceId ) -> Result when
-            ServiceId     :: srv_id(),
-            Result            :: binary().
-
-get_uuid(SrvId) ->
-    ?CALL_SRV(SrvId, uuid, []).
+    nkserver:update(Id, Config3).
 

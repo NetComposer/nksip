@@ -24,7 +24,7 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, srv_id/1, srv_name/1, call_id/1, get_meta/2, get_metas/2]).
+-export([get_handle/1, pkg_id/1, call_id/1, get_meta/2, get_metas/2]).
 -export([get_all/0, get_all/2]).
 -export_type([field/0, status/0, subscription_state/0, terminated_reason/0]).
 
@@ -60,7 +60,7 @@
 %% ===================================================================
 
 
-%% @doc Get the subscripion a request, response or id
+%% @doc Get the subscription a request, response or id
 -spec get_handle(nksip:subscription()|nksip:request()|nksip:response()|nksip:handle()) ->
     {ok, nksip:handle()} | {error, term()}.
 
@@ -75,34 +75,26 @@ get_handle(Term) ->
     {ok, nksip_subscription_lib:get_handle(Term)}.
 
 
-%% @doc Gets thel SrvId of a dialog
--spec srv_id(nksip:subscription()|nksip:handle()) ->
-    {ok, nkservice:id()}.
+%% @doc Gets the PkgId of a dialog
+-spec pkg_id(nksip:subscription()|nksip:handle()) ->
+    {ok, nkserver:id()}.
 
-srv_id({user_subs, _, #dialog{srv_id=SrvId}}) ->
-    {ok, SrvId};
-srv_id(Handle) ->
-    {SrvId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
-    {ok, SrvId}.
-
-
-%% @doc Gets app's name
--spec srv_name(nksip:dialog()|nksip:handle()) -> 
-    {ok, nkservice:name()} | {error, term()}.
-
-srv_name(Term) -> 
-    {ok, SrvId} = srv_id(Term),
-    {ok, SrvId:name()}.
+pkg_id({user_subs, _, #dialog{pkg_id=PkgId}}) ->
+    {ok, PkgId};
+pkg_id(Handle) ->
+    {PkgId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
+    {ok, PkgId}.
 
 
-%% @doc Gets thel Call-ID of the subscription
+
+%% @doc Gets the Call-ID of the subscription
 -spec call_id(nksip:subscription()|nksip:handle()) ->
     {ok, nksip:call_id()}.
 
 call_id({user_subs, _, #dialog{call_id=CallId}}) ->
     {ok, CallId};
 call_id(Id) ->
-    {_SrvId, _SubsId, _DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
+    {_PkgId, _SubsId, _DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
     {ok, CallId}. 
 
 
@@ -169,10 +161,10 @@ get_all() ->
 
 
 %% @doc Finds all existing subscriptions having a `Call-ID'.
--spec get_all(nkservice:id(), nksip:call_id()) ->
+-spec get_all(nkserver:id(), nksip:call_id()) ->
     [nksip:handle()].
 
-get_all(SrvId, CallId) ->
+get_all(PkgId, CallId) ->
     lists:flatten([
         case nksip_dialog:get_meta(subscriptions, Id) of
             {ok, Ids} ->
@@ -180,7 +172,7 @@ get_all(SrvId, CallId) ->
             _ ->
                 []
         end
-        || Id <- nksip_dialog:get_all(SrvId, CallId)
+        || Id <- nksip_dialog:get_all(PkgId, CallId)
     ]).
 
 

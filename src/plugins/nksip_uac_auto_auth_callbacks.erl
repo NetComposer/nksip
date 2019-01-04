@@ -22,36 +22,11 @@
 -module(nksip_uac_auto_auth_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 -export([nksip_parse_uac_opts/2, nksip_uac_response/4]).
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2]).
-
-
-%% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_uac_auto_auth_max_tries => {integer, 1, none},
-        sip_pass => fun parse_passes/3
-    }.
-
-
-plugin_config(Config, _Service) ->
-    Tries = maps:get(sip_uac_auto_auth_max_tries, Config, 5),
-    Pass = maps:get(sip_pass, Config, []),
-    {ok, Config, nksip_uac_auto_auth:make_config(Tries, Pass)}.
-
-
 
 
 %% ===================================================================
@@ -63,8 +38,8 @@ plugin_config(Config, _Service) ->
 -spec nksip_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {error, term()}.
 
-nksip_parse_uac_opts(#sipmsg{srv =_SrvId}=Req, Opts) ->
-    case nklib_config:parse_config(Opts, plugin_syntax()) of
+nksip_parse_uac_opts(Req, Opts) ->
+    case nklib_config:parse_config(Opts, nksip_uac_auto_auth:syntax()) of
         {ok, Opts2, _Rest} ->
             {continue, [Req, nklib_util:store_values(Opts2, Opts)]};
         {error, Error} ->
@@ -80,39 +55,4 @@ nksip_parse_uac_opts(#sipmsg{srv =_SrvId}=Req, Opts) ->
 nksip_uac_response(Req, Resp, UAC, Call) ->
     nksip_uac_auto_auth:check_auth(Req, Resp, UAC, Call).
 
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-parse_passes(_, [], _) ->
-    {ok, []};
-
-parse_passes(_, Passes, _) when is_list(Passes), not is_integer(hd(Passes)) ->
-    check_passes(Passes, []);
-
-parse_passes(_, Pass, _) ->
-    check_passes([Pass], []).
-
-
-
-%% @private
-check_passes([], Acc) ->
-    {ok, lists:reverse(Acc)};
-
-check_passes([PassTerm|Rest], Acc) ->
-    case PassTerm of
-        _ when is_list(PassTerm) -> 
-            check_passes(Rest, [{<<>>, list_to_binary(PassTerm)}|Acc]);
-        _ when is_binary(PassTerm) -> 
-            check_passes(Rest, [{<<>>, PassTerm}|Acc]);
-        {Realm, Pass} when 
-            (is_list(Realm) orelse is_binary(Realm)) andalso
-            (is_list(Pass) orelse is_binary(Pass)) ->
-            Acc1 = [{nklib_util:to_binary(Realm), nklib_util:to_binary(Pass)}|Acc],
-            check_passes(Rest, Acc1);
-        _ ->
-            error
-    end.
 

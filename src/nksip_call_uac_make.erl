@@ -22,10 +22,10 @@
 -module(nksip_call_uac_make).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/6, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1]).
+-export([make/5, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1]).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
  
@@ -36,12 +36,18 @@
 
 
 %% @doc Generates a new request.
--spec make(nkservice:id(), nkservice:package_id(), nksip:method(), nksip:user_uri(),
+-spec make(nkserver:id(), nksip:method(), nksip:user_uri(),
            nksip:call_id(), [nksip_uac:req_option()]) ->
     {ok, nksip:request(), [nksip_uac:req_option()]} | {error, term()}.
     
-make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
+make(PkgId, Method, Uri, CallId, Opts) ->
     try
+        case whereis(PkgId) of
+            Pid when is_pid(Pid) ->
+                ok;
+            undefined ->
+                throw(package_not_started)
+        end,
         {Method, RUri} = case nksip_parse:uri_method(Uri, Method) of
             {Method0, Uri0} ->
                 {Method0, Uri0};
@@ -49,7 +55,7 @@ make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
                 throw(invalid_uri)
         end,
         FromTag = nklib_util:uid(),
-        Config = nksip_plugin:get_config(SrvId, PkgId),
+        Config = nksip_config:pkg_config(PkgId),
         DefFrom = case Config#config.from of
             undefined ->
                 #uri{
@@ -68,8 +74,7 @@ make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
         Req1 = #sipmsg{
             id = nklib_util:uid(),
             class = {req, Method},
-            srv = SrvId,
-            package = PkgId,
+            pkg_id = PkgId,
             ruri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
             from = {DefFrom, FromTag},
             to = {DefTo, <<>>},
@@ -90,7 +95,7 @@ make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
             #uri{headers=[]} ->
                 Req2;
             #uri{headers=Headers} ->
-                nksip_parse_header:headers(Headers, Req2, post)
+                nksip_parse_header:headers(Headers, Req2, add)
         end,
         {Req4, Opts4} = parse_opts(Opts3, Req3, []),
         Opts5 = case 
@@ -116,17 +121,17 @@ make(SrvId, PkgId, Method, Uri, CallId, Opts) ->
     {ok, nksip:request(), nksip:optslist()} | {error, term()} | 
     {reply, nksip:sipreply()}.
     
-proxy_make(#sipmsg{srv=SrvId, ruri=RUri}=Req, Opts) ->
+proxy_make(#sipmsg{pkg_id=PkgId, ruri=RUri}=Req, Opts) ->
     try
         {Req1, Opts1} = parse_plugin_opts(Req, Opts),
         Req2 = case RUri of
             #uri{headers=[]} ->
                 Req1;
             #uri{headers=Headers} ->
-                nksip_parse_header:headers(Headers, Req1, post)
+                nksip_parse_header:headers(Headers, Req1, add)
         end,
         {Req3, Opts3} = parse_opts(Opts1, Req2, []),
-        case ?CALL_SRV(SrvId, nksip_uac_proxy_opts, [Req3, Opts3]) of
+        case ?CALL_PKG(PkgId, nksip_uac_proxy_opts, [Req3, Opts3]) of
             {continue, [Req4, Opts4]} ->
                 Req5 = remove_local_routes(Req4),
                 {ok, Req5, Opts4};
@@ -140,8 +145,8 @@ proxy_make(#sipmsg{srv=SrvId, ruri=RUri}=Req, Opts) ->
 
 
 %% @private
-remove_local_routes(#sipmsg{srv=SrvId, routes=Routes}=Req) ->
-    case do_remove_local_routes(SrvId, Routes) of
+remove_local_routes(#sipmsg{pkg_id=PkgId, routes=Routes}=Req) ->
+    case do_remove_local_routes(PkgId, Routes) of
         Routes ->
             Req;
         Routes1 ->
@@ -150,13 +155,13 @@ remove_local_routes(#sipmsg{srv=SrvId, routes=Routes}=Req) ->
 
 
 %% @private
-do_remove_local_routes(_SrvId, []) ->
+do_remove_local_routes(_PkgId, []) ->
     [];
 
-do_remove_local_routes(SrvId, [Route|RestRoutes]) ->
-    case nksip_util:is_local(SrvId, Route) of
+do_remove_local_routes(PkgId, [Route|RestRoutes]) ->
+    case nksip_util:is_local(PkgId, Route) of
         true ->
-            do_remove_local_routes(SrvId, RestRoutes);
+            do_remove_local_routes(PkgId, RestRoutes);
         false ->
             [Route|RestRoutes]
     end.
@@ -244,7 +249,7 @@ parse_opts([], Req, Opts) ->
     {Req, Opts};
 
 parse_opts([Term|Rest], Req, Opts) ->
-    #sipmsg{srv=SrvId, package=PkgId, class={req, Method}} = Req,
+    #sipmsg{pkg_id=PkgId, class={req, Method}} = Req,
     Op = case Term of
         
         ignore ->
@@ -310,14 +315,14 @@ parse_opts([Term|Rest], Req, Opts) ->
             error;
         {min_cseq, MinCSeq} ->
             case lists:keymember(cseq_num, 1, Rest) of
-                false -> 
+                false ->
                     #sipmsg{cseq={OldCSeq, CSeqMethod}} =Req,
                     case is_integer(MinCSeq) of
-                        true when MinCSeq > OldCSeq -> 
+                        true when MinCSeq > OldCSeq ->
                             {update, Req#sipmsg{cseq={MinCSeq, CSeqMethod}}, Opts};
-                        true -> 
+                        true ->
                             ignore;
-                        false -> 
+                        false ->
                             error
                     end;
                 true ->
@@ -338,7 +343,7 @@ parse_opts([Term|Rest], Req, Opts) ->
         {get_meta, List} when is_list(List) ->
             % get_meta can be used several times
             case lists:keyfind(get_meta, 1, Opts) of
-                false -> 
+                false ->
                     {update, Req, [{get_meta, List}|Opts]};
                 {get_meta, List0} ->
                     {update, Req, nklib_util:store_value(get_meta, List0++List, Opts)}
@@ -347,7 +352,7 @@ parse_opts([Term|Rest], Req, Opts) ->
             error;
         {user, List} when is_list(List) ->
             case lists:keyfind(user, 1, Opts) of
-                false -> 
+                false ->
                     {update, Req, [{user, List}|Opts]};
                 {user, List0} ->
                     {update, Req, nklib_util:store_value(user, List0++List, Opts)}
@@ -362,10 +367,10 @@ parse_opts([Term|Rest], Req, Opts) ->
             {update, Req, [{local_host6, auto}|Opts]};
         {local_host6, Host} ->
             case nklib_util:to_ip(Host) of
-                {ok, HostIp6} -> 
+                {ok, HostIp6} ->
                     % Ensure it is enclosed in `[]'
                     {update, Req, [{local_host6, nklib_util:to_host(HostIp6, true)}|Opts]};
-                error -> 
+                error ->
                     {update, Req, [{local_host6, nklib_util:to_binary(Host)}|Opts]}
             end;
         {callback, Fun} when is_function(Fun, 1) ->
@@ -381,13 +386,13 @@ parse_opts([Term|Rest], Req, Opts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            Config = nksip_plugin:get_config(SrvId, PkgId),
+            Config = nksip_config:pkg_config(PkgId),
             {replace, <<"supported">>, Config#config.supported};
         allow ->
-            Config = nksip_plugin:get_config(SrvId, PkgId),
+            Config = nksip_config:pkg_config(PkgId),
             {replace, <<"allow">>,  Config#config.allow};
         accept ->
-            Config = nksip_plugin:get_config(SrvId, PkgId),
+            Config = nksip_config:pkg_config(PkgId),
             Accept = case Config#config.accept of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
@@ -401,7 +406,7 @@ parse_opts([Term|Rest], Req, Opts) ->
             Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            Config = nksip_plugin:get_config(SrvId, PkgId),
+            Config = nksip_config:pkg_config(PkgId),
             case Config#config.events of
                 [] ->
                     ignore;
@@ -461,7 +466,7 @@ parse_opts([Term|Rest], Req, Opts) ->
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
-            PReq = nksip_parse_header:parse(PName, AddValue, Req, post),
+            PReq = nksip_parse_header:parse(PName, AddValue, Req, add),
             parse_opts(Rest, PReq, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
@@ -469,9 +474,9 @@ parse_opts([Term|Rest], Req, Opts) ->
             parse_opts(Rest, PReq, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
-            PReq = nksip_parse_header:parse(PName, InsValue, Req, pre),
+            PReq = nksip_parse_header:parse(PName, InsValue, Req, insert),
             parse_opts(Rest, PReq, Opts);
-        {update, UpdReq, UpdOpts} -> 
+        {update, UpdReq, UpdOpts} ->
             parse_opts(Rest, UpdReq, UpdOpts);
         {retry, Terms} ->
             parse_opts(Terms, Req, Opts);
@@ -491,8 +496,8 @@ parse_opts([Term|Rest], Req, Opts) ->
 -spec parse_plugin_opts(nksip:request(), map()) ->
     {nksip:request(), map()}.
 
-parse_plugin_opts(#sipmsg{srv=SrvId}=Req, Opts) ->
-    case ?CALL_SRV(SrvId, nksip_parse_uac_opts, [Req, Opts]) of
+parse_plugin_opts(#sipmsg{pkg_id=PkgId}=Req, Opts) ->
+    case ?CALL_PKG(PkgId, nksip_parse_uac_opts, [Req, Opts]) of
         {continue, [Req2, Opts2]} ->
             {Req2, Opts2};
         {error, Error} ->

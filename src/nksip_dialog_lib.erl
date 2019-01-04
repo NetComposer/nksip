@@ -50,30 +50,38 @@
 -spec get_handle(nksip:dialog()|nksip:request()|nksip:response()|nksip:handle()) ->
     nksip:handle().
 
-get_handle(#dialog{id=Id, srv_id=SrvId, call_id=CallId}) ->
-    Srv = atom_to_binary(SrvId, latin1),
-    <<$D, $_, Id/binary, $_, Srv/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{dialog_id=DialogId, srv=SrvId, call_id=CallId}) ->
-    Srv = atom_to_binary(SrvId, latin1),
-    <<$D, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
+get_handle(#dialog{id=DialogId, pkg_id=PkgId, call_id=CallId}) ->
+    make_handle(PkgId, DialogId, CallId);
+
+get_handle(#sipmsg{dialog_id=DialogId, pkg_id=PkgId, call_id=CallId}) ->
+    make_handle(PkgId, DialogId, CallId);
+
 get_handle(<<"D_", _/binary>>=DialogId) ->
     DialogId;
+
 get_handle(<<"U_", _/binary>>=Id) ->
-    {SrvId, _, DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
-    Srv = atom_to_binary(SrvId, latin1), 
-    <<$D, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
-get_handle(_) ->
+    {PkgId, _, DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
+    make_handle(PkgId, DialogId, CallId);
+
+get_handle(_O) ->
+    lager:error("NKLOG INVALID HANDLE3: ~p", [_O]),
     error(invalid_dialog).
 
 
-%% @doc TODO MUST REPLY PKGID!
--spec parse_handle(nksip:handle()) -> 
-    {nkservice:id(), nkservice:package_id(), id(), nksip:call_id()}.
+-spec parse_handle(nksip:handle()) ->
+    {nkserver:id(), id(), nksip:call_id()}.
 
-parse_handle(<<$D, $_, _/binary>>=Bin) ->
-    <<$D, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>> = Bin,
-    {binary_to_existing_atom(Srv, latin1), Id, CallId};
-parse_handle(_) ->
+parse_handle(<<"D_", Rest/binary>>) ->
+    case catch binary_to_term(base64:decode(Rest)) of
+        {PkgId, MsgId, CallId} ->
+            {PkgId, MsgId, CallId};
+        _O ->
+            lager:error("NKLOG INVALID HANDLE2: ~p ~p", [_O, Rest]),
+            error(invalid_handle)
+    end;
+
+parse_handle(_O) ->
+    lager:error("NKLOG INVALID HANDLE ~p", [_O]),
     error(invalid_handle).
 
 
@@ -87,10 +95,8 @@ get_meta(Field, #dialog{invite=I}=D) ->
             get_handle(D);
         internal_id ->
             D#dialog.id;
-        srv_id ->
-            D#dialog.srv_id;
-        srv_name ->
-            apply(D#dialog.srv_id, name, []);
+        pkg_id ->
+            D#dialog.pkg_id;
         created ->
             D#dialog.created;
         updated ->
@@ -185,7 +191,7 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {SrvId, _PkgId, DialogId, CallId} = parse_handle(Handle),
+    {PkgId, DialogId, CallId} = parse_handle(Handle),
     Fun = fun(Dialog) ->
         case catch get_metas(Fields, Dialog) of
             {'EXIT', {{invalid_field, Field}, _}} -> 
@@ -194,7 +200,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {ok, Values}
         end
     end,
-    case nksip_call:apply_dialog(SrvId, CallId, DialogId, Fun) of
+    case nksip_call:apply_dialog(PkgId, CallId, DialogId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 
@@ -247,10 +253,14 @@ make_id(Class, FromTag, ToTag) ->
 
 
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
-remote_id(<<$D, _/binary>>=DialogId, Srv) ->
-    {ok, SrvId} = nkservice_srv:get_srv_id(Srv),
-    {ok, [{internal_id, BaseId}, {local_uri, LUri}, {remote_uri, RUri}, {call_id, CallId}]} =  
-        nksip_dialog:get_metas([internal_id, local_uri, remote_uri, call_id], DialogId),
+remote_id(<<$D, _/binary>>=DialogId, PkgId) ->
+    {ok, Metas} = nksip_dialog:get_metas([internal_id, local_uri, remote_uri, call_id], DialogId),
+    [
+        {internal_id, BaseId},
+        {local_uri, LUri},
+        {remote_uri, RUri},
+        {call_id, CallId}
+    ] = Metas,
     FromTag = nklib_util:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nklib_util:get_binary(<<"tag">>, RUri#uri.ext_opts),
     Id = case make_id(uac, FromTag, ToTag) of
@@ -259,15 +269,13 @@ remote_id(<<$D, _/binary>>=DialogId, Srv) ->
         RemoteId ->
             RemoteId
     end,
-    BinSrv = atom_to_binary(SrvId, latin1),
-    <<$D, $_, Id/binary, $_, BinSrv/binary, $_, CallId/binary>>.
+    make_handle(PkgId, Id, CallId).
 
 
 %% @private Hack to find de dialog at another app in the same machine
-change_app(Id, SrvId) ->
-    {_, _, DialogId, CallId} = parse_handle(Id),
-    Srv1 = atom_to_binary(SrvId, latin1),
-    <<$D, $_, DialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
+change_app(Id, PkgId) ->
+    {_, DialogId, CallId} = parse_handle(Id),
+    make_handle(PkgId, DialogId, CallId).
 
 
 %% @private
@@ -275,5 +283,7 @@ read_timer(Ref) when is_reference(Ref) -> (erlang:read_timer(Ref))/1000;
 read_timer(_) -> undefined.
 
 
+make_handle(PkgId, DialogId, CallId) ->
+    <<"D_", (base64:encode(term_to_binary({PkgId, DialogId, CallId})))/binary>>.
 
 

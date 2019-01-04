@@ -23,10 +23,10 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_registrar.hrl").
 
--export([find/3, find/5, qfind/3, qfind/5, delete/5, clear/2]).
+-export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
 -export_type([reg_contact/0]).
 
@@ -45,53 +45,53 @@
 
 %% @doc Gets all current registered contacts for an AOR.
 %% Use nksip_gruu:find/2 to process gruu options.
--spec find(nkservice:id(), nkservice:package_id(), nksip:aor() | nksip:uri()) ->
+-spec find(nkserver:id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
-find(SrvId, PkgId, {Scheme, User, Domain}) ->
-    find(SrvId, PkgId, Scheme, User, Domain);
+find(PkgId, {Scheme, User, Domain}) ->
+    find(PkgId, Scheme, User, Domain);
 
-find(SrvId, PkgId, Uri) ->
-    nksip_registrar_lib:find(SrvId, PkgId, Uri).
+find(PkgId, Uri) ->
+    nksip_registrar_lib:find(PkgId, Uri).
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nkservice:id(), nkservice:package_id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
-find(SrvId, PkgId, Scheme, User, Domain) ->
-    nksip_registrar_lib:find(SrvId, PkgId, Scheme, User, Domain).
+find(PkgId, Scheme, User, Domain) ->
+    nksip_registrar_lib:find(PkgId, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:id(), nkservice:package_id(), AOR::nksip:aor()) ->
+-spec qfind(nkserver:id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
-qfind(SrvId, PkgId, {Scheme, User, Domain}) ->
-    qfind(SrvId, PkgId, Scheme, User, Domain).
+qfind(PkgId, {Scheme, User, Domain}) ->
+    qfind(PkgId, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:id(), nkservice:package_id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
-qfind(SrvId, PkgId, Scheme, User, Domain) ->
-    nksip_registrar_lib:qfind(SrvId, PkgId, Scheme, User, Domain).
+qfind(PkgId, Scheme, User, Domain) ->
+    nksip_registrar_lib:qfind(PkgId, Scheme, User, Domain).
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(nkservice:id(), nkservice:package_id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
-delete(SrvId, PkgId, Scheme, User, Domain) ->
+delete(PkgId, Scheme, User, Domain) ->
     AOR = {
         nklib_parse:scheme(Scheme),
         nklib_util:to_binary(User),
         nklib_util:to_binary(Domain)
     },
-    nksip_registrar_lib:store_del(SrvId, PkgId, AOR).
+    nksip_registrar_lib:store_del(PkgId, AOR).
 
 
 %% @doc Finds if a request has a <i>From</i> that has been already registered
@@ -105,12 +105,11 @@ is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
 
 is_registered(SipMsg) ->
     #sipmsg{
-        srv = SrvId,
-        package = PkgId,
+        pkg_id = PkgId,
         from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
         nkport=NkPort
     } = SipMsg,
-    case catch nksip_registrar_lib:store_get(SrvId, PkgId, {Scheme, User, Domain}) of
+    case catch nksip_registrar_lib:store_get(PkgId, {Scheme, User, Domain}) of
         {ok, Regs} ->
             nksip_registrar_lib:is_registered(Regs, NkPort);
         _ ->
@@ -145,9 +144,9 @@ request(Req) ->
 
 
 %% @doc Clear all stored records by a Service's core.
--spec clear(nkservice:id(), nkservice:package_id()) ->
+-spec clear(nkserver:id()) ->
     ok.
 
-clear(SrvId, PkgId) ->
-    nksip_registrar_lib:store_del_all(SrvId, PkgId),
+clear(PkgId) ->
+    nksip_registrar_lib:store_del_all(PkgId),
     ok.

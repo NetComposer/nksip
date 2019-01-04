@@ -22,39 +22,9 @@
 -module(nksip_stats_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
--export([plugin_deps/0, plugin_start/2]).
 -export([nksip_transport_uas_sent/1]).
-
-
-
-% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(Config, _Service) ->
-    case whereis(nksip_debug_srv) of
-        undefined ->
-            Child = {
-                nksip_debug_srv,
-                {nksip_debug_srv, start_link, []},
-                permanent,
-                5000,
-                worker,
-                [nksip_debug_srv]
-            },
-            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
-        _ ->
-            ok
-    end,
-    {ok, Config}.
-
-
 
 
 

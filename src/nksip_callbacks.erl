@@ -28,7 +28,9 @@
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 -include("nksip_call.hrl").
+
 
 -export([sip_get_user_pass/4, sip_authorize/3, sip_route/5]).
 -export([sip_invite/2, sip_reinvite/2, sip_cancel/3, sip_ack/2, sip_bye/2]).
@@ -162,7 +164,6 @@ sip_options(_Req, _Call) ->
 %% Default Code  
 %% ===================
 %% sip_register(Req, _Call) ->
-%%     {ok, SrvId} = nksip_request:srv_id(Req),
 %%     {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.'''
 %% @end 
 %%--------------------------------------------------------------------
@@ -176,8 +177,8 @@ sip_options(_Req, _Call) ->
 		DefaultResult	:: see_docs_on_this_function_for_default_results.
 
 sip_register(_Req, Call) ->
-	#call{srv=SrvId, package=PkgId} = Call,
-	Config = nksip_plugin:get_config(SrvId, PkgId),
+	#call{ pkg_id=PkgId} = Call,
+	Config = nksip_config:pkg_config(PkgId),
 	{reply, {method_not_allowed, Config#config.allow}}.
 
 
@@ -201,10 +202,7 @@ sip_invite(_Req, _Call) ->
 %%----------------------------------------------------------------
 %% @doc This function is called when a new in-dialog INVITE request is received.
 %%
-%% See also <A href="./nksip_callbacks.html#sip_invite-2">sip_invite(Request, Call)</A>
 %%
-%% See also <A href="./srv_id_dummy.html#sip_invite-2">SrvId:sip_invite(Request, Call)</A>
-%% 
 % ```
 % Default Code  
 % ===================
@@ -221,8 +219,8 @@ sip_invite(_Req, _Call) ->
 		DefaultResult	:: see_docs_on_this_function_for_default_results.
 
 sip_reinvite(Req, Call) ->
-    {ok, SrvId} = nksip_request:srv_id(Req),
-    SrvId:sip_invite(Req, Call).
+    {ok, PkgId} = nksip_request:pkg_id(Req),
+    ?CALL_PKG(PkgId, sip_invite, [Req, Call]).
 
 %%----------------------------------------------------------------
 %% @doc Called when a pending INVITE request is cancelled.
@@ -359,8 +357,8 @@ sip_refer(_Req, _Call) ->
 		DefaultResult	:: see_docs_on_this_function_for_default_result.
 	
 sip_publish(_Req, Call) ->
-	#call{srv=SrvId, package=PkgId} = Call,
-	Config = nksip_plugin:get_config(SrvId, PkgId),
+	#call{ pkg_id=PkgId} = Call,
+	Config = nksip_config:pkg_config(PkgId),
     {reply, {method_not_allowed, Config#config.allow}}.
 
 
@@ -459,16 +457,17 @@ nksip_preparse(SipMsg, Headers) ->
 %% @end
 %%----------------------------------------------------------------
 -spec nksip_user_callback( ServiceId, Function, Args ) -> Result when
-            ServiceId 			:: nkservice:id(),
+            ServiceId 			:: nkserver:id(),
             Function 			:: atom(),
 			Args 				:: list(),
 			Result 				:: {ok, term()}
 				| error 
 				| continue().
 
-nksip_user_callback(SrvId, Fun, Args) ->
-	case catch apply(SrvId, Fun, Args) of
-	    {'EXIT', Error} -> 
+nksip_user_callback(PkgId, Fun, Args) ->
+	%lager:error("NKLOG CALLING ~p, ~p, ~p", [PkgId, Fun, Args]),
+	case catch ?CALL_PKG(PkgId, Fun, Args) of
+	    {'EXIT', Error} ->
 	        ?CALL_LOG(error, "Error calling callback ~p/~p: ~p", [Fun, length(Args), Error]),
 	        error;
 	    Reply ->
@@ -796,12 +795,12 @@ nksip_transport_uas_sent(_Resp) ->
 %% @end
 %%----------------------------------------------------------------
 -spec nksip_debug( ServiceId, CallId, Info ) -> Result when
-		ServiceId		:: nkservice:id(),
+		ServiceId		:: nkserver:id(),
 		CallId 			:: nksip:call_id(),
 		Info 			:: term(),
 		Result 			:: ok 
 			| continue().
 
-nksip_debug(_SrvId, _CallId, _Info) ->
+nksip_debug(_PkgId, _CallId, _Info) ->
     ok.
 

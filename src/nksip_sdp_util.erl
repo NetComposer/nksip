@@ -352,7 +352,7 @@ sdp2_test() ->
 
 
 
-sdp1() -> 
+sdp1() ->
 <<"v=0
 o=- 3680359967 3680359967 IN IP4 0.0.0.0
 s=Kurento Media Server

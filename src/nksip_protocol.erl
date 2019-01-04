@@ -31,8 +31,9 @@
 -type conn_state() :: nkpacket_protocol:conn_state().
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 -define(MAX_MSG, 65507).
@@ -143,8 +144,9 @@ conn_init(NkPort) ->
     State = #conn_state{
         rnrn_pattern = binary:compile_pattern(<<"\r\n\r\n">>)
     },
-    #nkport{class={nksip, SrvId, PkgId}} = NkPort,
-    Debug = nksip_plugin:get_debug(SrvId, PkgId, packet),
+    #nkport{class={nksip, PkgId}} = NkPort,
+    #config{debug=DebugList} = nksip_config:pkg_config(PkgId),
+    Debug = lists:member(protocol, DebugList),
     erlang:put(nksip_debug, Debug),
     ?SIP_DEBUG("connection started (~p)", [self()]),
     {ok, State}.
@@ -191,9 +193,9 @@ conn_encode(_Term, _NkPort, ConnState) ->
 -spec conn_encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
     {ok, nkpacket:outcoming()} | continue | {error, term()}.
 
-conn_encode(#sipmsg{srv=SrvId}=SipMsg, _NkPort) ->
+conn_encode(#sipmsg{pkg_id=PkgId}=SipMsg, _NkPort) ->
     Packet = nksip_unparse:packet(SipMsg),
-    ?CALL_SRV(SrvId, nksip_connection_sent, [SipMsg, Packet]),
+     ?CALL_PKG(PkgId, nksip_connection_sent, [SipMsg, Packet]),
     {ok, Packet};
 
 conn_encode(Bin, _NkPort) when is_binary(Bin) ->
@@ -410,8 +412,8 @@ do_parse(Data, #nkport{transp=Transp}=NkPort, State) ->
 do_parse(#nkport{transp=Transp}=NkPort, Data, Pos, State) ->
     case extract(Transp, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
-            #nkport{class={nksip, SrvId, PkgId}} = NkPort,
-            case nksip_router:incoming(SrvId, PkgId, CallId, NkPort, Msg) of
+            #nkport{class={nksip, PkgId}} = NkPort,
+            case nksip_router:incoming(PkgId, CallId, NkPort, Msg) of
                 ok -> 
                     do_parse(Rest, NkPort, State);
                 {error, Error} -> 
@@ -436,12 +438,12 @@ do_parse(#nkport{transp=Transp}=NkPort, Data, Pos, State) ->
 
 extract(Transp, Data, Pos) ->
     case 
-        re:run(Data, nksip_config_cache:re_call_id(), 
+        re:run(Data, nksip_config:get_config(re_call_id),
                [{capture, all_but_first, binary}])
     of
         {match, [_, CallId]} ->
             case 
-                re:run(Data, nksip_config_cache:re_content_length(), 
+                re:run(Data, nksip_config:get_config(re_content_length),
                        [{capture, all_but_first, list}])
             of
                 {match, [_, CL0]} ->
@@ -500,8 +502,8 @@ do_send(Packet, NkPort) ->
 
 
 %% @private
-get_listening(#nkport{class=TSrvId, transp=Transp, local_ip=Ip}) ->
-    case nkpacket:get_listening(nksip_protocol, Transp, #{class=>TSrvId, ip=>Ip}) of
+get_listening(#nkport{class=TPkgId, transp=Transp, local_ip=Ip}) ->
+    case nkpacket:get_listening(nksip_protocol, Transp, #{class=>TPkgId, ip=>Ip}) of
         [#nkport{pid=Pid}|_] ->
             {ok, Pid};
         [] ->

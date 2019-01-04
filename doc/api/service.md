@@ -363,11 +363,11 @@ Gets the Service's _UUID_.
 ***Example(s):***
 > 
 ```erlang
-nksip:get_uuid(bbkj953). 	%% srv_id()
+nkserver:uuid(bbkj953). 	%% srv_id()
 <<"<urn:uuid:545f1233-28d4-e321-93d7-28cfe9192deb>">>
 ```
 or
 ```erlang
-nksip:get_uuid(me2).    	%% srv_name()
+nkserver:uuid(me2).    	%% srv_name()
 <<"<urn:uuid:545f1233-28d4-e321-93d7-28cfe9192deb>">>
 ```

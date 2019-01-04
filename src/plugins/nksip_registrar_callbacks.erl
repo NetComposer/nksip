@@ -23,11 +23,11 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([sip_registrar_store/3]).
+-export([sip_registrar_store/2]).
 -export([sip_register/2, nksip_authorize_data/3]).
 -export([nksip_registrar_request_opts/2, nksip_registrar_request_reply/3,
          nksip_registrar_get_index/2, nksip_registrar_update_regcontact/4]).
@@ -41,30 +41,29 @@
 
 % @doc Called when a operation database must be done on the registrar database.
 %% This default implementation uses the built-in memory database.
--spec sip_registrar_store(SrvId, PkgId, StoreOp) ->
+-spec sip_registrar_store(PkgId, StoreOp) ->
     [RegContact] | ok | not_found when
-        SrvId :: nkservice:id(),
-        PkgId :: nkservice:package_id(),
+        PkgId :: nkserver:id(),
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} |
                    {del, AOR} | del_all,
         AOR :: nksip:aor(),
         RegContact :: nksip_registrar:reg_contact(),
         TTL :: integer().
 
-sip_registrar_store(SrvId, PkgId, Op) ->
+sip_registrar_store(PkgId, Op) ->
     case Op of
         {get, AOR} ->
-            nklib_store:get({nksip_registrar, SrvId, PkgId, AOR}, []);
-        {put, AOR, Contacts, TTL} -> 
-            nklib_store:put({nksip_registrar, SrvId, PkgId, AOR}, Contacts, [{ttl, TTL}]);
+            nklib_store:get({nksip_registrar, PkgId, AOR}, []);
+        {put, AOR, Contacts, TTL} ->
+            nklib_store:put({nksip_registrar, PkgId, AOR}, Contacts, [{ttl, TTL}]);
         {del, AOR} ->
-            nklib_store:del({nksip_registrar, SrvId, PkgId, AOR});
+            nklib_store:del({nksip_registrar, PkgId, AOR});
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
-                    {nksip_registrar, SrvId, PkgId, AOR} ->
-                        nklib_store:del({nksip_registrar, SrvId, PkgId, AOR});
-                    _ -> 
+                    {nksip_registrar, PkgId, AOR} ->
+                        nklib_store:del({nksip_registrar, PkgId, AOR});
+                    _ ->
                         Acc
                 end
             end,
@@ -77,7 +76,7 @@ sip_registrar_store(SrvId, PkgId, Op) ->
 
 
 %% @doc By default, we reply to register requests
--spec sip_register(nksip:request(), nksip:call()) -> 
+-spec sip_register(nksip:request(), nksip:call()) ->
     {reply, nksip:sipreply()}.
 
 sip_register(Req, _Call) ->

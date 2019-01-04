@@ -23,37 +23,12 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_registrar.hrl").
 
--export([plugin_deps/0, plugin_config/2, plugin_stop/2]).
 -export([nksip_uac_proxy_opts/2, nksip_transport_uac_headers/6]).
 -export([nksip_registrar_request_opts/2, nksip_registrar_request_reply/3,
 	     nksip_registrar_get_index/2]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_config(Config, _Service) ->
-    Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
-    Supported2 = nklib_util:store_value(<<"outbound">>, Supported1),
-    Config2 = Config#{sip_supported=>Supported2},
-    {ok, Config2}.
-
-
-
-plugin_stop(Config, _Service) ->
-    Supported1 = maps:get(sip_supported, Config, []),
-    Supported2 = Supported1 -- [<<"outbound">>],
-    {ok, Config#{sip_supported=>Supported2}}.
-
-
 
 
 %% ===================================================================

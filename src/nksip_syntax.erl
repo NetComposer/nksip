@@ -40,7 +40,7 @@
 %% @private
 %% Transport options must be included in url
 app_syntax() ->
-    nkpacket_syntax:tls_syntax(#{
+    Syntax = #{
         sip_listen => binary,
         sip_allow => words,
         sip_supported => words,
@@ -61,9 +61,10 @@ app_syntax() ->
         sip_max_calls => {integer, 1, 1000000},
         sip_local_host => [{atom, [auto]}, host],
         sip_local_host6 => [{atom, [auto]}, host6],
-        sip_debug => {list, atom},
+        sip_debug => {list, atom},                      % nkpacket, call, protocol
         sip_udp_max_size => nat_integer                 % Used for all sent packets
-    }).
+    },
+    nkpacket_syntax:tls_syntax(Syntax).
 
 
 default_allow() ->
@@ -78,31 +79,31 @@ default_supported() ->
     [<<"path">>].
 
 
-make_config(Data) ->
+make_config(Config) ->
     Times = #call_times{
-        t1 = maps:get(sip_timer_t1, Data, 500),
-        t2 = maps:get(sip_timer_t2, Data, 4000),
-        t4 = maps:get(sip_timer_t4, Data, 5000),
-        tc = maps:get(sip_timer_c, Data, 180),
-        trans = maps:get(sip_trans_timeout, Data, 900),
-        dialog = maps:get(sip_dialog_timeout, Data, 1800)
+        t1 = maps:get(sip_timer_t1, Config, 500),
+        t2 = maps:get(sip_timer_t2, Config, 4000),
+        t4 = maps:get(sip_timer_t4, Config, 5000),
+        tc = maps:get(sip_timer_c, Config, 180),
+        trans = maps:get(sip_trans_timeout, Config, 900),
+        dialog = maps:get(sip_dialog_timeout, Config, 1800)
     },
     #config{
-        debug = maps:get(sip_debug, Data, false),
-        allow = maps:get(sip_allow, Data, default_allow()),
-        supported = maps:get(sip_supported, Data, default_supported()),
-        event_expires = maps:get(sip_event_expires, Data, 60),
-        event_expires_offset = maps:get(sip_event_expires_offset, Data, 5),
-        nonce_timeout = maps:get(sip_nonce_timeout, Data, 30),
-        from = maps:get(sip_from, Data, undefined),
-        accept = maps:get(sip_accept, Data, undefined),
-        events = maps:get(sip_events, Data, []),
-        route = maps:get(sip_route, Data, []),
-        no_100 = maps:get(sip_no_100, Data, false),
-        max_calls = maps:get(sip_max_calls, Data, 100000),
-        local_host = maps:get(sip_local_host, Data, auto),
-        local_host6 = maps:get(sip_local_host6, Data, auto),
+        debug = maps:get(sip_debug, Config, []),
+        allow = maps:get(sip_allow, Config, default_allow()),
+        supported = maps:get(sip_supported, Config, default_supported()),
+        event_expires = maps:get(sip_event_expires, Config, 60),
+        event_expires_offset = maps:get(sip_event_expires_offset, Config, 5),
+        nonce_timeout = maps:get(sip_nonce_timeout, Config, 30),
+        from = maps:get(sip_from, Config, undefined),
+        accept = maps:get(sip_accept, Config, undefined),
+        events = maps:get(sip_events, Config, []),
+        route = maps:get(sip_route, Config, []),
+        no_100 = maps:get(sip_no_100, Config, false),
+        max_calls = maps:get(sip_max_calls, Config, 100000),
+        local_host = maps:get(sip_local_host, Config, auto),
+        local_host6 = maps:get(sip_local_host6, Config, auto),
         times = Times,
-        udp_max_size = maps:get(sip_udp_max_size, Data, ?UDP_MAX_SIZE)
+        udp_max_size = maps:get(sip_udp_max_size, Config, ?UDP_MAX_SIZE)
     }.
 

@@ -26,9 +26,9 @@
 
 -export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
-
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 
@@ -37,42 +37,33 @@
 %% ===================================================================
 
 %% @doc Configures a Service to start debugging
--spec start(nkservice:id()|nkservice:name()) ->
+-spec start(nkserver:id()) ->
     ok | {error, term()}.
 
-start(Srv) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            Plugins1 = SrvId:plugins(),
-            Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
-            case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>true}) of
-                ok ->
-                    ok;
-                {error, Error} ->
-                    {error, Error}
-            end;
-        not_found ->
-            {error, service_not_found}
+start(PkgId) ->
+    Plugins1 = ?CALL_PKG(PkgId, plugins, []),
+    Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
+    case nksip:update(PkgId, #{plugins=>Plugins2, sip_debug=>true}) of
+        ok ->
+            ok;
+        {error, Error} ->
+            {error, Error}
     end.
 
 
 %% @doc Stop debugging in a specific Service
--spec stop(nkservice:id()|nkservice:name()) ->
+-spec stop(nkserver:id()) ->
     ok | {error, term()}.
 
-stop(Srv) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            Plugins = SrvId:plugins() -- [nksip_debug],
-            case nksip:update(Srv, #{plugins=>Plugins, sip_debug=>false}) of
-                ok ->
-                    ok;
-                {error, Error} ->
-                    {error, Error}
-            end;
-        not_found ->
-            {error, service_not_found}
-    end.    
+stop(PkgId) ->
+    Plugins1 = ?CALL_PKG(PkgId, plugins, []),
+    Plugins2 = Plugins1 -- [nksip_debug],
+    case nksip:update(PkgId, #{plugins=>Plugins2, sip_debug=>false}) of
+        ok ->
+            ok;
+        {error, Error} ->
+            {error, Error}
+    end.
 
 
 
@@ -83,12 +74,12 @@ stop(Srv) ->
 
 
 %% @private
-insert(#sipmsg{srv=SrvId, call_id=CallId}, Info) ->
-    insert(SrvId, CallId, Info).
+insert(#sipmsg{pkg_id=PkgId, call_id=CallId}, Info) ->
+    insert(PkgId, CallId, Info).
 
 
 %% @private
-insert(SrvId, CallId, Info) ->
+insert(PkgId, CallId, Info) ->
     Time = nklib_util:l_timestamp(),
     Info1 = case Info of
         {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
@@ -97,21 +88,20 @@ insert(SrvId, CallId, Info) ->
         _ ->
             Info
     end,
-    SrvName = SrvId:name(),
-    catch ets:insert(nksip_debug_msgs, {CallId, Time, SrvName, Info1}).
+    catch ets:insert(nksip_debug_msgs, {CallId, Time, PkgId, Info1}).
 
 
 %% @private
 find(CallId) ->
-    Lines = lists:sort([{Time, SrvId, Info} || {_, Time, SrvId, Info} 
+    Lines = lists:sort([{Time, PkgId, Info} || {_, Time, PkgId, Info}
                          <- ets:lookup(nksip_debug_msgs, nklib_util:to_binary(CallId))]),
-    [{nklib_util:l_timestamp_to_float(Time), SrvId, Info} 
-        || {Time, SrvId, Info} <- Lines].
+    [{nklib_util:l_timestamp_to_float(Time), PkgId, Info}
+        || {Time, PkgId, Info} <- Lines].
 
 
 %% @private
-find(SrvId, CallId) ->
-    [{Start, Info} || {Start, C, Info} <- find(CallId), C==SrvId].
+find(PkgId, CallId) ->
+    [{Start, Info} || {Start, C, Info} <- find(CallId), C==PkgId].
 
 
 %% @private

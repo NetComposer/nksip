@@ -25,7 +25,8 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 -export([create/4, update/3, stop/3, find/2, store/2, get_meta/3, update_meta/4]).
 -export([target_update/5, session_update/2, route_update/4]).
@@ -46,24 +47,34 @@
     nksip:dialog().
 
 create(Class, Req, Resp, Call) ->
-    #sipmsg{ruri=#uri{scheme=Scheme}} = Req,
     #sipmsg{
-        srv = SrvId,
-        call_id = CallId, 
+        ruri=#uri{scheme=Scheme},
+        nkport = #nkport{pid=ReqPid}
+    } = Req,
+    #sipmsg{
+        call_id = CallId,
         dialog_id = DialogId,
         from = {From, FromTag},
         to = {To, _},
         cseq = {CSeq, _},
-        nkport = NkPort
+        nkport = #nkport{pid=RespPid}=RespNkPort
     } = Resp,
-    {ok, {_, Transp, _, _}} = nkpacket:get_local(NkPort),
+    #call{pkg_id=PkgId} = Call,
+    {ok, {_, Transp, _, _}} = nkpacket:get_local(RespNkPort),
     ?CALL_DEBUG("Dialog ~s ~s created", [DialogId, Class], Call),
+    _ConnPid = case ReqPid == RespPid of
+        true ->
+            ReqPid;
+        false ->
+            ?CALL_LOG(warning, "dialog have different ports for req and resp", Call),
+            undefined
+    end,
     nklib_counters:async([nksip_dialogs]),
     Now = nklib_util:timestamp(),
     Dialog = #dialog{
         id = DialogId,
-        srv_id = SrvId,
-        call_id = CallId, 
+        pkg_id = PkgId,
+        call_id = CallId,
         created = Now,
         updated = Now,
         local_target = #uri{scheme=sip},
@@ -101,8 +112,8 @@ create(Class, Req, Resp, Call) ->
     nksip_call:call().
 
 
-update(Type, Dialog, #call{srv=SrvId}=Call) ->
-    case ?CALL_SRV(SrvId, nksip_dialog_update, [Type, Dialog, Call]) of
+update(Type, Dialog, #call{pkg_id=PkgId}=Call) ->
+    case ?CALL_PKG(PkgId, nksip_dialog_update, [Type, Dialog, Call]) of
         {continue, [Type1, Dialog1, Call1]} ->
             do_update(Type1, Dialog1, Call1);
         {ok, Call1} ->
@@ -143,9 +154,9 @@ do_update({invite, Status}, Dialog, Call) ->
         } = Invite
     } = Dialog,
     Dialog1 = case Status of
-        OldStatus -> 
+        OldStatus ->
             Dialog;
-        _ -> 
+        _ ->
             sip_dialog_update({invite_status, Status}, Dialog, Call),
             Dialog#dialog{invite=Invite#invite{status=Status}}
     end,
@@ -160,7 +171,7 @@ do_update({invite, Status}, Dialog, Call) ->
             session_update(Dialog1, Call);
         Status==bye ->
             case Media of
-                true -> 
+                true ->
                     sip_session_update(stop, Dialog1, Call),
                     #dialog{invite=I1} = Dialog1,
                     Dialog1#dialog{invite=I1#invite{media_started=false}};
@@ -229,7 +240,7 @@ target_update(Class, Req, Resp, Dialog, Call) ->
         Class==uac; Class==proxy ->
             RemoteTargets = RespContacts,
             LocalTargets = ReqContacts;
-        Class==uas -> 
+        Class==uas ->
             RemoteTargets = ReqContacts,
             LocalTargets = RespContacts
     end,
@@ -310,7 +321,7 @@ target_update(Class, Req, Resp, Dialog, Call) ->
     nksip:dialog().
 
 route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
-    #dialog{srv_id=SrvId} = Dialog,
+    #dialog{pkg_id=PkgId} = Dialog,
     RouteSet = if
         Class==uac; Class==proxy ->
             RR = nksip_sipmsg:header(<<"record-route">>, Resp, uris),
@@ -321,7 +332,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                     % If this a proxy, it has inserted Record-Route,
                     % and wants to send an in-dialog request (for example to send BYE)
                     % we must remove our own inserted Record-Route
-                    case nksip_util:is_local(SrvId, FirstRS) of
+                    case nksip_util:is_local(PkgId, FirstRS) of
                         true ->
                             RestRS;
                         false ->
@@ -334,7 +345,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                 [] ->
                     [];
                 [FirstRS|RestRS] ->
-                    case nksip_util:is_local(SrvId, FirstRS) of
+                    case nksip_util:is_local(PkgId, FirstRS) of
                         true ->
                             RestRS;
                         false ->
@@ -375,7 +386,7 @@ session_update(
                 nksip_sdp:is_new(RemoteSDP1, RemoteSDP) orelse
                 nksip_sdp:is_new(LocalSDP1, LocalSDP) 
             of
-                true -> 
+                true ->
                     sip_session_update({update, LocalSDP1, RemoteSDP1}, Dialog, Call);
                 false ->
                     ok
@@ -401,17 +412,17 @@ session_update(Dialog, _Call) ->
                    nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-timer_update(_Req, #sipmsg{srv=SrvId, package=PkgId, class={resp, Code, _}}, _Class,
+timer_update(_Req, #sipmsg{pkg_id=PkgId, class={resp, Code, _}}, _Class,
              #dialog{invite=#invite{status=confirmed}}=Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
-    #call{srv=SrvId} = Call,
+    #call{pkg_id=PkgId} = Call,
     % class from #invite{} can only be used for INVITE, not UPDATE
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
     cancel_timer(RetransTimer),
     case Code>=200 andalso Code<300 of
-        true -> 
+        true ->
             cancel_timer(TimeoutTimer),
-            #config{times=Times} = nksip_plugin:get_config(SrvId, PkgId),
+            #config{times=Times} = nksip_config:pkg_config(PkgId),
             #call_times{dialog=Timeout} = Times,
             Invite1 = Invite#invite{
                 retrans_timer = undefined,
@@ -463,9 +474,9 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
         Dialog,
         Subs),
     case Invite of
-        #invite{} -> 
+        #invite{} ->
             update({invite, {stop, reason(Reason)}}, Dialog1, Call);
-        undefined -> 
+        undefined ->
             update(none, Dialog1, Call)
     end.
 
@@ -530,7 +541,7 @@ do_timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                 accepted_uas ->
                     case nksip_call_uas_transp:resend_response(Resp, []) of
                         {ok, _} ->
-                            ?CALL_LOG(infoi, "Dialog ~s resent response", [DialogId], Call),
+                            ?CALL_LOG(info, "Dialog ~s resent response", [DialogId], Call),
                             #call{times=#call_times{t2=T2}} = Call,
                             Invite1 = Invite#invite{
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
@@ -636,15 +647,15 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
             Call#call{dialogs=Dialogs1, hibernate=dialog_stop};
         false ->
             Hibernate = case Invite of
-                #invite{status=confirmed} -> 
+                #invite{status=confirmed} ->
                     dialog_confirmed;
-                _ -> 
+                _ ->
                     Call#call.hibernate
             end,
             Dialogs1 = case IsFirst of
-                true -> 
+                true ->
                     [Dialog|Rest];
-                false -> 
+                false ->
                     [Dialog|lists:keydelete(Id, #dialog.id, Dialogs)]
             end,
             Call#call{dialogs=Dialogs1, hibernate=Hibernate}
@@ -655,8 +666,8 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
 -spec sip_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-sip_dialog_update(Arg, Dialog, #call{srv=SrvId}=Call) ->
-    nksip_util:user_callback(SrvId, sip_dialog_update, [Arg, Dialog, Call]),
+sip_dialog_update(Arg, Dialog, #call{pkg_id=PkgId}=Call) ->
+    nksip_util:user_callback(PkgId, sip_dialog_update, [Arg, Dialog, Call]),
     ok.
 
 
@@ -664,8 +675,8 @@ sip_dialog_update(Arg, Dialog, #call{srv=SrvId}=Call) ->
 -spec sip_session_update(term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-sip_session_update(Arg, Dialog, #call{srv=SrvId}=Call) ->
-    nksip_util:user_callback(SrvId, sip_session_update, [Arg, Dialog, Call]),
+sip_session_update(Arg, Dialog, #call{pkg_id=PkgId}=Call) ->
+    nksip_util:user_callback(PkgId, sip_session_update, [Arg, Dialog, Call]),
     ok.
 
 

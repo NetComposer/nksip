@@ -39,3 +39,8 @@
     time :: pos_integer(),
     time_long :: pos_integer()
 }).
+
+
+-record(nksip_registrar_config, {
+    times :: #nksip_registrar_time{}
+}).

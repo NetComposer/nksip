@@ -29,7 +29,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 %% ===================================================================
@@ -43,7 +43,7 @@
 
 route(UriList, ProxyOpts, UAS, Call) ->
     try
-        #call{srv=SrvId} = Call,
+        #call{pkg_id=PkgId} = Call,
         UriSet = case normalize_uriset(UriList) of
             [[]] ->
                 throw({reply, temporarily_unavailable});
@@ -53,7 +53,7 @@ route(UriList, ProxyOpts, UAS, Call) ->
         % lager:warning("URISET: ~p", [UriList]),
         #trans{method=Method} = UAS,
         {UriSet2, ProxyOpts2, UAS2, Call2} = case
-            ?CALL_SRV(SrvId, nksip_route, [UriSet, ProxyOpts, UAS, Call])
+            ?CALL_PKG(PkgId, nksip_route, [UriSet, ProxyOpts, UAS, Call])
         of
             {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->
                 {UriSet1, ProxyOpts1, UAS1, Call1};
@@ -102,7 +102,7 @@ route_stateless(Req, Uri, ProxyOpts, Call) ->
     case nksip_call_uac_make:proxy_make(Req1, ProxyOpts) of
         {ok, Req2, ProxyOpts2} ->
             SendOpts = [stateless_via | ProxyOpts2],
-            case nksip_call_uac_transp:send_request(Req2, SendOpts) of
+            case nksip_call_uac_transp:send_request(Req2, Call, SendOpts) of
                 {ok, _} ->  
                     ?CALL_DEBUG("Stateless proxy routing ~p to ~s",
                                 [_Method, nklib_unparse:uri(Uri)], Call);

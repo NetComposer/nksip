@@ -22,41 +22,15 @@
 -module(nksip_100rel_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
--export([plugin_deps/0, plugin_config/2, plugin_stop/2]).
 -export([sip_prack/2]).
 -export([nksip_parse_uac_opts/2,
          nksip_uac_pre_response/3, nksip_uac_response/4,
          nksip_parse_uas_opt/3, nksip_uas_timer/3,
          nksip_uas_send_reply/3, nksip_uas_sent_reply/1, nksip_uas_method/4]).
 
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_config(Config, _Service) ->
-    Allow1 = maps:get(sip_allow, Config, nksip_syntax:default_allow()),
-    Allow2 = nklib_util:store_value(<<"PRACK">>, Allow1),
-    Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
-    Supported2 = nklib_util:store_value(<<"100rel">>, Supported1),
-    Config2 = Config#{sip_allow=>Allow2, sip_supported=>Supported2},
-    {ok, Config2}.
-
-
-plugin_stop(Config, _Service) ->
-    Allow1 = maps:get(sip_allow, Config, []),
-    Allow2 = Allow1 -- [<<"PRACK">>],
-    Supported1 = maps:get(sip_supported, Config, []),
-    Supported2 = Supported1 -- [<<"100rel">>],
-    {ok, Config#{sip_allow=>Allow2, sip_supported=>Supported2}}.
 
 
 %% ===================================================================

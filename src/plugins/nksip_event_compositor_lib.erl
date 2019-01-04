@@ -24,9 +24,8 @@
 
 -export([store_get/3, store_put/5, store_del/3, store_del_all/1]).
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_event_compositor.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -35,11 +34,11 @@
 
 
 %% @private
--spec store_get(nkservice:id(), nksip:aor(), binary()) ->
+-spec store_get(nkserver:id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
-store_get(SrvId, AOR, Tag) ->
-    case callback(SrvId, {get, AOR, Tag}) of
+store_get(PkgId, AOR, Tag) ->
+    case callback(PkgId, {get, AOR, Tag}) of
         {ok, #reg_publish{} = Reg} ->
             {ok, Reg};
         {ok, not_found} ->
@@ -52,11 +51,11 @@ store_get(SrvId, AOR, Tag) ->
 
 
 %% @private
--spec store_put(nkservice:id(), nksip:aor(), integer(), integer(),
+-spec store_put(nkserver:id(), nksip:aor(), integer(), integer(),
                 #reg_publish{}|nksip:body()) ->
     nksip:sipreply().
 
-store_put(SrvId, AOR, Tag, Expires, Reg) ->
+store_put(PkgId, AOR, Tag, Expires, Reg) ->
     Reg1 = case is_record(Reg, reg_publish) of
         true ->
             Reg;
@@ -65,30 +64,30 @@ store_put(SrvId, AOR, Tag, Expires, Reg) ->
     end,
     Now = nklib_util:timestamp(),
     Reg2 = Reg1#reg_publish{expires=Now+Expires},
-    case callback(SrvId, {put, AOR, Tag, Reg2, Expires}) of
-        {ok, ok} -> 
+    case callback(PkgId, {put, AOR, Tag, Reg2, Expires}) of
+        {ok, ok} ->
             reply(Tag, Expires);
-        {ok, Resp} -> 
+        {ok, Resp} ->
             ?SIP_LOG(warning, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
-        error -> 
+        error ->
             ?SIP_LOG(warning, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
 
 %% @private
--spec store_del(nkservice:id(), nksip:aor(), binary()) ->
+-spec store_del(nkserver:id(), nksip:aor(), binary()) ->
     nksip:sipreply().
 
-store_del(SrvId, AOR, Tag) ->
-    case callback(SrvId, {del, AOR, Tag}) of
-        {ok, ok} -> 
+store_del(PkgId, AOR, Tag) ->
+    case callback(PkgId, {del, AOR, Tag}) of
+        {ok, ok} ->
             reply(Tag, 0);
-        {ok, Resp} -> 
+        {ok, Resp} ->
             ?SIP_LOG(warning, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
-        error -> 
+        error ->
             ?SIP_LOG(warning, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
@@ -97,11 +96,11 @@ store_del(SrvId, AOR, Tag) ->
 
 
 %% @private
--spec store_del_all(nkservice:id()) ->
+-spec store_del_all(nkserver:id()) ->
     ok | {error, term()}.
 
-store_del_all(SrvId) ->
-    case callback(SrvId, del_all) of
+store_del_all(PkgId) ->
+    case callback(PkgId, del_all) of
         {ok, ok} ->
             ok;
         {ok, _Resp} ->
@@ -117,11 +116,11 @@ reply(Tag, Expires) ->
 
 
 %% @private 
--spec callback(nkservice:id(), term()) ->
+-spec callback(nkserver:id(), term()) ->
     term() | error.
 
-callback(SrvId, Op) ->
-    nksip_util:user_callback(SrvId, sip_event_compositor_store, [Op, SrvId]).
+callback(PkgId, Op) ->
+    nksip_util:user_callback(PkgId, sip_event_compositor_store, [Op, PkgId]).
 
 
 

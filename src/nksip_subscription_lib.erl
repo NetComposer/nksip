@@ -51,27 +51,32 @@
     nksip:handle().
 
 get_handle({user_subs, #subscription{id=SubsId}, 
-               #dialog{srv_id=SrvId, id=DialogId, call_id=CallId}}) ->
-    Srv = atom_to_binary(SrvId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{srv=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
+               #dialog{pkg_id=PkgId, id=DialogId, call_id=CallId}}) ->
+    make_handle(PkgId, SubsId, DialogId, CallId);
+
+get_handle(#sipmsg{pkg_id=PkgId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
-    Srv = atom_to_binary(SrvId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
+    make_handle(PkgId, SubsId, DialogId, CallId);
+
 get_handle(<<"U_", _/binary>>=Id) ->
     Id;
+
 get_handle(_) ->
     error(invalid_subscription).
 
 
 %% @private
 -spec parse_handle(nksip:handle()) ->
-    {nkservice:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
+    {nkserver:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
 
-parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, Srv:7/binary, 
-         $_, CallId/binary>>) ->
-    SrvId = binary_to_existing_atom(Srv, latin1),
-    {SrvId, SubsId, DialogId, CallId};
+parse_handle(<<"U_", Rest/binary>>) ->
+    case catch binary_to_term(base64:decode(Rest)) of
+        {PkgId, SubsId, DialogId, CallId} ->
+            {PkgId, SubsId, DialogId, CallId};
+        _ ->
+            error(invalid_handle)
+    end;
+
 parse_handle(_) ->
     error(invalid_handle).
 
@@ -130,7 +135,7 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {SrvId, SubsId, DialogId, CallId} = parse_handle(Handle),
+    {PkgId, SubsId, DialogId, CallId} = parse_handle(Handle),
     Fun = fun(Dialog) ->
         case find(SubsId, Dialog) of
             #subscription{} = U -> 
@@ -144,7 +149,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {error, invalid_subscription}
         end
     end,
-    case nksip_call:apply_dialog(SrvId, CallId, DialogId, Fun) of
+    case nksip_call:apply_dialog(PkgId, CallId, DialogId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 
@@ -209,12 +214,14 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 %% @private Hack to find the UAS subscription from the UAC and the opposite way
 remote_id(Handle, Srv) ->
-    {_SrvId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
+    {_PkgId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
     {ok, DialogHandle} = nksip_dialog:get_handle(Handle),
     RemoteId = nksip_dialog_lib:remote_id(DialogHandle, Srv),
-    {SrvId1, _PkgId, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
-    Srv1 = atom_to_binary(SrvId1, latin1),
-    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
+    {PkgId, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
+    make_handle(PkgId, SubsId, RemDialogId, CallId).
+
+
+%%    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
 
 
 %% @private
@@ -284,3 +291,5 @@ state(#sipmsg{}=SipMsg) ->
 
 
 
+make_handle(PkgId, SubsId, DialogId, CallId) ->
+    <<"U_", (base64:encode(term_to_binary({PkgId, SubsId, DialogId, CallId})))/binary>>.

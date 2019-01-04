@@ -25,7 +25,7 @@
 -export([start_link/1, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
 
 %% ===================================================================
@@ -68,7 +68,7 @@ init([Period]) ->
 handle_call(get_uas_avg, _From, #state{last_uas=LastUas}=State) ->
     {reply, LastUas, State, timeout(State)};
 
-handle_call(Msg, _From, State) -> 
+handle_call(Msg, _From, State) ->
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State, timeout(State)}.
 
@@ -81,7 +81,7 @@ handle_cast({response_time, Time}, #state{avg_uas_values=Values}=State) ->
     State1 = State#state{avg_uas_values=[Time|Values]},
     {noreply, State1, timeout(State1)};
 
-handle_cast(Msg, State) -> 
+handle_cast(Msg, State) ->
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State, timeout(State)}.
 
@@ -96,7 +96,7 @@ handle_info(timeout, #state{avg_uas_values=Values, period=Period}=State) ->
     State1 = State#state{last_uas=LastUas, avg_uas_values=[], last_check=Now}, 
     {noreply, State1, 1000*Period};
 
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
     {noreply, State, timeout(State)}.
 
@@ -151,11 +151,11 @@ calculate(List) ->
 
 avg([]) ->
     {0, 0, 0};
-avg(List) -> 
+avg(List) ->
     avg(List, min, 0, 0, 0).
-avg([], Min, Max, Sum, Total) -> 
+avg([], Min, Max, Sum, Total) ->
     {Min, Max, round(Sum/Total)};
-avg([Num|Rest], Min, Max, Sum, Total) -> 
+avg([Num|Rest], Min, Max, Sum, Total) ->
     Min1 = case Num < Min of
         true -> Num;
         false -> Min

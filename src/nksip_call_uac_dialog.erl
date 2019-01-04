@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 -export([pre_request/2, request/3, response/4]).
 -export([make/4, new_local_seq/2, uac_dialog_id/3]).
@@ -500,11 +500,11 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
 
 
 %% @private
-do_make(Method, Opts, Dialog, #call{srv=SrvId}=Call) ->
+do_make(Method, Opts, Dialog, #call{pkg_id=PkgId}=Call) ->
     {RUri, Opts1, Dialog1} = generate(Method, Opts, Dialog, Call),
     Call1 = store(Dialog1, Call),
     {continue, [_, RUri2, Opts2, Call2]} = 
-        ?CALL_SRV(SrvId, nksip_make_uac_dialog, [Method, RUri, Opts1, Call1]),
+        ?CALL_PKG(PkgId, nksip_make_uac_dialog, [Method, RUri, Opts1, Call1]),
     {ok, RUri2, Opts2, Call2}.
 
 

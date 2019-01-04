@@ -25,7 +25,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([srv_id/1, srv_name/1, get_handle/1, call_id/1, get_meta/2, get_metas/2]).
+-export([pkg_id/1, get_handle/1, call_id/1, get_meta/2, get_metas/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
 -export([get_authorized_list/1, clear_authorized_list/1]).
 -export([get_all_data/0]).
@@ -49,7 +49,7 @@
 % -type spec() :: id() | nksip:handle().
 
 -type field() :: 
-    get_handle | srv_id | srv_name | created | updated | local_seq | remote_seq | 
+    get_handle | pkg_id | created | updated | local_seq | remote_seq |
     local_uri | raw_local_uri | remote_uri | raw_remote_uri | 
     local_target | raw_local_target | remote_target | raw_remote_target | 
     early | secure | route_set | raw_route_set | 
@@ -86,23 +86,14 @@ get_handle(Term) ->
 
 
 %% @doc Gets the App of a dialog
--spec srv_id(nksip:dialog()|nksip:handle()) ->
-    {ok, nkservice:id()}.
+-spec pkg_id(nksip:dialog()|nksip:handle()) ->
+    {ok, nkserver:id()}.
 
-srv_id(#dialog{srv_id=SrvId}) ->
-    {ok, SrvId};
-srv_id(Handle) ->
-    {SrvId, _PkgId, _DialogId, _CallId} = nksip_dialog_lib:parse_handle(Handle),
-    {ok, SrvId}.
-
-
-%% @doc Gets app's name
--spec srv_name(nksip:dialog()|nksip:handle()) -> 
-    {ok, nkservice:name()} | {error, term()}.
-
-srv_name(Term) -> 
-    {ok, SrvId} = srv_id(Term),
-    {ok, SrvId:name()}.
+pkg_id(#dialog{pkg_id=PkgId}) ->
+    {ok, PkgId};
+pkg_id(Handle) ->
+    {PkgId, _DialogId, _CallId} = nksip_dialog_lib:parse_handle(Handle),
+    {ok, PkgId}.
 
 
 %% @doc Gets the Call-ID of a dialog
@@ -112,7 +103,7 @@ srv_name(Term) ->
 call_id(#dialog{call_id=CallId}) ->
     {ok, CallId};
 call_id(Handle) ->
-    {_SrvId, _PkgId, _DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    {_PkgId, _DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
     {ok, CallId}.
 
 
@@ -176,11 +167,11 @@ get_all() ->
 
 
 %% @doc Finds all started dialogs handles having `Call-ID'.
--spec get_all(nkservice:name()|nkservice:id(), nksip:call_id()) ->
+-spec get_all(nkserver:id(), nksip:call_id()) ->
     [nksip:handle()].
 
-get_all(SrvId, CallId) ->
-    case nksip_call:get_all_dialogs(SrvId, CallId) of
+get_all(PkgId, CallId) ->
+    case nksip_call:get_all_dialogs(PkgId, CallId) of
         {ok, Handles} ->
             Handles;
         {error, _} ->
@@ -202,8 +193,8 @@ bye_all() ->
     ok | {error, term()}.
 
 stop(Handle) ->
-    {SrvId, PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
-    nksip_call:stop_dialog(SrvId, PkgId, CallId, DialogId).
+    {PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    nksip_call:stop_dialog(PkgId, CallId, DialogId).
 
 
 %% @doc Stops (deletes) all current dialogs.
@@ -219,8 +210,8 @@ stop_all() ->
     [{nkpacket:transport(), inet:ip_address(), inet:port_number()}].
 
 get_authorized_list(Handle) ->
-    {SrvId, _PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
-    case nksip_call:get_authorized_list(SrvId, CallId, DialogId)of
+    {PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    case nksip_call:get_authorized_list(PkgId, CallId, DialogId)of
         {ok, List} ->
             List;
         _ ->
@@ -233,8 +224,8 @@ get_authorized_list(Handle) ->
     ok | {error, term()}.
 
 clear_authorized_list(Handle) ->
-    {SrvId, PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
-    nksip_call:clear_authorized_list(SrvId, PkgId, CallId, DialogId).
+    {PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    nksip_call:clear_authorized_list(PkgId, CallId, DialogId).
 
 
 
@@ -255,7 +246,7 @@ get_all_data() ->
             {ok, #dialog{}=Dialog} ->
                 Data = {DialogId, [
                     {id, Dialog#dialog.id},
-                    {srv_id, Dialog#dialog.srv_id},
+                    {pkg_id, Dialog#dialog.pkg_id},
                     {call_id, Dialog#dialog.call_id},
                     {local_uri, nklib_unparse:uri(Dialog#dialog.local_uri)},
                     {remote_uri, nklib_unparse:uri(Dialog#dialog.remote_uri)},
@@ -276,7 +267,7 @@ get_all_data() ->
                                 local_sdp = LSDP, 
                                 remote_sdp = RSDP,
                                 timeout_timer  = Timeout
-                            } -> 
+                            } ->
                                 Time = erlang:read_timer(Timeout)/1000,
                                 {InvStatus, Time, LSDP, RSDP};
                             undefined ->

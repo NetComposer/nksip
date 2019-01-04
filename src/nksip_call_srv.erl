@@ -25,10 +25,10 @@
 
 -behaviour(gen_server).
 
--export([start/3, stop/1, sync_work/5, async_work/2]).
+-export([start/2, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
          code_change/3]).
--export([get_data/1, find_call/3]).
+-export([get_data/1, find_call/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -40,11 +40,11 @@
 %% ===================================================================
 
 %% @doc Starts a new call process.
--spec start(nkservice:id(), nkservice:package_id(), nksip:call_id()) ->
+-spec start(nkserver:id(), nksip:call_id()) ->
     {ok, pid()}.
 
-start(SrvId, PkgId, CallId) ->
-    gen_server:start(?MODULE, [SrvId, PkgId, CallId], []).
+start(PkgId, CallId) ->
+    gen_server:start(?MODULE, [PkgId, CallId], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!).
@@ -78,11 +78,11 @@ get_data(Pid) ->
 
 
 %% @doc Find a call's pid
--spec find_call(nkservice:id(), nkservice:package_id(), nksip:call_id()) ->
+-spec find_call(nkserver:id(), nksip:call_id()) ->
     pid() | undefined.
 
-find_call(SrvId, PkgId, CallId) ->
-    case nklib_proc:values({?MODULE, SrvId, PkgId, CallId}) of
+find_call(PkgId, CallId) ->
+    case nklib_proc:values({?MODULE, PkgId, CallId}) of
         [{_, Pid}] when is_pid(Pid) ->
             Pid;
         _ ->
@@ -100,16 +100,16 @@ find_call(SrvId, PkgId, CallId) ->
 -spec init(term()) ->
     {ok, call()}.
 
-init([SrvId, PkgId, CallId]) ->
-    nklib_counters:async([nksip_calls, {nksip_calls, SrvId, PkgId}]),
-    nklib_proc:put(?MODULE, {CallId, SrvId, PkgId}),
-    true = nklib_proc:reg({?MODULE, SrvId, PkgId, CallId}),
+init([PkgId, CallId]) ->
+    nklib_counters:async([nksip_calls, {nksip_calls, PkgId}]),
+    nklib_proc:put(?MODULE, {CallId, PkgId}),
+    true = nklib_proc:reg({?MODULE, PkgId, CallId}),
     Id = erlang:phash2(make_ref()) * 1000,
-    #config{times=Times} = nksip_plugin:get_config(SrvId, PkgId),
+    #config{debug=DebugList, times=Times} = nksip_config:pkg_config(PkgId),
     #call_times{trans=TransTime} = Times,
     Call = #call{
-        srv = SrvId,
-        package = PkgId,
+        pkg_id = PkgId,
+        pkg_ref = monitor(process, whereis(PkgId)),
         call_id = CallId, 
         next = Id+1,
         hibernate = false,
@@ -121,7 +121,7 @@ init([SrvId, PkgId, CallId]) ->
         events = [],
         times = Times
     },
-    Debug = nksip_plugin:get_debug(SrvId, PkgId, call),
+    Debug = lists:member(call, DebugList),
     erlang:put(nksip_debug, Debug),
     erlang:start_timer(2000 * TransTime, self(), check_call),
     ?CALL_DEBUG("started (~p)", [self()], Call),
@@ -172,6 +172,10 @@ handle_info({timeout, _Ref, check_call}, Call) ->
 
 handle_info({timeout, Ref, Type}, Call) ->
     next(nksip_call_worker:timeout(Type, Ref, Call));
+
+handle_info({'DOWN', Ref, process, _Pid, _Reason}, #call{pkg_ref=Ref}=Call) ->
+    ?CALL_DEBUG("package stopped, stopping call", [], Call),
+    {stop, normal, Call};
 
 handle_info(Info, Call) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),

@@ -29,7 +29,6 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
 
 -define(RESP_WWW, (<<"www-authenticate">>)).
 -define(RESP_PROXY, (<<"proxy-authenticate">>)).
@@ -162,7 +161,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
                 ok
         end,
         ReqOpts = case nklib_util:get_value(sip_pass, Opts) of
-            undefined -> 
+            undefined ->
                 throw(no_pass);
             Passes ->
                 [
@@ -174,7 +173,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
                 ]
         end,
         case make_auth_request(AuthHeaderData, ReqOpts) of
-            error -> 
+            error ->
                 throw(invalid_auth_header);
             {ok, ReqData} ->
                 ReqName = case RespName of
@@ -209,16 +208,20 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 
 make_response(Realm, Req) ->
     #sipmsg{
-        srv = SrvId,
-        package = PkgId,
+        pkg_id = PkgId,
         call_id = CallId,
         nkport = NkPort
     } = Req,
-    {ok, {_, _, Ip, Port}} = nkpacket:get_remote(NkPort),
+    {ok, {_, _, Ip, _Port}} = nkpacket:get_remote(NkPort),
     Nonce = nklib_util:luid(),
-    #config{nonce_timeout=Timeout} = nksip_plugin:get_config(SrvId, PkgId),
-    put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
-    Opaque = nklib_util:hash(SrvId),
+    #config{nonce_timeout=Timeout} = nksip_config:pkg_config(PkgId),
+    % lager:error("NKLOG PUT NONCE ~p ~p ~p ~p", [{PkgId, CallId, Nonce, Ip, Port}]),
+    % We don't put the port any more, since in an deep chain of proxies,
+    % we can start with UDP and switch to TCP in the middle of the process
+    %Term = {Ip, Port},
+    Term = Ip,
+    put_nonce(PkgId, CallId, Nonce, Term, Timeout),
+    Opaque = nklib_util:hash(PkgId),
     list_to_binary([
         "Digest realm=\"", Realm, "\", nonce=\"", Nonce, "\", "
         "algorithm=MD5, qop=\"auth\", opaque=\"", Opaque, "\""
@@ -249,10 +252,10 @@ make_response(Realm, Req) ->
             | {{digest, Realm}, false},
         Realm           :: binary().
 
-authorize_data(Req, #call{srv=SrvId}=Call) ->
+authorize_data(Req, #call{pkg_id=PkgId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
-        Reply = case nksip_util:user_callback(SrvId, sip_get_user_pass, Args) of
+        Reply = case nksip_util:user_callback(PkgId, sip_get_user_pass, Args) of
             {ok, Reply0} ->
                 Reply0;
             error ->
@@ -444,8 +447,8 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
+        pkg_id = PkgId,
         class = {req, Method},
-        srv = SrvId,
         call_id = CallId,
         nkport = NkPort
     } = Req,
@@ -463,18 +466,19 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
             % Should we check the uri in the authdata matches the ruri of the request?
             Uri = nklib_util:get_value(uri, AuthHeader),
             Nonce = nklib_util:get_value(nonce, AuthHeader),
-            Found = get_nonce(SrvId, CallId, Nonce),
+            TestTerm = get_nonce(PkgId, CallId, Nonce),
+            % lager:error("NKLOG GET NONCE ~p ~p ~p ~p", [{PkgId, CallId, Nonce}, Found]),
             if
-                Found==not_found ->
+                TestTerm==not_found ->
                     Opaque = nklib_util:get_value(opaque, AuthHeader),
-                    case nklib_util:hash(SrvId) of
+                    case nklib_util:hash(PkgId) of
                         Opaque ->
                             ?CALL_LOG(notice, "received invalid nonce", []);
                         _ ->
                             ok
                     end,
                     invalid;
-                Method=='ACK' orelse Found=={Ip, Port} ->
+                Method=='ACK' orelse TestTerm=={Ip, Port} orelse TestTerm==Ip ->
                     CNonce = nklib_util:get_value(cnonce, AuthHeader),
                     Nc = nklib_util:get_value(nc, AuthHeader),
                     HA1 = case nklib_util:to_binary(Pass) of
@@ -499,7 +503,8 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
                     %       [QOP, Method1, Uri, HA1, Nonce, CNonce, Nc]),
                     Resp == ValidResp;
                 true ->
-                    ?CALL_LOG(warning, "received nonce from different Ip or Port", []),
+                    ?CALL_LOG(warning, "received nonce (~p) from different Ip or Port", [PkgId]),
+                    %?CALL_LOG(warning, "M: ~p, F:~p, IP:~p", [Method, Found, {Ip, Port}]),
                     false
             end
     end.
@@ -561,26 +566,26 @@ md5(Term) -> crypto:hash(md5, Term).
 
 % %% @private Extracts password from user options.
 % %% The first matching realm is used, otherwise first password without realm
-% -spec get_pass([{binary(), binary()}], binary(), binary()) -> 
+% -spec get_pass([{binary(), binary()}], binary(), binary()) ->
 %     Pass::binary().
 
-% get_pass([], _Realm, FirstPass) -> 
+% get_pass([], _Realm, FirstPass) ->
 %     FirstPass;
-% get_pass([{<<>>, FirstPass}|Rest], Realm, <<>>) -> 
+% get_pass([{<<>>, FirstPass}|Rest], Realm, <<>>) ->
 %     get_pass(Rest, Realm, FirstPass);
-% get_pass([{Realm, Pass}|_], Realm, _FirstPass) -> 
+% get_pass([{Realm, Pass}|_], Realm, _FirstPass) ->
 %     Pass;
-% get_pass([_|Rest], Realm, FirstPass) -> 
+% get_pass([_|Rest], Realm, FirstPass) ->
 %     get_pass(Rest, Realm, FirstPass).
 
 
 %% @private
-get_nonce(SrvId, CallId, Nonce) ->
-    nklib_store:get({nksip_auth_nonce, SrvId, CallId, Nonce}).
+get_nonce(PkgId, CallId, Nonce) ->
+    nklib_store:get({nksip_auth_nonce, PkgId, CallId, Nonce}).
 
 %% @private
-put_nonce(SrvId, CallId, Nonce, Term, Timeout) ->
-    nklib_store:put({nksip_auth_nonce, SrvId, CallId, Nonce}, Term,
+put_nonce(PkgId, CallId, Nonce, Term, Timeout) ->
+    nklib_store:put({nksip_auth_nonce, PkgId, CallId, Nonce}, Term,
                     [{ttl, Timeout}]).
 
 
@@ -613,9 +618,9 @@ parse_header_scheme([], _Acc) ->
 
 parse_header_scheme([Ch|Rest], Acc) when Ch==32; Ch==9; Ch==13 ->
     case Acc of
-        [] -> 
+        [] ->
             error;
-        _ -> 
+        _ ->
             Scheme = case string:to_lower(lists:reverse(Acc)) of
                 "digest" ->
                     digest;
@@ -668,7 +673,7 @@ parse_header_value([$"|Rest], Key, Acc, Quoted, Data) ->
 
 parse_header_value([$,|Rest], Key, Acc, false, Data) ->
     case Acc of
-        [] -> 
+        [] ->
             {error, ?LINE};
         _ ->
             Data1 = [parse_header_value_check(Key, lists:reverse(Acc))|Data],
@@ -709,7 +714,7 @@ parse_header_value_check(Key, Val) ->
             {cnonce, list_to_binary(Val1)};
         "nc" ->
             {nc, list_to_binary(Val1)};
-        "algorithm" -> 
+        "algorithm" ->
             {algorithm, 
                 case string:to_lower(Val1) of
                     "md5" ->
@@ -717,7 +722,7 @@ parse_header_value_check(Key, Val) ->
                     A0 ->
                         list_to_binary(A0)
                 end};
-        "qop" -> 
+        "qop" ->
             QOP = [
                 case string:to_lower(QOPToken) of
                     "auth" ->

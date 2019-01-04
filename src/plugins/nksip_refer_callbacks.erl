@@ -22,21 +22,13 @@
 -module(nksip_refer_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
--export([plugin_deps/0]).
 -export([sip_refer/2, sip_subscribe/2, sip_notify/2]).
 -export([sip_refer/3, sip_refer_update/3]).
 -export([nksip_parse_uac_opts/2, nksip_user_callback/3, nksip_uac_reply/3]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
 
 
 
@@ -115,8 +107,8 @@ sip_notify(Req, Call) ->
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
             SubsHandle = nksip_subscription_lib:get_handle(Req),
-            #call{srv=SrvId} = Call,
-            catch SrvId:sip_refer_update(SubsHandle, {notify, Body}, Call),
+            #call{pkg_id=PkgId} = Call,
+            catch ?CALL_PKG(PkgId, sip_refer_update, [SubsHandle, {notify, Body}, Call]),
             {reply, ok};
         _ ->
             continue
@@ -125,27 +117,27 @@ sip_notify(Req, Call) ->
 
 %% @doc This plugin callback function is used to call application-level 
 %% Service callbacks.
--spec nksip_user_callback(nkservice:id(), atom(), list()) ->
+-spec nksip_user_callback(nkserver:id(), atom(), list()) ->
     continue.
 
-nksip_user_callback(_SrvId, sip_dialog_update, List) ->
-    [
+nksip_user_callback(PkgId, sip_dialog_update, [Status, _Dialog, Call]) ->
+    case Status of
         {
             subscription_status,
-            Status,
+            SubStatus,
             {user_subs, #subscription{event = {<<"refer">>, _}}, _} = Subs
-        },
-        _Dialog, Call
-    ] = List,
-    #call{srv = SrvId} = Call,
-    {ok, SubsId} = nksip_subscription:get_handle(Subs),
-    Status1 = case Status of
-        init -> init;
-        active -> active;
-        middle_timer -> middle_timer;
-        {terminated, _} -> terminated
+        } ->
+            {ok, SubsId} = nksip_subscription:get_handle(Subs),
+            SubStatus2 = case SubStatus of
+                init -> init;
+                active -> active;
+                middle_timer -> middle_timer;
+                {terminated, _} -> terminated
+            end,
+            catch ?CALL_PKG(PkgId, sip_refer_update, [SubsId, SubStatus2, Call]);
+        _ ->
+            ok
     end,
-    catch SrvId:sip_refer_update(SubsId, Status1, Call),
     continue;
 
 nksip_user_callback(_, _, _) ->
@@ -161,7 +153,7 @@ nksip_user_callback(_, _, _) ->
 nksip_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
     #sipmsg{class={resp, Code, Reason}} = Resp,
     case nklib_util:get_value(refer_subscription_id, Opts) of
-        undefined -> 
+        undefined ->
             ok;
         SubsId ->
             Sipfrag = <<

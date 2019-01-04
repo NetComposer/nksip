@@ -22,43 +22,12 @@
 -module(nksip_timers_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
 -export([nksip_parse_uac_opts/2, nksip_dialog_update/3, nksip_make_uac_dialog/4,
          nksip_uac_pre_request/4, nksip_uac_pre_response/3, nksip_uac_response/4,
          nksip_uas_dialog_response/4, nksip_uas_process/2, nksip_route/4]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_timers_se =>  {integer, 5, none},
-        sip_timers_min_se => {integer, 1, none}
-    }.
-
-
-plugin_config(Config, _Service) ->
-    Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
-    Supported2 = nklib_util:store_value(<<"timer">>, Supported1),
-    Config2 = Config#{sip_supported=>Supported2},
-    SE = maps:get(sip_timers_se, Config, 1800),      % (secs) 30 min
-    MinSE = maps:get(sip_timers_min_se, Config, 90), % (secs) 90 secs (min 90, recom 1800)
-    {ok, Config2, {SE, MinSE}}.
-
-
-plugin_stop(Config, _Service) ->
-    Supported1 = maps:get(sip_supported, Config, []),
-    Supported2 = Supported1 -- [<<"timer">>],
-    {ok, Config#{sip_supported=>Supported2}}.
 
 
 %% ===================================================================

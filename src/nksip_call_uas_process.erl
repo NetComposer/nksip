@@ -28,7 +28,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Private
@@ -54,8 +54,8 @@ process(#trans{method=Method, request=Req}=UAS, Call) ->
 
 check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require} = Req,
-    #call{srv=SrvId, package=PkgId} = Call,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+    #call{ pkg_id=PkgId} = Call,
+    Config = nksip_config:pkg_config(PkgId),
     Supported = Config#config.supported,
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] ->
@@ -73,8 +73,8 @@ check_supported(Method, Req, UAS, Call) ->
 
 check_event(Method, Req, UAS, Call) when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
     #sipmsg{event=Event} = Req,
-    #call{srv=SrvId, package=PkgId} = Call,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+    #call{ pkg_id=PkgId} = Call,
+    Config = nksip_config:pkg_config(PkgId),
     SupEvents = Config#config.events,
     case Event of
         {Type, _} ->
@@ -121,8 +121,8 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
              Method=='NOTIFY' ->
     nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
-check_missing_dialog(Method, _Req, UAS, #call{srv=SrvId}=Call) ->
-    case ?CALL_SRV(SrvId, nksip_uas_process, [UAS, Call]) of
+check_missing_dialog(Method, _Req, UAS, #call{pkg_id=PkgId}=Call) ->
+    case  ?CALL_PKG(PkgId, nksip_uas_process, [UAS, Call]) of
         {continue, [UAS1, Call1]} ->
             dialog(Method, UAS1#trans.request, UAS1, Call1);
         {ok, Call1} ->
@@ -165,8 +165,8 @@ dialog(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 method(Method, Req, UAS, Call) ->
-    #call{srv=SrvId} = Call,
-    case ?CALL_SRV(SrvId, nksip_uas_method, [Method, Req, UAS, Call]) of
+    #call{pkg_id=PkgId} = Call,
+    case  ?CALL_PKG(PkgId, nksip_uas_method, [Method, Req, UAS, Call]) of
         {continue, [Method1, Req1, UAS1, Call1]} ->
             case do_method(Method1, Req1, UAS1, Call1) of
                 {noreply, UAS2, Call2} ->
@@ -184,8 +184,8 @@ method(Method, Req, UAS, Call) ->
 -spec call_user_sip_method(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-call_user_sip_method(#trans{method='ACK', request=Req}, #call{srv=SrvId}=Call) ->
-    case catch SrvId:sip_ack(Req, Call) of
+call_user_sip_method(#trans{method='ACK', request=Req}, #call{pkg_id=PkgId}=Call) ->
+    case ?CALL_PKG(PkgId, sip_ack, [Req, Call]) of
         ok ->
             ok;
         _Error ->
@@ -193,7 +193,7 @@ call_user_sip_method(#trans{method='ACK', request=Req}, #call{srv=SrvId}=Call) -
     end,
     Call;
 
-call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv=SrvId}=Call) ->
+call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{pkg_id=PkgId}=Call) ->
     #sipmsg{to={_, ToTag}} = Req,
     Fun = case Method of
         'INVITE' when ToTag == <<>> ->
@@ -225,7 +225,7 @@ call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv=SrvId}=Ca
         'PUBLISH' ->
             sip_publish
     end,
-    case catch SrvId:Fun(Req, Call) of
+    case catch ?CALL_PKG(PkgId, Fun, [Req, Call]) of
         {reply, Reply} -> 
             nksip_call_uas:do_reply(Reply, UAS, Call);
         noreply -> 
@@ -248,7 +248,7 @@ call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv=SrvId}=Ca
 %     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
 %     #sipmsg{to={_, ToTag}} = Req,
 %     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
-%     #call{srv_id=SrvId} = Call,
+%     #call{package=PkgId} = Call,
 %     try
 %         case Stateless orelse ToTag == <<>> of
 %             true ->
@@ -357,7 +357,7 @@ do_method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
 do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
-do_method(_Method, #sipmsg{srv=SrvId, package=PkgId}, _UAS, _Call) ->
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+do_method(_Method, #sipmsg{ pkg_id=PkgId}, _UAS, _Call) ->
+    Config = nksip_config:pkg_config(PkgId),
     {reply, {method_not_allowed, Config#config.allow}}.
 

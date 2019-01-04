@@ -60,7 +60,7 @@ parse(Name, Value) when is_binary(Name) ->
 
 %% @doc Parses a header value. 
 %% Similar to `parse/2', but updates the #sipmsg{}.
--spec parse(binary(), term(), #sipmsg{}, pre|replace|post) ->
+-spec parse(binary(), term(), #sipmsg{}, insert|replace|add) ->
     {binary(), term()} | #sipmsg{}.
 
 parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
@@ -79,9 +79,9 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
             {Result, {add, Pos}} ->
                 Old = element(Pos, Req),
                 Value1 = case Policy of
-                    pre when is_list(Old), is_list(Result) ->
+                    insert when is_list(Old), is_list(Result) ->
                         Result++Old;
-                    post when is_list(Old), is_list(Result) ->
+                    add when is_list(Old), is_list(Result) ->
                         Old++Result;
                     replace when Value == <<>>; Value== [] ->
                         [];
@@ -94,9 +94,9 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
             {Result, add} ->
                 Old = Req#sipmsg.headers,
                 Headers = case Policy of
-                    pre ->
+                    insert ->
                         [{Name, Result}|Old];
-                    post ->
+                    add ->
                         Old++[{Name, Result}];
                     replace when Value == <<>>; Value==[] ->
                         nklib_util:delete(Old, Name);
@@ -112,7 +112,7 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
 
 
 %% @private
--spec headers([{binary(), term()}], nksip:request(), pre|post|replace) ->
+-spec headers([{binary(), term()}], nksip:request(), insert|add|replace) ->
     nksip:request().
 
 headers([], Req, _Policy) ->
@@ -492,7 +492,7 @@ uri_test() ->
         routes = [#uri{domain = <<"previous">>}]
     },
 
-    Req1 = headers(UriHeaders, Base, post),
+    Req1 = headers(UriHeaders, Base, add),
     #sipmsg{
         vias = [],
         from = {#uri{disp = <<>>, scheme = sip, user = <<"u1">>, domain = <<"from">>, 
@@ -523,7 +523,7 @@ uri_test() ->
         body = <<"my body">>
     } = Req1,
 
-    Req2 = headers(UriHeaders, Base, pre),
+    Req2 = headers(UriHeaders, Base, insert),
     #sipmsg{
         routes = [
             #uri{domain = <<"r3">>},

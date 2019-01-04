@@ -33,8 +33,6 @@
 -compile({no_auto_import, [get/1, put/2]}).
 
 -define(APP, nksip).
--define(RE_CALL_ID, "\r\n\s*(i|call\-id)\s*:\s*(.*?)\s*\r\n").
--define(RE_CONTENT_LENGTH, "\r\n\s*(l|content-length)\s*:\s*(.*?)\s*\r\n").
 -define(MINUS_CSEQ, 46111468).  % Generate lower values to debug
 
 
@@ -76,24 +74,10 @@ start(_Type, _Args) ->
     },
     case nklib_config:load_env(?APP, Syntax) of
         {ok, _Parsed} ->
-            put(global_id, nklib_util:luid()),
-            {ok, ReCallId} = re:compile(?RE_CALL_ID, [caseless]),
-            put(re_call_id, ReCallId),
-            {ok, ReCL} = re:compile(?RE_CONTENT_LENGTH, [caseless]),
-            put(re_content_length, ReCL),
-            %ServiceKeys = maps:keys(Syntax),
-            %ServiceDefaults = nklib_util:extract(maps:to_list(Parsed), ServiceKeys),
-            %put(sip_defaults, ServiceDefaults),
-            CacheKeys = [
-                global_id, re_call_id, re_content_length, %sip_defaults,
-                sync_call_time, max_calls, msg_routers
-            ],
-            LogPath = nkservice_app:get(logPath),
-            nklib_config:make_cache(CacheKeys, ?APP, none,
-                                    nksip_config_cache, LogPath),
+            nksip_config:set_config(),
             ok = nkpacket:register_protocol(sip, nksip_protocol),
             ok = nkpacket:register_protocol(sips, nksip_protocol),
-            ok = nkservice_util:register_package_class(<<"Sip">>, nksip),
+            ok = nkserver_util:register_package_class(<<"Sip">>, nksip),
             {ok, Pid} = nksip_sup:start_link(),
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
             {ok, Vsn} = application:get_key(nksip, vsn),

@@ -8,11 +8,10 @@
         kernel,
         stdlib,
         crypto,
-        sasl,
         ssl,
         lager,
         nkpacket,
-        nkservice
+        nkserver
     ]},
     {env, [
     ]}

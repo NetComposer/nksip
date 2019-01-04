@@ -22,8 +22,8 @@
 -module(nksip_100rel).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -export([is_prack_retrans/2, send_prack/4]).
 -export([uas_store_info/2, uas_method/3]).

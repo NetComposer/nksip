@@ -25,7 +25,7 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 %% ===================================================================
@@ -134,8 +134,8 @@ parse_opts([], _Req, Resp, _Code, Opts) ->
 
 
 parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
-    #sipmsg{srv=SrvId, package=PkgId} = Req,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+    #sipmsg{ pkg_id=PkgId} = Req,
+    Config = nksip_config:pkg_config(PkgId),
     Op = case Term of
     
         ignore ->
@@ -298,7 +298,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
-            PResp = nksip_parse_header:parse(PName, AddValue, Resp, post),
+            PResp = nksip_parse_header:parse(PName, AddValue, Resp, add),
             parse_opts(Rest, Req, PResp, Code, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
@@ -306,7 +306,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             parse_opts(Rest, Req, PResp, Code, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
-            PResp = nksip_parse_header:parse(PName, InsValue, Resp, pre),
+            PResp = nksip_parse_header:parse(PName, InsValue, Resp, insert),
             parse_opts(Rest, Req, PResp, Code, Opts);
         {update, UpdResp, UpdOpts} -> 
             parse_opts(Rest, Req, UpdResp, Code, UpdOpts);
@@ -323,8 +323,8 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
 -spec parse_plugin_opts(nksip:request(), nksip:response(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_plugin_opts(#sipmsg{srv=SrvId}=Req, Resp, Opts) ->
-    case ?CALL_SRV(SrvId, nksip_parse_uas_opt, [Req, Resp, Opts]) of
+parse_plugin_opts(#sipmsg{pkg_id=PkgId}=Req, Resp, Opts) ->
+    case  ?CALL_PKG(PkgId, nksip_parse_uas_opt, [Req, Resp, Opts]) of
         {continue, [_, Resp1, Opts1]} ->
             {Resp1, Opts1};
         {error, Error} ->

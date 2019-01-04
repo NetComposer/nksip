@@ -15,8 +15,8 @@
 -module(nksip_timers).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -export([get_session_expires/1, get_session_refresh/1]).
 
@@ -57,7 +57,7 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
         true ->
             RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
             case is_reference(RefreshTimer) of
-                true -> 
+                true ->
                     case erlang:read_timer(RefreshTimer) of
                         false ->
                             {ok, expired};
@@ -67,7 +67,7 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
                 false ->
                     {ok, undefined}
             end;
-        false -> 
+        false ->
             {ok, undefined}
     end;
 

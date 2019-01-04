@@ -35,22 +35,22 @@
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nkservice:id(), nksip:aor(), binary(), #reg_publish{}}].
+    [{nkserver:id(), nksip:aor(), binary(), #reg_publish{}}].
 
 get_all() ->
     [
-        {SrvId, AOR, Tag, nklib_store:get({nksip_event_compositor, SrvId, AOR, Tag}, [])}
-        || {SrvId, AOR, Tag} <- all()
+        {PkgId, AOR, Tag, nklib_store:get({nksip_event_compositor, PkgId, AOR, Tag}, [])}
+        || {PkgId, AOR, Tag} <- all()
     ].
 
 
 %% @private
 print_all() ->
     Now = nklib_util:timestamp(),
-    Print = fun({SrvId, {Scheme, User, Domain}, Tag, Reg}) ->
+    Print = fun({PkgId, {Scheme, User, Domain}, Tag, Reg}) ->
         #reg_publish{expires=Expire, data=Data} = Reg,
         io:format("\n --- ~p --- ~p:~s@~s, ~s (~p) ---\n", 
-                  [SrvId:name(), Scheme, User, Domain, Tag, Expire-Now]),
+                  [PkgId, Scheme, User, Domain, Tag, Expire-Now]),
         io:format("~p\n", [Data])
     end,
     lists:foreach(Print, get_all()),
@@ -59,12 +59,12 @@ print_all() ->
 
 %% @private Clear all stored records for all Services, only with buil-in database
 %% Returns the number of deleted items.
--spec clear() -> 
+-spec clear() ->
     integer().
 
 clear() ->
-    Fun = fun(SrvId, AOR, Tag, _Val, Acc) ->
-        nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag}),
+    Fun = fun(PkgId, AOR, Tag, _Val, Acc) ->
+        nklib_store:del({nksip_event_compositor, PkgId, AOR, Tag}),
         Acc+1
     end,
     fold(Fun, 0).
@@ -72,15 +72,15 @@ clear() ->
 
 %% @private
 all() -> 
-    fold(fun(SrvId, AOR, Tag, _Value, Acc) -> [{SrvId, AOR, Tag}|Acc] end, []).
+    fold(fun(PkgId, AOR, Tag, _Value, Acc) -> [{PkgId, AOR, Tag}|Acc] end, []).
 
 
 %% @private
 fold(Fun, Acc0) when is_function(Fun, 5) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_event_compositor, SrvId, AOR, Tag} -> 
-                Fun(SrvId, AOR, Tag, Value, Acc);
+            {nksip_event_compositor, PkgId, AOR, Tag} ->
+                Fun(PkgId, AOR, Tag, Value, Acc);
             _ -> 
                 Acc
         end

@@ -26,7 +26,8 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 
 %% ===================================================================
@@ -38,9 +39,16 @@
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-reply(Class, UAC, #call{srv=SrvId}=Call) ->
-    case ?CALL_SRV(SrvId, nksip_uac_reply, [Class, UAC, Call]) of
+reply(Class, UAC, #call{pkg_id=PkgId}=Call) ->
+    case ?CALL_PKG(PkgId, nksip_uac_reply, [Class, UAC, Call]) of
         {continue, [Class1, UAC1, Call1]} ->
+%%            case Class of
+%%                {Type, #sipmsg{}=SipMsg} ->
+%%                    %lager:error("NKLOG DO REPLY ~p, ~p ~p", [PkgId, Type,  SipMsg#sipmsg.nkport#nkport.remote_port]);
+%%                {error, _} ->
+%%                    ok
+%%            end,
+
             do_reply(Class1, UAC1, Call1);
         {ok, Call1} ->
             {ok, Call1}
@@ -128,7 +136,7 @@ do_reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
 
 do_reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Reply = case nksip_reply:parse(Error) of
-        error -> 
+        error ->
             ?CALL_LOG(notice, "Invalid proxy internal response: ~p", [Error], Call),
             {internal_error, <<"Invalid Internal Proxy UAC Response">>};
         {ErrCode, ErrOpts} ->
@@ -146,9 +154,9 @@ do_reply(_, #trans{from=none}, Call) ->
 %% @private
 call(CB, Arg) ->
     case catch CB(Arg) of
-        {'EXIT', Error} -> 
+        {'EXIT', Error} ->
             ?CALL_LOG(warning, "Error calling UAC callback function: ~p", [Error]);
-        _ -> 
+        _ ->
             ok
     end.
 
@@ -157,13 +165,13 @@ call(CB, Arg) ->
 response(Resp, Opts) ->
     #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp,
     Metas0 = case Method of
-        'INVITE' when Code>100, Code<300 -> 
+        'INVITE' when Code>100, Code<300 ->
             Handle = nksip_dialog_lib:get_handle(Resp),
             [{dialog, Handle}];
-        'SUBSCRIBE' when Code>=200, Code<300 -> 
+        'SUBSCRIBE' when Code>=200, Code<300 ->
             Handle = nksip_subscription_lib:get_handle(Resp),
             [{subscription, Handle}];
-        'REFER' when Code>=200, Code<300 -> 
+        'REFER' when Code>=200, Code<300 ->
             Handle = nksip_subscription_lib:get_handle(Resp),
             [{subscription, Handle}];
         'PUBLISH' when Code>=200, Code<300 ->
@@ -174,7 +182,7 @@ response(Resp, Opts) ->
                 _ ->
                     []
             end;
-        _ -> 
+        _ ->
             []
     end,
     Metas = case nklib_util:get_value(get_meta, Opts, []) of

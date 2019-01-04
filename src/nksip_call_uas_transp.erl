@@ -28,7 +28,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Public
@@ -41,8 +41,7 @@
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
-        srv = SrvId,
-        package = PkgId,
+        pkg_id = PkgId,
         call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
@@ -55,11 +54,11 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     TranspSpec = case RTransp of
         udp ->
             case nklib_util:get_binary(<<"maddr">>, ViaOpts) of
-                <<>> when ViaRPort -> 
+                <<>> when ViaRPort ->
                     [#nkconn{protocol=nksip_protocol, transp=udp, ip=RIp, port=RPort}];
-                <<>> -> 
+                <<>> ->
                     [#nkconn{protocol=nksip_protocol, transp=udp, ip=RIp, port=ViaPort}];
-                MAddr -> 
+                MAddr ->
                     [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
         _ ->
@@ -71,13 +70,13 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
             ]
     end,
     RouteBranch = nklib_util:get_binary(<<"branch">>, ViaOpts),
-    GlobalId = nksip_config_cache:global_id(),
-    RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, SrvId, RouteBranch}))/binary>>,
-    ?CALL_SRV(SrvId, nksip_debug, [SrvId, CallId, {send_response, Method, Code}]),
+    GlobalId = nksip_config:get_config(global_id),
+    RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, PkgId, RouteBranch}))/binary>>,
+    ?CALL_PKG(PkgId, nksip_debug, [PkgId, CallId, {send_response, Method, Code}]),
     Msg = make_msg_fun(RouteHash, Resp, Opts),
     ?CALL_DEBUG("UAS sending to ~p", [TranspSpec]),
-    Return = nksip_util:send(SrvId, PkgId, TranspSpec, Msg, Opts),
-    ?CALL_SRV(SrvId, nksip_transport_uas_sent, [Resp]),
+    Return = nksip_util:send(PkgId, TranspSpec, Msg, Opts),
+    ?CALL_PKG(PkgId, nksip_transport_uas_sent, [Resp]),
     Return.
 
 
@@ -86,10 +85,10 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     {ok, nksip:response()} | {error, term()}.
 
 resend_response(#sipmsg{class={resp, Code, _}, nkport=#nkport{}=NkPort}=Resp, Opts) ->
-    #sipmsg{srv=SrvId, package=PkgId, cseq={_, Method}, call_id=CallId} = Resp,
+    #sipmsg{ pkg_id=PkgId, cseq={_, Method}, call_id=CallId} = Resp,
     Msg = fun(FunNkPort) -> Resp#sipmsg{nkport=FunNkPort} end,
-    Return = nksip_util:send(SrvId, PkgId, [NkPort], Msg, Opts),
-    ?CALL_SRV(SrvId, nksip_debug, [SrvId, CallId, {sent_response, Method, Code}]),
+    Return = nksip_util:send(PkgId, [NkPort], Msg, Opts),
+     ?CALL_PKG(PkgId, nksip_debug, [PkgId, CallId, {sent_response, Method, Code}]),
     Return;
 
 resend_response(Resp, Opts) ->
@@ -109,8 +108,7 @@ resend_response(Resp, Opts) ->
 make_msg_fun(RouteHash, Resp, Opts) ->
     fun(NkPort) ->
         #sipmsg{
-            srv = SrvId,
-            package = PkgId,
+            pkg_id = PkgId,
             to = {To, _},
             headers = Headers,
             contacts = Contacts, 
@@ -121,7 +119,7 @@ make_msg_fun(RouteHash, Resp, Opts) ->
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = NkPort,
-        ListenHost = nksip_util:get_listenhost(SrvId, PkgId, ListenIp, Opts),
+        ListenHost = nksip_util:get_listenhost(PkgId, ListenIp, Opts),
         ?CALL_DEBUG("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Transp==tls andalso lists:member(secure, Opts) of
             true ->

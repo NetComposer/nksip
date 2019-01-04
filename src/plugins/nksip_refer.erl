@@ -22,8 +22,9 @@
 -module(nksip_refer).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 -export([process/2]).
 
@@ -37,16 +38,16 @@
 -spec process(nksip:request(), nksip:call()) ->
     nksip:sipreply().
 
-process(Req, #call{srv=SrvId, call_id=CallId}=Call) ->
+process(Req, #call{pkg_id=PkgId, call_id=CallId}=Call) ->
     case nksip_sipmsg:header(<<"refer-to">>, Req, uris) of
         [ReferTo] -> 
-            case catch SrvId:sip_refer(ReferTo, Req, Call) of
+            case catch ?CALL_PKG(PkgId, sip_refer, [ReferTo, Req, Call]) of
                 true ->
-                    {ok, SubsId} = nksip_subscription:get_handle(Req), 
+                    {ok, SubsId} = nksip_subscription:get_handle(Req),
                     InvCallId = <<"nksip_refer_", CallId/binary>>,
                     Opts = [async, auto_2xx_ack, {call_id, InvCallId}, 
                            {refer_subscription_id, SubsId}],
-                    spawn(fun() -> nksip_uac:invite(SrvId, ReferTo, Opts) end),
+                    spawn(fun() -> nksip_uac:invite(PkgId, ReferTo, Opts) end),
                     ok;
                 false ->
                     forbidden;

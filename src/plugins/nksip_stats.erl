@@ -26,8 +26,8 @@
 
 -export([info/0, get_uas_avg/0, response_time/1]).
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 

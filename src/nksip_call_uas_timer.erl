@@ -28,7 +28,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 %% ===================================================================
@@ -39,10 +39,10 @@
 -spec timer(nksip_call_lib:timer()|term(), nksip_call:trans_id(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(Tag, Id, #call{srv=SrvId, trans=Trans}=Call) ->
+timer(Tag, Id, #call{pkg_id=PkgId, trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas}=UAS ->
-            case ?CALL_SRV(SrvId, nksip_uas_timer, [Tag, UAS, Call]) of
+            case  ?CALL_PKG(PkgId, nksip_uas_timer, [Tag, UAS, Call]) of
                 {ok, Call1} ->
                     Call1;
                 {continue, [Tag1, UAS1, Call1]} ->
@@ -73,7 +73,7 @@ do_timer(timer_g, #trans{response=Resp}=UAS, Call) ->
         {ok, _} ->
             ?CALL_LOG(info, "UAS ~p retransmitting 'INVITE' ~p response", [UAS#trans.id, _Code], Call),
             nksip_call_lib:retrans_timer(timer_g, UAS, Call);
-        {error, _} -> 
+        {error, _} ->
             ?CALL_LOG(notice, "UAS ~p could not retransmit 'INVITE' ~p response", [UAS#trans.id, _Code], Call),
             UAS1 = UAS#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAS1, Call)
@@ -112,7 +112,7 @@ do_timer(timer_h, UAS, Call) ->
 do_timer(expire, #trans{status=invite_proceeding, from=From}=UAS, Call) ->
     ?CALL_DEBUG("UAS ~p 'INVITE' timer Expire fired: sending 487",[UAS#trans.id], Call),
     case From of
-        {fork, ForkId} -> 
+        {fork, ForkId} ->
             % We do not cancel our UAS request, we send it to the fork
             % Proxied remotes should send the 487 (ot not)
             nksip_call_fork:cancel(ForkId, Call);

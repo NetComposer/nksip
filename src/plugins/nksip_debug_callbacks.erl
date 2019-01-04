@@ -22,48 +22,9 @@
 -module(nksip_debug_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_start/2]).
 -export([nksip_connection_sent/2, nksip_connection_recv/2, nksip_debug/3]).
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_debug => boolean
-    }.
-
-
-plugin_config(Config, _Service) ->
-    Debug = maps:get(sip_debug, Config, false),
-    {ok, Config, Debug}.
-
-
-plugin_start(Config, _Service) ->
-    case whereis(nksip_debug_srv) of
-        undefined ->
-            Child = {
-                nksip_debug_srv,
-                {nksip_debug_srv, start_link, []},
-                permanent,
-                5000,
-                worker,
-                [nksip_debug_srv]
-            },
-            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
-        _ ->
-            ok
-    end,
-    {ok, Config}.
-
-
 
 
 %% ===================================================================
@@ -76,7 +37,7 @@ plugin_start(Config, _Service) ->
     continue.
 
 nksip_connection_sent(SipMsg, Packet) ->
-    #sipmsg{srv =_SrvId, class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
+    #sipmsg{class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case Class of
         {req, Method} ->
@@ -92,16 +53,16 @@ nksip_connection_sent(SipMsg, Packet) ->
     continue.
 
 nksip_connection_recv(NkPort, Packet) ->
-    #sipmsg{nkport=NkPort, call_id=CallId, srv=SrvId} = NkPort,
+    #sipmsg{nkport=NkPort, call_id=CallId, pkg_id=PkgId} = NkPort,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-    nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
+    nksip_debug:insert(PkgId, CallId, {Transp, Ip, Port, Packet}),
     continue.
 
 
 %% doc Called at specific debug points
--spec nksip_debug(nkservice:id(), nksip:call_id(), term()) ->
+-spec nksip_debug(nkserver:id(), nksip:call_id(), term()) ->
     continue.
 
-nksip_debug(SrvId, CallId, Info) ->
-    nksip_debug:insert(SrvId, CallId, Info),
+nksip_debug(PkgId, CallId, Info) ->
+    nksip_debug:insert(PkgId, CallId, Info),
     continue.

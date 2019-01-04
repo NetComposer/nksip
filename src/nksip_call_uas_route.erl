@@ -29,7 +29,7 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Route processing
@@ -47,20 +47,20 @@ launch(UAS, Call) ->
 -spec send_100(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-send_100(UAS, #call{srv=SrvId, package=PkgId}=Call) ->
+send_100(UAS, #call{ pkg_id=PkgId}=Call) ->
     #trans{method=Method, request=Req} = UAS,
-    Config = nksip_plugin:get_config(SrvId, PkgId),
+    Config = nksip_config:pkg_config(PkgId),
     case Method=='INVITE' andalso (not Config#config.no_100) of
         true ->
             {Resp, SendOpts} = nksip_reply:reply(Req, 100),
             case nksip_call_uas_transp:send_response(Resp, SendOpts) of
-                {ok, _} -> 
+                {ok, _} ->
                     check_cancel(UAS, Call);
                 {error, _} ->
                     ?CALL_LOG(notice, "UAS ~p ~p could not send '100' response", [UAS#trans.id, Method], Call),
                     nksip_call_uas:do_reply(service_unavailable, UAS, Call)
             end;
-        false -> 
+        false ->
             check_cancel(UAS, Call)
     end.
         
@@ -69,15 +69,15 @@ send_100(UAS, #call{srv=SrvId, package=PkgId}=Call) ->
 -spec check_cancel(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-check_cancel(UAS, #call{srv=SrvId}=Call) ->
+check_cancel(UAS, #call{pkg_id=PkgId}=Call) ->
     case is_cancel(UAS, Call) of
         {true, #trans{status=invite_proceeding, from=From}=InvUAS} ->
             ?CALL_DEBUG("UAS ~p matched 'CANCEL' as ~p", [UAS#trans.id, InvUAS#trans.id], Call),
             Call1 = nksip_call_uas:do_reply(ok, UAS, Call), 
             Args = [InvUAS#trans.request, UAS#trans.request, Call1],
-            nksip_util:user_callback(SrvId, sip_cancel, Args),
+            nksip_util:user_callback(PkgId, sip_cancel, Args),
             case From of
-                {fork, ForkId} -> 
+                {fork, ForkId} ->
                     % We do not cancel our UAS request, we send it to the fork
                     % Proxied remotes should send the 487 (ot not)
                     nksip_call_fork:cancel(ForkId, Call1);
@@ -128,17 +128,17 @@ is_cancel(_, _) ->
 -spec authorize_launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-authorize_launch(#trans{request=Req}=UAS, #call{srv=SrvId}=Call) ->
+authorize_launch(#trans{request=Req}=UAS, #call{pkg_id=PkgId}=Call) ->
     % In case app has not implemented sip_authorize, we don't spend time
     % finding authentication info
-    case catch SrvId:sip_authorize([], Req, Call) of
+    case catch ?CALL_PKG(PkgId, sip_authorize, [[], Req, Call]) of
         ok ->
             authorize_reply(ok, UAS, Call);
         _ ->
-            {ok, AuthData} = ?CALL_SRV(SrvId, nksip_authorize_data, [[], UAS, Call]),
+            {ok, AuthData} =  ?CALL_PKG(PkgId, nksip_authorize_data, [[], UAS, Call]),
             Args = [AuthData, Req, Call],
-            case nksip_util:user_callback(SrvId, sip_authorize, Args) of
-                {ok, Reply} -> 
+            case nksip_util:user_callback(PkgId, sip_authorize, Args) of
+                {ok, Reply} ->
                     authorize_reply(Reply, UAS, Call);
                 error ->
                     nksip_call_uas:do_reply({internal_error, "Service Error"}, UAS, Call)
@@ -157,21 +157,21 @@ authorize_reply(Reply, UAS, Call) ->
     case Reply of
         ok ->
             Call1 = case ToTag of
-                <<>> -> 
+                <<>> ->
                     Call;
-                _ -> 
+                _ ->
                     nksip_call_lib:update_auth(DialogId, Req, Call)
             end,
             route_launch(UAS, Call1);
-        forbidden -> 
+        forbidden ->
             nksip_call_uas:do_reply(forbidden, UAS, Call);
-        authenticate -> 
+        authenticate ->
             nksip_call_uas:do_reply(authenticate, UAS, Call);
-        {authenticate, Realm} -> 
+        {authenticate, Realm} ->
             nksip_call_uas:do_reply({authenticate, Realm}, UAS, Call);
-        proxy_authenticate -> 
+        proxy_authenticate ->
             nksip_call_uas:do_reply(proxy_authenticate, UAS, Call);
-        {proxy_authenticate, Realm} -> 
+        {proxy_authenticate, Realm} ->
             nksip_call_uas:do_reply({proxy_authenticate, Realm}, UAS, Call);
         _Other ->
             ?CALL_LOG(warning, "Invalid response calling authenticate/2: ~p", [_Other], Call),
@@ -180,16 +180,16 @@ authorize_reply(Reply, UAS, Call) ->
 
 
 %% @private
--spec route_launch(nksip_call:trans(), nksip_call:call()) -> 
+-spec route_launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-route_launch(#trans{ruri=RUri}=UAS, #call{srv=SrvId}=Call) ->
+route_launch(#trans{ruri=RUri}=UAS, #call{pkg_id=PkgId}=Call) ->
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
     Args = [Scheme, User, Domain, UAS#trans.request, Call],
-    case nksip_util:user_callback(SrvId, sip_route, Args) of
-        {ok, Reply} -> 
+    case nksip_util:user_callback(PkgId, sip_route, Args) of
+        {ok, Reply} ->
             route_reply(Reply, UAS, Call);
-        error -> 
+        error ->
             nksip_call_uas:do_reply({internal_error, "Service Error"}, UAS, Call)
     end.
     
@@ -242,7 +242,7 @@ route_reply(Reply, UAS, Call) ->
                process | process_stateless |
                {proxy, nksip:uri_set(), nksip:optslist()} |
                {strict_proxy, nksip:optslist()}, 
-               nksip_call:trans(), nksip_call:call()) -> 
+               nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
 do_route({reply, Reply}, UAS, Call) ->

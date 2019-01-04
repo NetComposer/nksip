@@ -48,15 +48,13 @@
 -define(CALL_LOG(Type, Txt, Args, Call),
     lager:Type(
         [
-            {srv, Call#call.srv},
-            {package, Call#call.package},
+            {package, Call#call.pkg_id},
             {call_id, Call#call.call_id}
         ],
-        "NKSIP CALL (~s/~s/~s) " ++ Txt,
+        "NKSIP CALL '~s' (~s) " ++ Txt,
         [
-            Call#call.srv,
-            Call#call.package,
-            Call#call.call_id |
+            Call#call.call_id,
+            Call#call.pkg_id |
             Args
         ]
     )).
@@ -149,8 +147,8 @@
 %% - nksip_min_se: Pre-dialog received MinSE header
 
 -record(call, {
-    srv :: nkservice:service_id(),
-    package :: nkservice:package_id(),
+    pkg_id :: nkservice:package_id(),
+    pkg_ref :: reference(),
     call_id :: nksip:call_id(),
     hibernate :: atom(),
     next :: integer(),
@@ -161,6 +159,7 @@
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
     times :: #call_times{},
+    dests = #{} :: #{},
     meta = [] :: nksip:optslist()
 }).
 
@@ -182,7 +181,7 @@
     max_calls :: integer(),
     local_host :: auto | binary(),
     local_host6 :: auto | binary(),
-    debug :: boolean(),
+    debug :: [atom()],
     times :: #call_times{},
     udp_max_size :: integer()
 }).

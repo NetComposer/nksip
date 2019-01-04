@@ -22,46 +22,9 @@
 -module(nksip_trace_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
 -export([nksip_connection_sent/2, nksip_connection_recv/2]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_debug => boolean
-    }.
-
-
-plugin_config(Config, #{id:=Id}) ->
-    Trace = maps:get(sip_trace, Config, {console, all}),
-    case nksip_trace:get_config(Id, Trace) of
-    	{ok, Cache} ->
-            {ok, Config, Cache};
-    	{error, Error} ->
-            {error, Error}
-    end.
-   	
-
-
-plugin_start(Config, #{id:=Id, config_nksip_trace:={File, _}}) ->
-	ok = nksip_trace:open_file(Id, File),
-	{ok, Config}.
-
-
-plugin_stop(Config, #{id:=Id}) ->
-    catch nksip_trace:close_file(Id),
-    {ok, Config}.
 
 
 
@@ -75,8 +38,8 @@ plugin_stop(Config, #{id:=Id}) ->
     continue.
 
 nksip_connection_sent(SipMsg, Packet) ->
-    #sipmsg{srv=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
-    nksip_trace:sipmsg(SrvId, CallId, <<"TO">>, NkPort, Packet),
+    #sipmsg{pkg_id=PkgId, call_id=CallId, nkport=NkPort} = SipMsg,
+    nksip_trace:sipmsg(PkgId, CallId, <<"TO">>, NkPort, Packet),
     continue.
 
 
@@ -85,7 +48,7 @@ nksip_connection_sent(SipMsg, Packet) ->
     continue.
 
 nksip_connection_recv(SipMsg, Packet) ->
-    #sipmsg{srv=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
-    nksip_trace:sipmsg(SrvId, CallId, <<"FROM">>, NkPort, Packet),
+    #sipmsg{pkg_id=PkgId, call_id=CallId, nkport=NkPort} = SipMsg,
+    nksip_trace:sipmsg(PkgId, CallId, <<"FROM">>, NkPort, Packet),
     continue.
 

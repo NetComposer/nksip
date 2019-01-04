@@ -35,7 +35,7 @@
 start() ->
     Spec = #{
         callback => ?MODULE,
-        sip_debug => [nkpacket, call, packet]
+        sip_debug => [nkpacket, call, protocol]
 
     },
     nksip:start(?NAME, Spec).

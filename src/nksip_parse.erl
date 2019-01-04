@@ -34,13 +34,13 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 -export([method/1, aors/1, ruris/1, vias/1]).
 -export([uri_method/2]).
 -export([transport/1]).
--export([packet/5, packet/3]).
+-export([packet/4, packet/3]).
 
 -export_type([msg_class/0]).
 
@@ -116,7 +116,7 @@ aors(Term) ->
         Results     :: [ nksip:uri() ] 
             | error.
                 
-ruris(RUris) -> 
+ruris(RUris) ->
     case nklib_parse:uris(RUris) of
         error ->
             error;
@@ -167,7 +167,7 @@ vias(Term) ->
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
     Transp1 = case nklib_util:get_value(<<"transport">>, Opts) of
-        Atom when is_atom(Atom) -> 
+        Atom when is_atom(Atom) ->
             Atom;
         Other ->
             LcTransp = string:to_lower(nklib_util:to_list(Other)),
@@ -214,9 +214,8 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
 %% @private 
 %% @end
 %%----------------------------------------------------------------
--spec packet( SrvId, PkgId, CallId, NkPort, Packet) -> Result when
-        SrvId       :: nkservice:id(),
-        PkgId       :: nkservice:package_id(),
+-spec packet( PkgId, CallId, NkPort, Packet) -> Result when
+        PkgId       :: nkserver:id(),
         CallId      :: nksip:call_id(),
         NkPort      :: nkpacket:nkport(),
         Packet      :: binary(),
@@ -225,7 +224,7 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
             | {error, term()} 
             | {reply_error, term(), binary()}.
 
-packet(SrvId, PkgId, CallId, NkPort, Packet) ->
+packet(PkgId, CallId, NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Packet) of
         {ok, Class, Headers, Body} ->
@@ -242,15 +241,14 @@ packet(SrvId, PkgId, CallId, NkPort, Packet) ->
                         case catch list_to_integer(Code) of
                             Code1 when is_integer(Code1), Code1>=100, Code1<700 ->
                                 {{resp, Code1, Reason}, undefined};
-                            _ -> 
+                            _ ->
                                 throw({invalid, <<"Code">>})
                         end
                 end,
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    srv = SrvId,
-                    package = PkgId,
+                    pkg_id = PkgId,
                     ruri = RUri2,
                     call_id = CallId,
                     body = Body,
@@ -283,8 +281,8 @@ packet(SrvId, PkgId, CallId, NkPort, Packet) ->
 %% @private 
 %% @end
 %%----------------------------------------------------------------
--spec packet(SrvId, NkPort, Packet) -> Result when   
-        SrvId       :: nkservice:id(),
+-spec packet(PkgId, NkPort, Packet) -> Result when
+        PkgId       :: nkserver:id(),
         NkPort      :: nkpacket:nkport(),
         Packet      :: binary(),
         Result      :: {ok, #sipmsg{}, Rest} 
@@ -293,7 +291,7 @@ packet(SrvId, PkgId, CallId, NkPort, Packet) ->
             | {reply_error, term(), binary()},
         Rest        :: binary().
 
-packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
+packet(PkgId, #nkport{transp=Transp}=NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Transp, Packet) of
         {ok, Class, Headers, Body, Rest} ->
@@ -308,7 +306,7 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
                     {req, Method, RUri} ->
                         case nklib_parse:uris(RUri) of
                             [RUri1] ->
-                                {{req, Method}, [RUri1]};
+                                {{req, Method}, RUri1};
                             _ ->
                                 throw({invalid, <<"Request-URI">>})
                         end;
@@ -321,9 +319,9 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
                         end
                 end,
                 Req0 = #sipmsg{
+                    pkg_id = PkgId,
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    srv = SrvId,
                     ruri = RUri2,
                     call_id = CallId,
                     body = Body,
@@ -365,13 +363,13 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
         HeaderList  :: [ nksip:header() ].
 
 parse_sipmsg(SipMsg, Headers) ->
-    #sipmsg{srv=SrvId} = SipMsg,
-    {SipMsg2, Hds2} = try ?CALL_SRV(SrvId, nksip_preparse, [SipMsg, Headers]) of
+    #sipmsg{pkg_id=PkgId} = SipMsg,
+    {SipMsg2, Hds2} = try ?CALL_PKG(PkgId, nksip_preparse, [SipMsg, Headers]) of
         {ok, ModSipMsg, ModHds} ->
             {ModSipMsg, ModHds}
     catch
         _:_ ->
-            {SipMsg, Headers}    % Some tests skip srv_id
+            {SipMsg, Headers}
     end,
     From = case nklib_parse:uris(proplists:get_all_values(<<"from">>, Hds2)) of
         [From0] ->
@@ -396,9 +394,9 @@ parse_sipmsg(SipMsg, Headers) ->
             Vias0
     end,
     CSeq = case proplists:get_all_values(<<"cseq">>, Hds2) of
-        [CSeq0] -> 
+        [CSeq0] ->
             case nklib_util:words(CSeq0) of
-                [CSeqNum, CSeqMethod] -> 
+                [CSeqNum, CSeqMethod] ->
                     CSeqMethod1 = nksip_parse:method(CSeqMethod),
                     case SipMsg2#sipmsg.class of
                         {req, CSeqMethod1} ->
@@ -418,7 +416,7 @@ parse_sipmsg(SipMsg, Headers) ->
                 _ ->
                     throw({invalid, <<"CSeq">>})
             end;
-        _ -> 
+        _ ->
             throw({invalid, <<"CSeq">>})
     end,
     Forwards = case nklib_parse:integers(proplists:get_all_values(<<"max-forwards">>, Hds2)) of
@@ -436,7 +434,7 @@ parse_sipmsg(SipMsg, Headers) ->
             Routes0
     end,
     Contacts = case nklib_parse:uris(proplists:get_all_values(<<"contact">>, Hds2)) of
-        error -> 
+        error ->
             lager:warning("C: ~p", [Hds2]),
             throw({invalid, <<"Contact">>});
         Contacts0 ->
@@ -480,9 +478,9 @@ parse_sipmsg(SipMsg, Headers) ->
                 _ ->
                     undefined
             end;
-        [Event0] -> 
+        [Event0] ->
             Event0;
-        _ -> 
+        _ ->
             throw({invalid, <<"Event">>})
     end,
     RestHeaders = lists:filter(

@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_registrar.hrl").
 
 -export([force_domain/2]).
@@ -53,20 +53,20 @@ force_domain(Req, Domain) ->
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nkservice:id(), nksip:aor(), [#reg_contact{}]}].
+    [{nkserver:id(), nksip:aor(), [#reg_contact{}]}].
 
 get_all() ->
     [
-        {SrvId, AOR, nklib_store:get({nksip_registrar, SrvId, AOR}, [])}
-        || {SrvId, AOR} <- all()
+        {PkgId, AOR, nklib_store:get({nksip_registrar, PkgId, AOR}, [])}
+        || {PkgId, AOR} <- all()
     ].
 
 
 %% @private
 print_all() ->
     Now = nklib_util:timestamp(),
-    Print = fun({SrvId, {Scheme, User, Domain}, Regs}) ->
-        io:format("\n --- ~p --- ~p:~s@~s ---\n", [SrvId:name(), Scheme, User, Domain]),
+    Print = fun({PkgId, {Scheme, User, Domain}, Regs}) ->
+        io:format("\n --- ~p --- ~p:~s@~s ---\n", [PkgId, Scheme, User, Domain]),
         lists:foreach(
             fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
                 io:format("    ~s, ~p, ~p\n", [nklib_unparse:uri(Contact), Expire-Now, Q])
@@ -82,8 +82,8 @@ print_all() ->
     integer().
 
 clear() ->
-    Fun = fun(SrvId, AOR, _Val, Acc) ->
-        nklib_store:del({nksip_registrar, SrvId, AOR}),
+    Fun = fun(PkgId, AOR, _Val, Acc) ->
+        nklib_store:del({nksip_registrar, PkgId, AOR}),
         Acc+1
     end,
     fold(Fun, 0).
@@ -91,15 +91,15 @@ clear() ->
 
 %% @private
 all() -> 
-    fold(fun(SrvId, AOR, _Value, Acc) -> [{SrvId, AOR}|Acc] end, []).
+    fold(fun(PkgId, AOR, _Value, Acc) -> [{PkgId, AOR}|Acc] end, []).
 
 
 %% @private
 fold(Fun, Acc0) when is_function(Fun, 4) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_registrar, SrvId, AOR} ->
-                Fun(SrvId, AOR, Value, Acc);
+            {nksip_registrar, PkgId, AOR} ->
+                Fun(PkgId, AOR, Value, Acc);
             _ ->
                 Acc
         end

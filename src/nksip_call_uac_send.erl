@@ -40,7 +40,7 @@
 
 send(#trans{method='ACK'}=UAC, Call) ->
     #trans{id=_TransId, request=Req, opts=Opts} = UAC,
-    case nksip_call_uac_transp:send_request(Req, Opts) of
+    case nksip_call_uac_transp:send_request(Req, Call, Opts) of
         {ok, SentReq} ->
             sent_request(SentReq, UAC, Call);
         {error, Error} ->
@@ -74,7 +74,7 @@ send(UAC, Call) ->
                 'CANCEL' -> 
                     nksip_call_uac_transp:resend_request(Req, Opts);
                 _ -> 
-                    nksip_call_uac_transp:send_request(Req, Opts)
+                    nksip_call_uac_transp:send_request(Req, Call, Opts)
             end,
             case Send of
                 {ok, SentReq} -> 

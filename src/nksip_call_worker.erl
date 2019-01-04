@@ -27,7 +27,8 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 
 %% ===================================================================
@@ -43,7 +44,7 @@
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
-    {incoming, nkservice:id(), nkservide:package_id(), nksip:call_id(), nkpacket:nkport(), binary()} |
+    {incoming, nkserver:id(), nkservide:package_id(), nksip:call_id(), nkpacket:nkport(), binary()} |
     info |
     get_all_dialogs | 
     {stop_dialog, nksip_dialog_lib:id()} |
@@ -69,8 +70,8 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
-    case nksip_call_uac_make:make(SrvId, PkgId, Method, Uri, CallId, Opts) of
+    #call{pkg_id=PkgId, call_id=CallId} = Call,
+    case nksip_call_uac_make:make(PkgId, Method, Uri, CallId, Opts) of
         {ok, Req, ReqOpts} ->
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
@@ -80,7 +81,7 @@ work({send, Method, Uri, Opts}, From, Call) ->
 
 work({send_dialog, DialogId, Method, Opts}, From, Call) ->
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
-        {ok, RUri, Opts1, Call1} -> 
+        {ok, RUri, Opts1, Call1} ->
             work({send, Method, RUri, Opts1}, From, Call1);
         {error, Error} ->
             gen_server:reply(From, {error, Error}),
@@ -108,38 +109,39 @@ work({send_reply, ReqId, SipReply}, From, Call) ->
             {Reply, Call1} = nksip_call_uas:reply(SipReply, UAS, Call),
             gen_server:reply(From, Reply),
             Call1;
-        _ -> 
+        _ ->
             gen_server:reply(From, {error, invalid_call}),
             Call
     end;
 
 work({incoming, #sipmsg{class={req, _}}=Req}, _From, Call) ->
-    nksip_call_uas:request(Req, Call);
+    Call2 = save_destination(Req, Call),
+    nksip_call_uas:request(Req, Call2);
 
 work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
     case nksip_call_uac:is_stateless(Resp) of
-        true -> 
+        true ->
             nksip_call_proxy:response_stateless(Resp, Call);
-        false -> 
+        false ->
             nksip_call_uac:response(Resp, Call)
     end;
 
 work({incoming, NkPort, Msg}, _From, Call) ->
-    #call{srv=SrvId, package=PkgId, call_id=CallId} = Call,
-    case nksip_parse:packet(SrvId, PkgId, CallId, NkPort, Msg) of
+    #call{ pkg_id=PkgId, call_id=CallId} = Call,
+    case nksip_parse:packet(PkgId, CallId, NkPort, Msg) of
         {ok, SipMsg} ->
-            ?CALL_SRV(SrvId, nksip_connection_recv, [SipMsg, Msg]),
+             ?CALL_PKG(PkgId, nksip_connection_recv, [SipMsg, Msg]),
             work({incoming, SipMsg}, none, Call);
         {error, _Error} ->
             ?CALL_LOG(warning, "Error parsing SipMsg1: ~p", [_Error], Call),
             Call;
         {reply_error, _Error, Reply} ->
-            case nksip_util:get_connected(SrvId, NkPort) of
-                [Pid|_] -> 
+            case nksip_util:get_connected(PkgId, NkPort) of
+                [Pid|_] ->
                     case nkpacket_connection:send(Pid, Reply) of
-                        ok -> 
+                        ok ->
                             ok;
-                        {error, _SendError} -> 
+                        {error, _SendError} ->
                             ?CALL_LOG(warning, "Error parsing SipMsg2: ~p", [_Error], Call)
                     end;
                 [] ->
@@ -174,7 +176,7 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
                     gen_server:reply(From, {apply, Reply}),
                     Call
             end;
-        not_found -> 
+        not_found ->
             gen_server:reply(From, {error, unknown_dialog}),
             Call
     end;
@@ -196,7 +198,7 @@ work(get_all_transactions, From, #call{trans=Trans}=Call) ->
 
 work({apply_transaction, MsgId, Fun}, From, Call) ->
     case get_trans(MsgId, Call) of
-        {ok, Trans} -> 
+        {ok, Trans} ->
             gen_server:reply(From, {apply, catch Fun(Trans)});
         not_found ->  
             gen_server:reply(From, {error, unknown_transaction})
@@ -205,18 +207,18 @@ work({apply_transaction, MsgId, Fun}, From, Call) ->
 
 work({apply_sipmsg, MsgId, Fun}, From, Call) ->
     case get_sipmsg(MsgId, Call) of
-        {ok, Msg} -> 
+        {ok, Msg} ->
             gen_server:reply(From, {apply, catch Fun(Msg)}),
             Call;
-        not_found -> 
+        not_found ->
             gen_server:reply(From, {error, unknown_sipmsg}),
             Call
     end;
 
-work(info, From, Call) -> 
+work(info, From, Call) ->
     #call{
-        srv = SrvId,
-        call_id = CallId, 
+        pkg_id = PkgId,
+        call_id = CallId,
         trans = Trans, 
         dialogs = Dialogs,
         events = ProvEvents
@@ -230,7 +232,7 @@ work(info, From, Call) ->
                 undefined ->
                     undefined
             end,
-            {trans, SrvId, CallId, Id, Class, Method, Status, T}
+            {trans, PkgId, CallId, Id, Class, Method, Status, T}
         end,
         Trans),
     InfoDialog = lists:map(
@@ -253,7 +255,7 @@ work(info, From, Call) ->
                     #subscription{id=EvId, status=Status, class=Class, timer_expire=Exp} 
                     <- Subs
                 ],
-            {dlg, SrvId, DlgId, {invite, Inv}, {event, Ev}}
+            {dlg, PkgId, DlgId, {invite, Inv}, {event, Ev}}
         end,
         Dialogs),
     InfoProvEvents = case ProvEvents of
@@ -317,14 +319,14 @@ get_trans_id(SipMsgId, #call{msgs=Msgs}) ->
 
 get_trans(SipMsgId, #call{trans=AllTrans}=Call) ->
     case get_trans_id(SipMsgId, Call) of
-        {ok, TransId} -> 
+        {ok, TransId} ->
             case lists:keyfind(TransId, #trans.id, AllTrans) of
                 #trans{}=Trans ->
                     {ok, Trans};
                 false ->
                     not_found
             end;
-        not_found -> 
+        not_found ->
             not_found
     end.
 
@@ -356,6 +358,15 @@ get_dialog(DialogId, #call{dialogs=Dialogs}) ->
             {ok, Dialog}
     end.
 
+
+%% @doc Cache in call information to reach this Via,
+%% generated at UAS to be used later as UAC in a reversed dialog
+save_destination(#sipmsg{vias=[Via|_], nkport=NkPort}, Call) ->
+    #via{transp=Transp, domain=Domain, port=Port} = Via,
+    #nkport{pid=Pid} = NkPort,
+    #call{dests = Dests1} = Call,
+    Dests2 = Dests1#{{Transp, Domain, Port} => Pid},
+    Call#call{dests=Dests2}.
 
 
 

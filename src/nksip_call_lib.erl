@@ -147,17 +147,18 @@ update(New, Call) ->
 update_auth(<<>>, _SipMsg, Call) ->
     Call;
 
-update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
+update_auth(DialogId, SipMsg, #call{auths=AuthList}=Call) ->
     case SipMsg of
         #sipmsg{nkport=NkPort} ->
             {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-            case lists:member({DialogId, Transp, Ip, Port}, Auths) of
+            case lists:member({DialogId, Transp, Ip, Port}, AuthList) of
                 true ->
                     Call;
                 false -> 
+                    %lager:error("NKLOG UPDATED AUTH ~p", [{DialogId, Transp, Ip, Port}]),
                     ?CALL_DEBUG("added cached auth for dialog ~s (~p:~p:~p)",
                                 [DialogId, Transp, Ip, Port], Call),
-                    Call#call{auths=[{DialogId, Transp, Ip, Port}|Auths]}
+                    Call#call{auths=[{DialogId, Transp, Ip, Port}|AuthList]}
             end;
         _ ->
             Call
@@ -173,8 +174,9 @@ check_auth(#sipmsg{dialog_id = <<>>}, _Call) ->
 
 check_auth(#sipmsg{dialog_id=DialogId, nkport=NkPort}, Call) when is_tuple(NkPort)->
     {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-    #call{auths=Auths} = Call,
-    case lists:member({DialogId, Transp, Ip, Port}, Auths) of
+    #call{auths=AuthList} = Call,
+    % lager:error("NKLOG CHECK AUTH (~p) ~p IN ~p", [PkgId, {DialogId, Transp, Ip, Port}, AuthList]),
+    case lists:member({DialogId, Transp, Ip, Port}, AuthList) of
         true ->
             ?CALL_DEBUG("Origin ~p:~p:~p is in dialog ~s authorized list",
                         [Transp, Ip, Port, DialogId], Call),
@@ -182,7 +184,7 @@ check_auth(#sipmsg{dialog_id=DialogId, nkport=NkPort}, Call) when is_tuple(NkPor
         false ->
             ?CALL_DEBUG("Origin ~p:~p:~p is NOT in dialog ~s "
                         "authorized list (~p)", 
-                        [Transp, Ip, Port, DialogId, [{O, I, P} || {D, O, I, P}<-Auths, D==DialogId]], Call),
+                        [Transp, Ip, Port, DialogId, [{O, I, P} || {D, O, I, P}<-AuthList, D==DialogId]], Call),
             false
     end;
 
@@ -225,11 +227,6 @@ timeout_timer(timer_c, Trans, Call) ->
     cancel_timer(Trans#trans.timeout_timer),
     #call{times=#call_times{tc=TC}} = Call,
     Trans#trans{timeout_timer=start_timer(1000*TC, timer_c, Trans)}.
-
-% timeout_timer(sipapp_call, Trans, Call) ->
-%     cancel_timer(Trans#trans.timeout_timer),
-%     #call{timers={_, _, _, _, Time}} = Call,
-%     Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
 
 
 %% @private

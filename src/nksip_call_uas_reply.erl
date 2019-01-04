@@ -27,7 +27,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--include_lib("nkservice/include/nkservice.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Private
@@ -60,8 +60,8 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                 ) ->
     {Resp1, SendOpts1} = 
         nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
-    #call{srv=SrvId} = Call,
-    case ?CALL_SRV(SrvId, nksip_uas_send_reply, [{Resp1, SendOpts1}, UAS, Call]) of
+    #call{pkg_id=PkgId} = Call,
+    case  ?CALL_PKG(PkgId, nksip_uas_send_reply, [{Resp1, SendOpts1}, UAS, Call]) of
         {continue, [{Resp2, SendOpts2}, UAS2, Call2]} ->
             send({Resp2, SendOpts2}, UAS2, update(UAS2, Call2));
         {error, Error} ->
@@ -89,7 +89,8 @@ reply(_SipReply, #trans{id=_Id, method=_Method, status=_Status}, Call) ->
 
 send({Resp, SendOpts}, UAS, Call) ->
     #sipmsg{
-        id = MsgId, 
+        pkg_id = PkgId,
+        id = MsgId,
         dialog_id = DialogId
     } = Resp,
     #trans{
@@ -100,13 +101,12 @@ send({Resp, SendOpts}, UAS, Call) ->
         stateless = Stateless
     } = UAS,    
     #call{
-        srv = SrvId,
         msgs = Msgs
     } = Call,
     {UserReply, Resp2} = case nksip_call_uas_transp:send_response(Resp, SendOpts) of
         {ok, Resp20} ->
             {ok, Resp20};
-        {error, _} -> 
+        {error, _} ->
             {Resp20, _} = nksip_reply:reply(Req, service_unavailable),
             {{error, service_unavailable}, Resp20}
     end,
@@ -135,7 +135,7 @@ send({Resp, SendOpts}, UAS, Call) ->
             ?CALL_DEBUG("UAS ~p ~p stateful reply ~p", [Id, Method, Code2], Call),
             UAS2 = UAS#trans{response=Resp2, code=Code2},
             Call4 = update(UAS2, Call3),
-            case ?CALL_SRV(SrvId, nksip_uas_sent_reply, [Call4]) of
+            case  ?CALL_PKG(PkgId, nksip_uas_sent_reply, [Call4]) of
                 {ok, Call5} ->
                     {UserReply, Call5};
                 {continue, [Call5]} ->
@@ -159,7 +159,7 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 200 ->
 stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
     #trans{id=Id, request=Req, response=Resp} = UAS,
     UAS1 = case Id < 0 of
-        true -> 
+        true ->
             % In old-style transactions, save Id to be used in
             % detecting ACKs
             #sipmsg{to=To} = Resp,
@@ -178,9 +178,9 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code >= 300 ->
     UAS2 = nksip_call_lib:expire_timer(cancel, UAS1, Call),
     UAS3 = nksip_call_lib:timeout_timer(timer_h, UAS2, Call),
     case Transp of 
-        udp -> 
+        udp ->
             nksip_call_lib:retrans_timer(timer_g, UAS3, Call);
-        _ -> 
+        _ ->
             UAS3#trans{response=undefined}
     end;
 
@@ -193,10 +193,10 @@ stateful_reply(proceeding, Code, UAS, _Call) when Code < 200 ->
 stateful_reply(proceeding, Code, UAS, Call) when Code >= 200 ->
     #trans{transp=Transp} = UAS,
     case Transp of
-        udp -> 
+        udp ->
             UAS1 = UAS#trans{status=completed, request=undefined},
             nksip_call_lib:timeout_timer(timer_j, UAS1, Call);
-        _ -> 
+        _ ->
             UAS1 = UAS#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAS1, Call)
     end;

@@ -45,7 +45,7 @@
 
 
 -type uac_result() ::  
-    {async, nksip:handle()} | {ok, nksip:sip_code(), nksip:resp_options()} | {error, term()}.
+    {ok, nksip:sip_code(), nksip:resp_options()} | {async, nksip:handle()} | {error, term()}.
     
 -type uac_ack_result() ::
     ok | async | {error, term()}.
@@ -59,8 +59,6 @@
 
 
 -type req_option() ::
-
-    package |                           % Service's package id
 
     % Automatic header generation (replace existing headers)
     user_agent |
@@ -98,7 +96,7 @@
     no_dialog |
     stateless_via |
 
-% Header manipulation
+    % Header manipulation
     {call_id, value()} |
     {from, value()} |
     {to, value()} |
@@ -129,12 +127,12 @@
 %% ===================================================================
 
 %% @doc Sends an out-of-dialog OPTIONS request.
--spec options(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec options(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-options(SrvId, Uri, Opts) ->
+options(PkgId, Uri, Opts) ->
     Opts2 = [supported, allow, allow_event | Opts],
-    send(SrvId, 'OPTIONS', Uri, Opts2).
+    send(PkgId, 'OPTIONS', Uri, Opts2).
 
 
 %% @doc Sends an in-dialog OPTIONS request.
@@ -147,21 +145,21 @@ options(Handle, Opts) ->
 
 
 %% @doc Sends a REGISTER request.
--spec register(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec register(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-register(SrvId, Uri, Opts) ->
+register(PkgId, Uri, Opts) ->
     Opts2 = [to_as_from, supported, allow, allow_event | Opts],
-    send(SrvId, 'REGISTER', Uri, Opts2).
+    send(PkgId, 'REGISTER', Uri, Opts2).
 
 
 %% @doc Sends an out-of-dialog INVITE request.
--spec invite(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec invite(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-invite(SrvId, Uri, Opts) ->
+invite(PkgId, Uri, Opts) ->
     Opts1 = [contact, supported, allow, allow_event | Opts],
-    send(SrvId, 'INVITE', Uri, Opts1).
+    send(PkgId, 'INVITE', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog INVITE request.
@@ -217,14 +215,14 @@ update(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog SUBSCRIBE request.
--spec subscribe(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec subscribe(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-subscribe(SrvId, Uri, Opts) ->
+subscribe(PkgId, Uri, Opts) ->
     case lists:keymember(event, 1, Opts) of
         true ->
             Opts1 = [contact, supported, allow, allow_event | Opts],
-            send(SrvId, 'SUBSCRIBE', Uri, Opts1);
+            send(PkgId, 'SUBSCRIBE', Uri, Opts1);
         false ->
             {error, invalid_event}
     end.
@@ -255,17 +253,17 @@ notify(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog MESSAGE request.
--spec message(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec message(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-message(SrvId, Uri, Opts) ->
+message(PkgId, Uri, Opts) ->
     Opts1 = case lists:keymember(expires, 1, Opts) of
         true ->
             [date|Opts];
         _ ->
             Opts
     end,
-    send(SrvId, 'MESSAGE', Uri, Opts1).
+    send(PkgId, 'MESSAGE', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog MESSAGE request.
@@ -284,16 +282,16 @@ message(Handle, Opts) ->
 
 
 %% @doc Sends an <i>REFER</i> for a remote party
--spec refer(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec refer(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-refer(SrvId, Uri, Opts) ->
+refer(PkgId, Uri, Opts) ->
     case nklib_util:get_binary(refer_to, Opts) of
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
             Opts1 = [{insert, "refer-to", ReferTo} | nklib_util:delete(Opts, refer_to)],
-            send(SrvId, 'REFER', Uri, Opts1)
+            send(PkgId, 'REFER', Uri, Opts1)
     end.
 
 
@@ -311,12 +309,12 @@ refer(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog PUBLISH request.
--spec publish(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec publish(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-publish(SrvId, Uri, Opts) ->
+publish(PkgId, Uri, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send(SrvId, 'PUBLISH', Uri, Opts1).
+    send(PkgId, 'PUBLISH', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog PUBLISH request.
@@ -330,11 +328,11 @@ publish(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog request constructed from a SIP-Uri
--spec request(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec request(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-request(SrvId, Dest, Opts) ->
-    send(SrvId, undefined, Dest, Opts).
+request(PkgId, Dest, Opts) ->
+    send(PkgId, undefined, Dest, Opts).
 
 
 %% @doc Sends an in-dialog request constructed from a SIP-Uri
@@ -375,11 +373,11 @@ refresh(Handle, Opts) ->
             Body
     end,
     Op = case lists:member(active, Opts) of
-        true -> 
+        true ->
             sendrecv;
         false ->
             case lists:member(inactive, Opts) of
-                true -> 
+                true ->
                     inactive;
                 false ->
                     case lists:member(hold, Opts) of
@@ -411,16 +409,15 @@ refresh(Handle, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nkservice:id(), nksip:user_uri(), [req_option()]) ->
+-spec stun(nkserver:id(), nksip:user_uri(), [req_option()]) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, term()}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number().
 
-stun(SrvId, UriSpec, Opts) ->
+stun(PkgId, UriSpec, _Opts) ->
     case nkpacket_resolve:resolve(UriSpec) of
         {ok, [#nkconn{protocol=nksip_protocol, ip=Ip}|_]=Conns} ->
-            PkgId = nklib_util:get_value(package, Opts, ?PACKAGE_CLASS_SIP),
-            ListenOpts = #{class=>{nksip, SrvId, PkgId}, ip=>Ip},
+            ListenOpts = #{class=>{nksip, PkgId}, ip=>Ip},
             case nkpacket:get_listening(nksip_protocol, udp, ListenOpts) of
                 [NkPort|_] ->
                     {ok, {_, _, LocIp, LocPort}} = nkpacket:get_local(NkPort),
@@ -461,29 +458,23 @@ stun_send([_|Rest], Pid) ->
 %% ===================================================================
 
 
-
 %% @private
--spec send(nkservice:id(), nksip:method(), nksip:user_uri(), [req_option()]) ->
+-spec send(nkserver:id(), nksip:method(),    nksip:user_uri(), [req_option()]) ->
     uac_result() | {error, term()}.
 
-send(SrvId, Method, Uri, Opts) ->
-    PkgId = nklib_util:get_value(package, Opts, ?PACKAGE_CLASS_SIP),
-    send(SrvId, PkgId, Method, Uri, Opts).
-
-
-%% @private
--spec send(nkservice:id(), nkservice:package_id(), nksip:method(),
-           nksip:user_uri(), [req_option()]) ->
-    uac_result() | {error, term()}.
-
-send(SrvId, PkgId, Method, Uri, Opts) ->
-    CallId = case lists:keyfind(call_id, 1, Opts) of
-        {call_id, CallId0} ->
-            nklib_util:to_binary(CallId0);
-        false ->
-            nklib_util:luid()
-    end,
-    nksip_call:send(SrvId, to_bin(PkgId), CallId, Method, Uri, Opts).
+send(PkgId, Method, Uri, Opts) ->
+    case whereis(PkgId) of
+        Pid when is_pid(Pid) ->
+            CallId = case lists:keyfind(call_id, 1, Opts) of
+                {call_id, CallId0} ->
+                    nklib_util:to_binary(CallId0);
+                false ->
+                    nklib_util:luid()
+            end,
+            nksip_call:send(PkgId, CallId, Method, Uri, Opts);
+        undefined ->
+            {error, package_not_started}
+    end.
 
 
 
@@ -500,8 +491,13 @@ send_dialog(Method, Handle, Opts) ->
                 _ ->
                     Opts
             end,
-            {SrvId, PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
-            nksip_call:send_dialog(SrvId, PkgId, CallId, Method, DialogId, Opts1);
+            {PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
+            case whereis(PkgId) of
+                Pid when is_pid(Pid) ->
+                    nksip_call:send_dialog(PkgId, CallId, Method, DialogId, Opts1);
+                undefined ->
+                    {error, package_not_started}
+            end;
         {error, Error} ->
             {error, Error}
     end.
@@ -512,13 +508,13 @@ send_dialog(Method, Handle, Opts) ->
     
 send_cancel(Handle, Opts) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, SrvId, PkgId, ReqId, CallId} ->
-            nksip_call:send_cancel(SrvId, PkgId, CallId, ReqId, Opts);
+        {req, PkgId, ReqId, CallId} ->
+            nksip_call:send_cancel(PkgId, CallId, ReqId, Opts);
         _ ->
             {error, invalid_request}
     end.
 
 
-%% @private
-to_bin(Term) when is_binary(Term) -> Term;
-to_bin(Term) -> nklib_util:to_binary(Term).
+%%%% @private
+%%to_bin(Term) when is_binary(Term) -> Term;
+%%to_bin(Term) -> nklib_util:to_binary(Term).

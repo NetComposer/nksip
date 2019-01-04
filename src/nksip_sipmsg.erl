@@ -36,7 +36,7 @@
 -type id() :: binary().
 
 -type field() ::  
-    handle | internal_id | srv_id | srv_name | dialog_handle | subscription_handle |
+    handle | internal_id | pkg_id | dialog_handle | subscription_handle |
     transp | local | remote | method | ruri | scheme | user | domain | aor |
     code | reason_phrase | content_type | body | call_id | vias | 
     from | from_tag | from_scheme | from_user | from_domain | 
@@ -69,10 +69,8 @@ get_meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
             get_handle(S);
         internal_id ->
             S#sipmsg.id;
-        srv_id ->
-            S#sipmsg.srv;
-        srv_name ->
-            apply(S#sipmsg.srv, name, []);
+        pkg_id ->
+            S#sipmsg.pkg_id;
         dialog_handle ->
             nksip_dialog_lib:get_handle(S);
         subscription_handle ->
@@ -107,7 +105,8 @@ get_meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         method ->
             case Class of {req, Method} ->
                 Method; _ ->
-                undefined end;
+                undefined
+            end;
         ruri ->
             S#sipmsg.ruri;
         scheme ->
@@ -439,54 +438,53 @@ expired(#sipmsg{expires=Expires, start=Start}=Req) ->
             false
     end.
 
-
--spec get_handle(nksip:request()|nksip:response()) ->
-    nksip:handle().
-
-get_handle(#sipmsg{id=MsgId, call_id=CallId}) ->
-    {sipmsg, MsgId, CallId, self()}.
-
-
-
-
-%%%% @private
-%%-spec get_handle(nksip:request()|nksip:response()|nksip:handle()) ->
+%%
+%%-spec get_handle(nksip:request()|nksip:response()) ->
 %%    nksip:handle().
 %%
-%%get_handle(<<Ch, _/binary>>=Handle) when Ch==$R; Ch==$S ->
-%%    Handle;
-%%
-%%get_handle(#sipmsg{srv=SrvId, class=Class, id=MsgId, call_id=CallId}) ->
-%%    <<
-%%        case Class of
-%%            {req, _} -> $R;
-%%            {resp, _, _} -> $S
-%%        end,
-%%        $_,
-%%        MsgId/binary,
-%%        $_,
-%%        (atom_to_binary(SrvId, latin1))/binary,
-%%        $_,
-%%        CallId/binary
-%%    >>;
-%%
-%%get_handle(_) ->
-%%    error(invalid_handle).
+%%get_handle(#sipmsg{id=MsgId, call_id=CallId}) ->
+%%    {sipmsg, MsgId, CallId, self()}.
+
+
+
+
+%% @private
+-spec get_handle(nksip:request()|nksip:response()|nksip:handle()) ->
+    nksip:handle().
+
+get_handle(<<Ch, _/binary>>=Handle) when Ch==$R; Ch==$S ->
+    Handle;
+
+get_handle(#sipmsg{pkg_id=PkgId, class=Class, id=MsgId, call_id=CallId}) ->
+    <<
+        case Class of
+            {req, _} -> $R;
+            {resp, _, _} -> $S
+        end,
+        $_,
+        (base64:encode(term_to_binary({PkgId, MsgId, CallId})))/binary
+    >>;
+
+get_handle(_) ->
+    error(invalid_handle).
     
 
-%% @private TODO: MUST REPLY PKGID
--spec parse_handle(nksip:handle()) -> 
-    {req|resp, nkservice:id(), nkservice:package_id(), id(), nksip:call_id()}.
+-spec parse_handle(nksip:handle()) ->
+    {req|resp, nkserver:id(), id(), nksip:call_id()}.
 
-parse_handle(<<Ch, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>>)
-         when Ch==$R; Ch==$S ->
+parse_handle(<<Ch, $_, Rest/binary>>) when Ch==$R; Ch==$S ->
     Class = case Ch of
         $R ->
             req;
         $S ->
             resp
     end,
-    {Class, binary_to_existing_atom(Srv, latin1), Id, CallId};
+    case catch binary_to_term(base64:decode(Rest)) of
+        {PkgId, MsgId, CallId} ->
+            {Class, PkgId, MsgId, CallId};
+        _ ->
+            error(invalid_handle)
+    end;
 
 parse_handle(_) ->
     error(invalid_handle).
@@ -510,7 +508,7 @@ remote_meta(Field, Handle) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {_Class, SrvId, MsgId, CallId} = parse_handle(Handle),
+    {_Class, PkgId, MsgId, CallId} = parse_handle(Handle),
     Fun = fun(SipMsg) ->
         case catch get_metas(Fields, SipMsg) of
             {'EXIT', {{invalid_field, Field}, _}} -> 
@@ -519,7 +517,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {ok, Values}
         end
     end,
-    case nksip_call:apply_sipmsg(SrvId, CallId, MsgId, Fun) of
+    case nksip_call:apply_sipmsg(PkgId, CallId, MsgId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 
