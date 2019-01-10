@@ -20,15 +20,15 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t13_auth_test).
+-module(t13_auth).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
 
 -compile([export_all, nowarn_export_all]).
 
-auth_test_() ->
-  {setup, spawn, 
+auth_gen() ->
+  {setup, spawn,
       fun() -> start() end,
       fun(_) -> stop() end,
       [
@@ -40,7 +40,7 @@ auth_test_() ->
   }.
 
 
-auth2_test_() ->
+auth2_gen() ->
     {setup, spawn,
         fun() -> start(), force_tcp() end,
         fun(_) -> stop() end,
@@ -53,32 +53,11 @@ auth2_test_() ->
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    digest(),
-    invite(),
-    dialog(),
-    proxy(),
-    stop(),
-
-    timer:sleep(1000),
-    start(),
-    force_tcp(),
-    lager:warning("Starting TEST ~p forced tcp", [?MODULE]),
-    timer:sleep(1000),
-    digest(),
-    invite(),
-    dialog(),
-    proxy(),
-    stop().
-
-
 
 start() ->
     % It must work also with all sip_udp_max_size to 200
 
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
     {ok, _} = nksip:start_link(auth_test_server1, #{
         sip_from => "sip:auth_test_server1@nksip",
@@ -114,8 +93,8 @@ start() ->
         sip_listen => "sip:all:5072"
     }),
     
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 % For UDP-to-TCP for all requests
@@ -132,7 +111,10 @@ stop() ->
     ok = nksip:stop(auth_test_server2),
     ok = nksip:stop(auth_test_client1),
     ok = nksip:stop(auth_test_client2),
-    ok = nksip:stop(auth_test_client3).
+    ok = nksip:stop(auth_test_client3),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 digest() ->

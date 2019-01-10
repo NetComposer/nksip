@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t17_prack_test).
+-module(t17_prack).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -33,8 +33,8 @@
 -endif.
 
 
-prack_test_() ->
-    {setup, spawn, 
+prack_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -46,6 +46,7 @@ prack_test_() ->
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(prack_test_client1, #{
@@ -66,23 +67,16 @@ start() ->
         sip_listen => "<sip:all:5070>, <sip:all:5071;transport=tls>"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(prack_test_client1),
-    ok = nksip:stop(prack_test_client2).
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    pending(),
-    media(),
-    stop().
+    ok = nksip:stop(prack_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

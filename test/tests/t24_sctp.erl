@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t24_sctp_test).
+-module(t24_sctp).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
@@ -29,11 +29,12 @@
 -compile([export_all, nowarn_export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).
 
-sctp_test_() ->
+
+sctp_gen() ->
     case gen_sctp:open() of
         {ok, S} ->
             gen_sctp:close(S),
-            {setup, spawn, 
+            {setup, spawn,
                 fun() -> start() end,
                 fun(_) -> stop() end,
                 [
@@ -48,16 +49,11 @@ sctp_test_() ->
             []
     end.
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    stop().
-
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
+
     {ok, _} = nksip:start_link(sctp_test_client1, #{
         sip_from => "sip:sctp_test_client1@nksip",
         sip_local_host => "127.0.0.1",
@@ -71,13 +67,16 @@ start() ->
         sip_listen => "sip:all:5071, <sip:all:5071;transport=sctp>"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(sctp_test_client1),
-    ok = nksip:stop(sctp_test_client2).
+    ok = nksip:stop(sctp_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

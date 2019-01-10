@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t03_uac_test).
+-module(t03_uac).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -28,8 +28,8 @@
 -compile([export_all, nowarn_export_all]).
 
 
-uac_test_() ->
-    {setup, spawn, 
+uac_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -42,19 +42,8 @@ uac_test_() ->
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    uac(),
-    info(),
-    message(),
-    timeout(),
-    bye_with_reason(),
-    stop().
-
-
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
     {ok, _} = nksip:start_link(uac_test_client1, #{
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:uac_test_client1@nksip>",
@@ -62,13 +51,17 @@ start() ->
 
     {ok, _} = nksip:start_link(uac_test_client2, #{
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:uac_test_client2@nksip>"}),
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(uac_test_client1),
-    ok = nksip:stop(uac_test_client2).
+    ok = nksip:stop(uac_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 uac() ->

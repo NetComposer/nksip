@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t16_publish_test).
+-module(t16_publish).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -28,8 +28,8 @@
 
 -compile([export_all, nowarn_export_all]).
 
-publish_test_() ->
-    {setup, spawn, 
+publish_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -39,6 +39,7 @@ publish_test_() ->
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(publish_test_client, #{
@@ -56,21 +57,17 @@ start() ->
         sip_listen => "<sip:all:5070>, <sip:all:5071;transport=tls>"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(publish_test_client),
-    ok = nksip:stop(publish_test_server).
+    ok = nksip:stop(publish_test_server),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    stop().
 
 
 basic() ->

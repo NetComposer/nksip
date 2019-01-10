@@ -21,7 +21,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t01_basic_test).
+-module(t01_basic).
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -31,8 +31,8 @@
 -compile([export_all, nowarn_export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
+basic_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -43,22 +43,11 @@ basic_test_() ->
         ]
     }.
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    running(),
-    transport(),
-    cast_info(),
-    stun(),
-    stop().
 
 
 start() ->
-    catch stop(),
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
-    %tests_util:log(debug),
-
     nklib_store:update_timer(200),
 
     {ok, _} = nksip:start_link(basic_test_server, #{}),
@@ -75,8 +64,8 @@ start() ->
         %sip_debug => [nkpacket, call, packet]
     }),
 
-    ?debugFmt("Starting ~p", [?MODULE]),
-ok.
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -85,6 +74,8 @@ stop() ->
     {error, not_started} = nksip:stop(basic_test_server),
     {error, not_started} = nksip:stop(basic_test_client1),
     {error, not_started} = nksip:stop(basic_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
     ok.
 
 

@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t09_invite_test).
+-module(t09_invite).
 -include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -28,21 +28,22 @@
 
 -compile([export_all, nowarn_export_all]).
 
-invite_test_() ->
-    {setup, spawn, 
+invite_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
-        {inparallel, [
+        [
             {timeout, 60, fun cancel/0},
             {timeout, 60, fun dialog/0},
             {timeout, 60, fun rr_contact/0},
             {timeout, 60, fun multiple_uac/0},
             {timeout, 60, fun multiple_uas/0}
-        ]}
+        ]
     }.
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(invite_test_client1, #{
@@ -60,27 +61,17 @@ start() ->
         sip_listen => "<sip:all:5070>, <sip:all:5071;transport=tls>"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
-
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
-    cancel(),
-    dialog(),
-    rr_contact(),
-    multiple_uac(),
-    multiple_uas(),
-    stop().
-
+    ok.
 
 
 stop() ->
     ok = nksip:stop(invite_test_client1),
-    ok = nksip:stop(invite_test_client2).
+    ok = nksip:stop(invite_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
+
 
 
 

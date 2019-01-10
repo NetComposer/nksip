@@ -20,15 +20,15 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t19_refer_test).
+-module(t19_refer).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
 
 -compile([export_all, nowarn_export_all]).
 
-refer_test_() ->
-    {setup, spawn, 
+refer_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         {inparallel, [
@@ -38,17 +38,8 @@ refer_test_() ->
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    in_dialog(),
-    stop().
-
-
-
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(refer_test_client1, #{
@@ -72,14 +63,17 @@ start() ->
         plugins => [nksip_refer]
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(refer_test_client1),
     ok = nksip:stop(refer_test_client2),
-    ok = nksip:stop(refer_test_client3).
+    ok = nksip:stop(refer_test_client3),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

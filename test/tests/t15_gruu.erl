@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t15_gruu_test).
+-module(t15_gruu).
 -include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -28,8 +28,8 @@
 
 -compile([export_all, nowarn_export_all]).
 
-gruu_test_() ->
-    {setup, spawn, 
+gruu_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -40,6 +40,7 @@ gruu_test_() ->
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(gruu_test_server1, #{
@@ -64,22 +65,18 @@ start() ->
     }),
 
     nksip_registrar_util:clear(),
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
+
+
 
 stop() ->
     ok = nksip:stop(gruu_test_server1),
     ok = nksip:stop(gruu_test_ua1),
-    ok = nksip:stop(gruu_test_ua2).
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    register(),
-    temp_gruu(),
-    stop().
+    ok = nksip:stop(gruu_test_ua2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 register() ->

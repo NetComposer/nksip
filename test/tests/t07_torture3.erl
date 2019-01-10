@@ -21,7 +21,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t07_torture3_test).
+-module(t07_torture3).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -31,8 +31,8 @@
 -compile([export_all, nowarn_export_all]).
 
 
-torture3_test_() ->
-    {setup, spawn, 
+torture3_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -49,7 +49,7 @@ torture3_test_() ->
             {timeout, 60, fun application_10/0}, 
             {timeout, 60, fun application_11/0}, 
             {timeout, 60, fun application_12/0}, 
-            {timeout, 60, fun application_13/0}, 
+            {timeout, 60, fun application_13/0},
             {timeout, 60, fun application_14/0}, 
             {timeout, 60, fun application_15/0}
         ]
@@ -57,6 +57,7 @@ torture3_test_() ->
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(torture_test_server, #{
@@ -65,36 +66,15 @@ start() ->
         plugins => [nksip_registrar]
     }),
 
-    timer:sleep(100),
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
+
 
 stop() ->
-    ok = nksip:stop(torture_test_server).
-
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    transaction_1(),
-    application_1(),
-    application_2(),
-    application_3(),
-    application_4(),
-    application_5(),
-    application_6(),
-    application_7(),
-    application_8(),
-    application_9(),
-    application_10(),
-    application_11(),
-    application_12(),
-    application_13(),
-    application_14(),
-    application_15(),
-    stop().
+    ok = nksip:stop(torture_test_server),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 

@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t18_path_test).
+-module(t18_path).
 -include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -29,8 +29,8 @@
 
 -compile([export_all, nowarn_export_all]).
 
-path_test_() ->
-    {setup, spawn, 
+path_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -40,6 +40,7 @@ path_test_() ->
 
 % This configuration resembles the example in RFC3327
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(path_test_p1, #{
@@ -76,8 +77,8 @@ start() ->
         sip_listen => "sip:all, <sip:all;transport=tls>"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -86,15 +87,10 @@ stop() ->
     ok = nksip:stop(path_test_p3),
     ok = nksip:stop(path_test_registrar),
     ok = nksip:stop(path_test_ua1),
-    ok = nksip:stop(path_test_ua2).
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    stop().
+    ok = nksip:stop(path_test_ua2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

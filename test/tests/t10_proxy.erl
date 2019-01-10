@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t10_proxy_test).
+-module(t10_proxy).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkserver/include/nkserver.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -29,8 +29,8 @@
 -compile([export_all, nowarn_export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).
 
-stateless_test_() ->
-    {setup, spawn, 
+stateless_gen() ->
+    {setup, spawn,
         fun() -> 
             start(stateless),
             ?debugMsg("Starting proxy stateless")
@@ -48,8 +48,8 @@ stateless_test_() ->
     }.
 
 
-stateful_test_() ->
-    {setup, spawn, 
+stateful_gen() ->
+    {setup, spawn,
         fun() -> 
             start(stateful),
             ?debugMsg("Starting proxy stateful")
@@ -68,31 +68,8 @@ stateful_test_() ->
     }.
 
 
-all() ->
-    start(stateful),
-    lager:warning("Starting TEST ~p stateful", [?MODULE]),
-    timer:sleep(1000),
-    invalid(),
-    opts(),
-    transport(),
-    invite(),
-    servers(),
-    dialog(),
-    stop(stateful),
-
-    timer:sleep(1000),
-    start(stateless),
-    lager:warning("Starting TEST ~p stateless", [?MODULE]),
-    timer:sleep(1000),
-    invalid(),
-    opts(),
-    transport(),
-    invite(),
-    servers(),
-    stop(stateless).
-
-
 start(Test) ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(proxy_test_server1, #{
@@ -129,7 +106,7 @@ start(Test) ->
         sip_listen => "sip:all, sips:all"
     }),
 
-    tests_util:log(),
+    timer:sleep(1000),
     ok.
 
 
@@ -137,7 +114,10 @@ stop(_) ->
     ok = nksip:stop(proxy_test_server1),
     ok = nksip:stop(proxy_test_server2),
     ok = nksip:stop(proxy_test_client1),
-    ok = nksip:stop(proxy_test_client2).
+    ok = nksip:stop(proxy_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 invalid() ->

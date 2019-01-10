@@ -20,15 +20,15 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t20_timers_test).
+-module(t20_timers).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
 
 -compile([export_all, nowarn_export_all]).
 
-timer_test_() ->
-    {setup, spawn, 
+timer_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -38,6 +38,7 @@ timer_test_() ->
     }.
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(timer_test_p1, #{
@@ -79,9 +80,8 @@ start() ->
         sip_listen => "sip:all:5073"
     }),
 
-
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -90,17 +90,10 @@ stop() ->
     ok = nksip:stop(timer_test_p2),
     ok = nksip:stop(timer_test_ua1),
     ok = nksip:stop(timer_test_ua2),
-    ok = nksip:stop(timer_test_ua3).
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    proxy(),
-    stop().
-
+    ok = nksip:stop(timer_test_ua3),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

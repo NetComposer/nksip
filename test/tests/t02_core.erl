@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t02_core_test).
+-module(t02_core).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -28,8 +28,8 @@
 -compile([export_all, nowarn_export_all]).
 
 
-core_test_() ->
-    {setup, spawn, 
+core_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -40,29 +40,25 @@ core_test_() ->
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    cancel(),
-    auth(),
-    stop().
-
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
     {ok, _} = nksip:start_link(core_test_server, #{}),
     {ok, _} = nksip:start_link(core_test_client1, #{}),
     {ok, _} = nksip:start_link(core_test_client2, #{}),
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(core_test_server),
     ok = nksip:stop(core_test_client1),
-    ok = nksip:stop(core_test_client2).
+    ok = nksip:stop(core_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
+
 
 
 
@@ -114,6 +110,8 @@ basic() ->
     nkserver:del(core_test_server, inline_test),
     nkserver:del(core_test_client1, inline_test),
     nkserver:del(core_test_client2, inline_test),
+
+    timer:sleep(1000),
     ok.
 
 

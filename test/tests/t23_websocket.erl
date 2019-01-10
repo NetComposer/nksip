@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t23_websocket_test).
+-module(t23_websocket).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -30,8 +30,8 @@
 -compile([export_all, nowarn_export_all]).
 
 
-ws_test_() ->
-    {setup, spawn, 
+ws_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -43,20 +43,8 @@ ws_test_() ->
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic1(),
-    basic2(),
-    sharing(),
-    proxy(),
-    stop().
-
-
-
-
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(websocket_test_ws_a, #{
@@ -104,7 +92,8 @@ start() ->
         sip_listen => "sip:all:8180/client3;transport=ws"
     }),
 
-    tests_util:log().
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -112,6 +101,8 @@ stop() ->
     ok = nksip:stop(websocket_test_ua1),
     ok = nksip:stop(websocket_test_ua2),
     ok = nksip:stop(websocket_test_ua3),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
     ok.
 
 

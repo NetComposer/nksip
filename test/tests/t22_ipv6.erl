@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t22_ipv6_test).
+-module(t22_ipv6).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
@@ -30,8 +30,8 @@
 -compile([export_all, nowarn_export_all]).
 -define(RECV(T), receive T -> ok after 1000 -> error(recv) end).
 
-ipv6_test_() ->
-  {setup, spawn, 
+ipv6_gen() ->
+  {setup, spawn,
       fun() -> start() end,
       fun(_) -> stop() end,
       [
@@ -53,28 +53,9 @@ ipv6_test_() ->
   }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    invite(),
-    proxy(),
-    bridge_4_6(),
-    torture_1(),
-    torture_2(),
-    torture_3(),
-    torture_4(),
-    torture_5(),
-    torture_6(),
-    torture_7(),
-    torture_8(),
-    torture_9(),
-    torture_10(),
-    stop().
-
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     %% NOTE: using 'any6' as ip for hosts fails in Linux
@@ -110,8 +91,8 @@ start() ->
         sip_listen => "sip:all:5072"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -119,7 +100,10 @@ stop() ->
     ok = nksip:stop(ipv6_test_server2),
     ok = nksip:stop(ipv6_test_client1),
     ok = nksip:stop(ipv6_test_client2),
-    ok = nksip:stop(ipv6_test_client3).
+    ok = nksip:stop(ipv6_test_client3),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

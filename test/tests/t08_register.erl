@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t08_register_test).
+-module(t08_register).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -32,8 +32,8 @@
 -compile([export_all, nowarn_export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).
 
-register_test_() ->
-    {setup, spawn, 
+register_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -43,17 +43,9 @@ register_test_() ->
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    register1(),
-    register2(),
-    stop().
-
-
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(register_test_server1, #{
@@ -75,13 +67,17 @@ start() ->
         sip_from => "sip:register_test_client2@nksip"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
+
 
 stop() ->
     ok = nksip:stop(register_test_server1),
     ok = nksip:stop(register_test_client1),
-    ok = nksip:stop(register_test_client2).
+    ok = nksip:stop(register_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 register1() ->

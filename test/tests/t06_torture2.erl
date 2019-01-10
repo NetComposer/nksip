@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t06_torture2_test).
+-module(t06_torture2).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -30,8 +30,8 @@
 -compile([export_all, nowarn_export_all]).
 
 
-torture2_test_() ->
-    {setup, spawn, 
+torture2_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -59,45 +59,23 @@ torture2_test_() ->
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(torture_test_server, #{
         sip_no_100 => true,
         sip_listen => "sip:all:5060"
     }),
-    timer:sleep(100),
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
+
 
 stop() ->
-    ok = nksip:stop(torture_test_server).
+    ok = nksip:stop(torture_test_server),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    invalid_1(),
-    invalid_2(),
-    invalid_3(),
-    invalid_4(),
-    invalid_5(),
-    invalid_6(),
-    invalid_7(),
-    invalid_8(),
-    invalid_9(),
-    invalid_10(),
-    invalid_11(),
-    invalid_12(),
-    invalid_13(),
-    invalid_14(),
-    invalid_15(),
-    invalid_16(),
-    invalid_17(),
-    invalid_18(),
-    invalid_19(),
-    stop().
 
 
 invalid_1() ->

@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t21_outbound_test).
+-module(t21_outbound).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -30,33 +30,22 @@
 
 -compile([export_all, nowarn_export_all]).
 
-outbound_test_() ->
-    {setup, spawn, 
+outbound_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
-        [
+        {inorder, [
             fun basic/0,
             fun flow/0,
             fun register/0,
             fun proxy/0,
             {timeout, 60, fun uac_auto/0}
-        ]
+        ]}
     }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p normal", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    flow(),
-    register(),
-    proxy(),
-    uac_auto(),
-    stop().
-
-
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(outbound_test_registrar, #{
@@ -102,8 +91,8 @@ start() ->
         sip_listen => "<sip:all:5200>, <sip:all:5201;transport=tls>"
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -113,7 +102,10 @@ stop() ->
     ok = nksip:stop(outbound_test_p4),
     ok = nksip:stop(outbound_test_registrar),
     ok = nksip:stop(outbound_test_ua1),
-    ok = nksip:stop(outbound_test_ua2).
+    ok = nksip:stop(outbound_test_ua2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 basic() ->

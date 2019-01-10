@@ -20,37 +20,38 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t05_torture1_test).
+-module(t05_torture1).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
 
--compile([export_all, nowarn_export_all]).
+-export([torture1_gen/0]).
+%-compile([export_all, nowarn_export_all]).
 
 
-all() ->
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    valid_1_test(),
-    valid_2_test(),
-    valid_3_test(),
-    valid_4_test(),
-    valid_5_test(),
-    valid_6_test(),
-    valid_7_test(),
-    valid_8_test(),
-    valid_9_test(),
-    valid_10_test(),
-    valid_11_test(),
-    valid_12_test(),
-    valid_13_test().
+torture1_gen() ->
+    {spawn, [
+        fun valid_1/0,
+        fun valid_2/0,
+        fun valid_3/0,
+        fun valid_4/0,
+        fun valid_5/0,
+        fun valid_6/0,
+        fun valid_7/0,
+        fun valid_8/0,
+        fun valid_9/0,
+        fun valid_10/0,
+        fun valid_11/0,
+        fun valid_12/0,
+        fun valid_13/0
+    ]}.
 
 
 
-
-valid_1_test() ->
-    ?debugFmt("Starting ~p", [?MODULE]),
+valid_1() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
 
     Msg = 
         <<"INVITE sip:vivekg@chair-dnrc.example.com;unknownparam SIP/2.0\r\n"
@@ -152,7 +153,7 @@ valid_1_test() ->
     ok.
 
 
-valid_2_test() ->
+valid_2() ->
     Msg = 
         <<"!interesting-Method0123456789_*+`.%indeed'~ sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*:&it+has=1,weird!*pas$wo~d_too.(doesn't-it)@example.com SIP/2.0\r\n"
         "Via: SIP/2.0/TCP host1.example.com;branch=z9hG4bK-.!%66*_+`'~\r\n"
@@ -204,7 +205,7 @@ valid_2_test() ->
     ok.
 
 
-valid_3_test() ->
+valid_3() ->
     Msg = 
         <<"INVITE sip:sips%3Auser%40example.com@example.net SIP/2.0\r\n"
         "To: sip:%75se%72@example.com\r\n"
@@ -250,7 +251,7 @@ valid_3_test() ->
     ok.
 
 
-valid_4_test() ->
+valid_4() ->
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "To: sip:null-%00-null@example.com\r\n"
@@ -279,7 +280,7 @@ valid_4_test() ->
     ok.
 
 
-valid_5_test() ->
+valid_5() ->
     Msg = 
         <<"RE%47IST%45R sip:registrar.example.com SIP/2.0\r\n"
         "To: \"%Z%45\" <sip:resource@example.com>\r\n"
@@ -314,7 +315,7 @@ valid_5_test() ->
     ok.
 
 
-valid_6_test() ->
+valid_6() ->
     Msg = 
         <<"OPTIONS sip:user@example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -336,7 +337,7 @@ valid_6_test() ->
     ok.
 
 
-valid_7_test() ->
+valid_7() ->
     Msg = 
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "To: \"I have a user name of extreme extreme extreme extreme extreme extreme extreme extreme extreme extreme proportion\" <sip:user@example.com:6000;unknownparam1=verylonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglongvalue;longparamnamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamename=shortvalue;verylonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglongParameterNameWithNoValue>\r\n"
@@ -472,7 +473,7 @@ valid_7_test() ->
     ok.
 
 
-valid_8_test() ->
+valid_8() ->
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "To: sip:j.user@example.com\r\n"
@@ -506,7 +507,7 @@ valid_8_test() ->
     ok.
 
 
-valid_9_test() ->
+valid_9() ->
     Msg = 
         <<"OPTIONS sip:user;par=u%40example.net@example.com SIP/2.0\r\n"
         "To: sip:j_user@example.com\r\n"
@@ -547,7 +548,7 @@ valid_9_test() ->
     ok.
 
 
-valid_10_test() ->
+valid_10() ->
     Msg = 
         <<"OPTIONS sip:user@example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -590,7 +591,7 @@ valid_10_test() ->
     ok.
 
 
-valid_11_test() ->
+valid_11() ->
     Msg = 
         <<"MESSAGE sip:kumiko@example.org SIP/2.0\r\n"
         "Via: SIP/2.0/UDP 127.0.0.1:5070;branch=z9hG4bK-d87543-4dade06d0bdb11ee-1--d87543-;rport\r\n"
@@ -669,7 +670,7 @@ valid_11_test() ->
     ok.
 
 
-valid_12_test() ->
+valid_12() ->
     Msg = 
         <<"SIP/2.0 200 = 2**3 * 5**2 \xD0\xBD\xD0\xBE\x20\xD1\x81\xD1\x82\xD0\xBE\x20\xD0\xB4\xD0\xB5\xD0\xB2\xD1\x8F\xD0\xBD\xD0\xBE\xD1\x81\xD1\x82\xD0\xBE\x20\xD0\xB4\xD0\xB5\xD0\xB2\xD1\x8F\xD1\x82\xD1\x8C\x20\x2D\x20\xD0\xBF\xD1\x80\xD0\xBE\xD1\x81\xD1\x82\xD0\xBE\xD0\xB5\r\n"
         "Via: SIP/2.0/UDP 192.0.2.198;branch=z9hG4bK1324923\r\n"
@@ -695,7 +696,7 @@ valid_12_test() ->
     ok.
 
 
-valid_13_test() ->
+valid_13() ->
     Msg = 
         <<"SIP/2.0 100\x20\r\n"
         "Via: SIP/2.0/UDP 192.0.2.105;branch=z9hG4bK2398ndaoe\r\n"

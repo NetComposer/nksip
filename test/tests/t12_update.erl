@@ -20,15 +20,15 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t12_update_test).
+-module(t12_update).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
 
 -compile([export_all, nowarn_export_all]).
 
-update_test_() ->
-    {setup, spawn, 
+update_gen() ->
+    {setup, spawn,
         fun() -> start() end,
         fun(_) -> stop() end,
         [
@@ -39,6 +39,7 @@ update_test_() ->
 
 
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start_link(update_test_client1, #{
@@ -57,23 +58,16 @@ start() ->
         plugins => [nksip_100rel]
     }),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
     ok = nksip:stop(update_test_client1),
-    ok = nksip:stop(update_test_client2).
-
-
-
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    basic(),
-    pending(),
-    stop().
+    ok = nksip:stop(update_test_client2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 

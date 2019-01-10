@@ -30,7 +30,7 @@
 -ifdef(is_travis).
 -define(WAIT_TIMEOUT, 100000).
 -else.
--define(WAIT_TIMEOUT, 10000).
+-define(WAIT_TIMEOUT, 20000).
 -endif.
 
 start_nksip() ->
@@ -43,7 +43,7 @@ start_nksip() ->
 %%    Opts1 = nklib_util:to_map(Opts),
 %%    Opts2 = Opts1#{
 %%        callback => Module
-%%    },
+%%    },x
 %%    {ok, _} = nksip:start(Name, Opts2),
 %%    ok.
 

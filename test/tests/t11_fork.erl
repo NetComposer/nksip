@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t11_fork_test).
+-module(t11_fork).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -28,8 +28,8 @@
 
 -compile([export_all, nowarn_export_all]).
 
-fork_test_() ->
-  {setup, spawn, 
+fork_gen() ->
+  {setup, spawn,
       fun() -> start() end,
       fun(_) -> stop() end,
       [
@@ -43,20 +43,8 @@ fork_test_() ->
   }.
 
 
-all() ->
-    start(),
-    lager:warning("Starting TEST ~p", [?MODULE]),
-    timer:sleep(1000),
-    regs(),
-    basic(),
-    invite1(),
-    invite2(),
-    redirect(),
-    multiple_200(),
-    stop().
-
-
 start() ->
+    ?debugFmt("\n\nStarting ~p\n\n", [?MODULE]),
     tests_util:start_nksip(),
     
     % Registrar server
@@ -161,8 +149,8 @@ start() ->
     {ok, _} = nksip:start_link(fork_test_clientD1, #{}),
     {ok, _} = nksip:start_link(fork_test_clientD2, #{}),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    timer:sleep(1000),
+    ok.
 
 
 stop() ->
@@ -180,7 +168,10 @@ stop() ->
     ok = nksip:stop(fork_test_clientB2),
     ok = nksip:stop(fork_test_clientC3),
     ok = nksip:stop(fork_test_clientD1),
-    ok = nksip:stop(fork_test_clientD2).
+    ok = nksip:stop(fork_test_clientD2),
+    ?debugFmt("Stopping ~p", [?MODULE]),
+    timer:sleep(500),
+    ok.
 
 
 regs() ->
