@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t08_proxy_test).
+-module(t10_proxy_test).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkserver/include/nkserver.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -70,6 +70,7 @@ stateful_test_() ->
 
 all() ->
     start(stateful),
+    lager:warning("Starting TEST ~p stateful", [?MODULE]),
     timer:sleep(1000),
     invalid(),
     opts(),
@@ -81,7 +82,8 @@ all() ->
 
     timer:sleep(1000),
     start(stateless),
-    timer:sleep(100),
+    lager:warning("Starting TEST ~p stateless", [?MODULE]),
+    timer:sleep(1000),
     invalid(),
     opts(),
     transport(),
@@ -142,7 +144,7 @@ invalid() ->
     C1 = proxy_test_client1,
     C2 = proxy_test_client2,
     S1 = proxy_test_server1,
-    #{test_type:=Test} = ?CALL_PKG(S1, config, []),
+    #{test_type:=Test} = ?CALL_SRV(S1, config, []),
 
     % Request arrives at proxy_test_server1; it has no user, and domain belongs to it,
     % so it orders to process it (statelessly or statefully depending on Test)
@@ -199,7 +201,7 @@ invalid() ->
 opts() ->
     C1 = proxy_test_client1,
     C2 = proxy_test_client2,
-    #{test_type:=Test} = ?CALL_PKG(C1, config, []),
+    #{test_type:=Test} = ?CALL_SRV(C1, config, []),
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
     

@@ -43,6 +43,7 @@ uas_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     uas(),
     auto(),
@@ -135,7 +136,7 @@ auto() ->
         sip_listen => "sip:all:5080"}),
 
     timer:sleep(200),
-    {error, package_not_started} = nksip_uac_auto_register:start_ping(none, ping1, "sip:a", []),
+    {error, service_not_started} = nksip_uac_auto_register:start_ping(none, ping1, "sip:a", []),
     {error, invalid_uri} = nksip_uac_auto_register:start_ping(uas_test_client1, ping1, "sip::a", []),
     Ref = make_ref(),
 
@@ -144,7 +145,7 @@ auto() ->
     {ok, true} = nksip_uac_auto_register:start_ping(uas_test_client1, ping1,
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 5}]),
 
-    {error, package_not_started} = nksip_uac_auto_register:start_register(none, reg1, "sip::a", []),
+    {error, service_not_started} = nksip_uac_auto_register:start_register(none, reg1, "sip::a", []),
     {error, invalid_uri} = nksip_uac_auto_register:start_register(uas_test_client1, reg1, "sip::a", []),
     {ok, true} = nksip_uac_auto_register:start_register(uas_test_client1, reg1,
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 1}]),

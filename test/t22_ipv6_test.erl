@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t20_ipv6_test).
+-module(t22_ipv6_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
@@ -55,6 +55,7 @@ ipv6_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic(),
     invite(),

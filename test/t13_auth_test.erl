@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t10_auth_test).
+-module(t13_auth_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -55,6 +55,7 @@ auth2_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     digest(),
     invite(),
@@ -65,6 +66,7 @@ all() ->
     timer:sleep(1000),
     start(),
     force_tcp(),
+    lager:warning("Starting TEST ~p forced tcp", [?MODULE]),
     timer:sleep(1000),
     digest(),
     invite(),
@@ -94,18 +96,16 @@ start() ->
     {ok, _} = nksip:start_link(auth_test_client1, #{
         sip_from => "sip:auth_test_client1@nksip",
         sip_local_host => "127.0.0.1",
-        plugins => [nksip_uac_auto_auth, nksip_trace],
-        sip_listen => "sip:all:5070",
-        sip_trace => true
+        plugins => [nksip_uac_auto_auth],
+        sip_listen => "sip:all:5070"
     }),
     
     {ok, _} = nksip:start_link(auth_test_client2, #{
         sip_from => "sip:auth_test_client2@nksip",
         sip_pass => ["jj", {"auth_test_client1", "4321"}],
         sip_local_host => "127.0.0.1",
-        plugins => [nksip_uac_auto_auth, nksip_trace],
-        sip_listen => "sip:all:5071",
-        sip_trace => true
+        plugins => [nksip_uac_auto_auth],
+        sip_listen => "sip:all:5071"
     }),
 
     {ok, _} = nksip:start_link(auth_test_client3, #{

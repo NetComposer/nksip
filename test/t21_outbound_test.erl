@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t18_outbound_test).
+-module(t21_outbound_test).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -46,6 +46,7 @@ outbound_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic(),
     flow(),

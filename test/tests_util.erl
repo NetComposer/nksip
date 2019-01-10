@@ -110,7 +110,7 @@ save_ref(Req) ->
     case nksip_request:header(<<"x-nk-reply">>, Req) of
         {ok, [RepBin]} -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-            {ok, PkgId} = nksip_request:pkg_id(Req),
+            {ok, PkgId} = nksip_request:srv_id(Req),
             Dialogs = nkserver:get(PkgId, dialogs, []),
             {ok, DialogId} = nksip_dialog:get_handle(Req),
             ok =  nkserver:put(PkgId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
@@ -126,7 +126,7 @@ update_ref(PkgId, Ref, DialogId) ->
 
 send_ref(Msg, Req) ->
     {ok, DialogId} = nksip_dialog:get_handle(Req),
-    {ok, PkgId} = nksip_request:pkg_id(Req),
+    {ok, PkgId} = nksip_request:srv_id(Req),
     Dialogs = nkserver:get(PkgId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
@@ -138,7 +138,7 @@ send_ref(Msg, Req) ->
     end.
 
 dialog_update(Update, Dialog) ->
-    {ok, PkgId} = nksip_dialog:pkg_id(Dialog),
+    {ok, PkgId} = nksip_dialog:srv_id(Dialog),
     case catch nkserver:get(PkgId, dialogs, []) of
         Dialogs when is_list(Dialogs) ->
             {ok, DialogId} = nksip_dialog:get_handle(Dialog),
@@ -167,7 +167,7 @@ dialog_update(Update, Dialog) ->
 
 
 session_update(Update, Dialog) ->
-    {ok, PkgId} = nksip_dialog:pkg_id(Dialog),
+    {ok, PkgId} = nksip_dialog:srv_id(Dialog),
     Dialogs = nkserver:get(PkgId, dialogs, []),
     {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of

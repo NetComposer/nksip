@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t08_fork_test).
+-module(t11_fork_test).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -45,6 +45,7 @@ fork_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     regs(),
     basic(),
@@ -361,7 +362,7 @@ invite2() ->
     All = nksip_dialog:get_all(),
 
     {ok, CallId} = nksip_dialog:call_id(Dlg_C2_1),
-    [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:pkg_id(D))==fork_test_client2,
+    [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:srv_id(D))==fork_test_client2,
                             element(2, nksip_dialog:call_id(D))=:=CallId, D/=Dlg_C2_1],
     {ok, proceeding_uac} = nksip_dialog:get_meta(invite_status, Dlg_C2_2),
     {ok, proceeding_uac} = nksip_dialog:get_meta(invite_status, Dlg_C2_3),

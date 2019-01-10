@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t21_websocket_test).
+-module(t23_websocket_test).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -45,6 +45,7 @@ ws_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic1(),
     basic2(),
@@ -60,8 +61,8 @@ start() ->
 
     {ok, _} = nksip:start_link(websocket_test_ws_a, #{
         sip_listen => "
-            <sip:all:8080;transport=ws>,
-            <sips:all:8081;transport=wss>,
+            <sip:all:8880;transport=ws>,
+            <sips:all:8881;transport=wss>,
             <sip:all/ws;transport=ws>"
     }),
 
@@ -93,7 +94,7 @@ start() ->
         sip_from => "<sip:client2@nksip>",
         sip_local_host => "localhost",
         plugins => [nksip_gruu, nksip_outbound],
-        sip_listen => "sip:all;transport=ws, sip:all:8081/websocket_test_ua2;transport=wss"
+        sip_listen => "sip:all;transport=ws, sip:all:8881/websocket_test_ua2;transport=wss"
     }),
 
     {ok, _} = nksip:start_link(websocket_test_ua3, #{
@@ -119,7 +120,7 @@ basic1() ->
     WsB = websocket_test_ws_b,
     
     [
-        #nkport{transp=ws, local_port=8080, listen_port=8080,
+        #nkport{transp=ws, local_port=8880, listen_port=8880,
                  opts=#{ws_proto:=<<"sip">>}},
         #nkport{transp=ws, local_port=_LP1, listen_port=_LP1,
                  opts=#{path:=<<"/ws">>, ws_proto:=<<"sip">>}}
@@ -127,7 +128,7 @@ basic1() ->
         = all_listeners(ws, WsA),
 
     [
-        #nkport{transp=wss, local_port=8081, listen_port=8081, 
+        #nkport{transp=wss, local_port=8881, listen_port=8881,
                 opts=#{ws_proto:=<<"sip">>}}
     ]
         = all_listeners(wss, WsA),
@@ -217,7 +218,7 @@ basic2() ->
                          [{get_meta, [vias, local, remote]}]),
 
     [
-        {_, [#via{transp=wss, domain = <<"localhost">>, port=8081}]},
+        {_, [#via{transp=wss, domain = <<"localhost">>, port=8881}]},
         {_, {wss, {127,0,0,1}, Port3, <<"/wss">>}},
         {_, {wss, {127,0,0,1}, 8181, <<"/wss">>}}
     ] = Values2,
@@ -231,7 +232,7 @@ basic2() ->
             remote_ip = {127,0,0,1},
             remote_port = 8181,
             listen_ip = {0,0,0,0},
-            listen_port = 8081,
+            listen_port = 8881,
             pid = Pid3
         }
     ] = all_connected(UA2),
@@ -279,16 +280,16 @@ sharing() ->
     
     % Client2 must answer
     {ok, 200, [{_, [C2C]}]} = nksip_uac:options(websocket_test_server,
-                                            "<sips:localhost:8081/websocket_test_ua2;transport=ws>",
+                                            "<sips:localhost:8881/websocket_test_ua2;transport=ws>",
                                             [{get_meta, [contacts]}]),
-    #uri{domain = <<"localhost">>, port=8081} = C2C,
+    #uri{domain = <<"localhost">>, port=8881} = C2C,
     {ok, 200, [{_, [C2C]}]} = nksip_uac:options(websocket_test_server,
-                                            "<sips:localhost:8081/websocket_test_ua2/any/thing;transport=ws>",
+                                            "<sips:localhost:8881/websocket_test_ua2/any/thing;transport=ws>",
                                             [{get_meta, [contacts]}]),
 
     % But not now
     {error, service_unavailable} = nksip_uac:options(websocket_test_server,
-                                            "<sips:localhost:8081/;transport=ws>", []),
+                                            "<sips:localhost:8881/;transport=ws>", []),
     ok.
 
 

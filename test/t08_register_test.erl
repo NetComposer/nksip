@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t06_register_test).
+-module(t08_register_test).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -45,6 +45,7 @@ register_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     register1(),
     register2(),
@@ -183,7 +184,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:register_test_client1@nksip,
     Request1 = #sipmsg{
-                pkg_id = register_test_server1,
+                srv_id = register_test_server1,
                 from = {#uri{scheme=sip, user= <<"register_test_client1">>, domain= <<"nksip">>}, <<>>},
                 nkport = #nkport{
                                 transp = udp, 

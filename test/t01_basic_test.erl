@@ -45,6 +45,7 @@ basic_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     running(),
     transport(),
@@ -56,6 +57,7 @@ all() ->
 start() ->
     catch stop(),
     tests_util:start_nksip(),
+    %tests_util:log(debug),
 
     nklib_store:update_timer(200),
 
@@ -93,14 +95,15 @@ running() ->
     [{basic_test_client1, _}, {basic_test_client2, _}, {basic_test_server, _}] =
         lists:sort(nkserver_srv:get_local_all(<<"Sip">>)),
 
-    {error,{package_config_error,{name,{invalid_transport,<<"other">>}}}} =
+    {error,{service_config_error,{name,{invalid_transport,<<"other">>}}}} =
         nksip:start_link(name, #{sip_listen => "<sip:all;transport=other>"}),
-    {error, {package_config_error,{name, {syntax_error,<<"sip_registrar_min_time">>}}}} =
+    {error, {service_config_error,{name, {syntax_error,<<"sip_registrar_min_time">>}}}} =
         nksip:start_link(name, #{plugins => [nksip_registrar], sip_registrar_min_time => -1}),
     {error, {plugin_unknown, invalid}} =
         nksip:start_link(name, #{plugins => [nksip_registrar, invalid]}),
     ok.
-    
+
+
 
 transport() ->
     Body = base64:encode(crypto:strong_rand_bytes(100)),

@@ -67,6 +67,7 @@ stop() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic(),
     stop().

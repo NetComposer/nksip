@@ -34,7 +34,7 @@ sip_invite(Req, _Call) ->
         {ok, [Op0]} -> Op0;
         {ok, _} -> <<"decline">>
     end,
-    {ok, SrvId} = nksip_request:pkg_id(Req),
+    {ok, SrvId} = nksip_request:srv_id(Req),
     {ok, ReqId} = nksip_request:get_handle(Req),
     proc_lib:spawn(
         fun() ->
@@ -118,7 +118,7 @@ sip_prack(Req, _Call) ->
     tests_util:send_ref({prack, RAck}, Req),
     Body = case nksip_request:body(Req) of
         {ok, #sdp{} = RemoteSDP} ->
-            {ok, SrvId} = nksip_request:pkg_id(Req),
+            {ok, SrvId} = nksip_request:srv_id(Req),
             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nklib_util:to_binary(SrvId)}};
         {ok, _} -> 
             <<>>

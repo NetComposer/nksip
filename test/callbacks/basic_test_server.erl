@@ -24,7 +24,7 @@
 -module(basic_test_server).
 
 -export([sip_route/5, config/1]).
--export([package_srv_init/2, package_srv_handle_call/4, package_srv_handle_cast/3, package_srv_handle_info/3]).
+-export([srv_init/2, srv_handle_call/4, srv_handle_cast/3, srv_handle_info/3]).
 
 -include_lib("nkserver/include/nkserver_module.hrl").
 
@@ -34,7 +34,9 @@ config(Opts) ->
     Opts#{
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:?MODULE@nksip>",
         sip_listen => "sip://all;tcp_listeners=10, sips:all:5061",
-        plugins => [nksip_registrar]
+        plugins => [nksip_registrar, nksip_trace]
+        %sip_trace => true,
+        %sip_debug=>[nkpacket, call, packet]
     }.
 
 
@@ -73,38 +75,38 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-package_srv_init(#{id:=PkgId}, State) ->
+srv_init(#{id:=PkgId}, State) ->
     ok =  nkserver:put(PkgId, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State#{my_name=>PkgId}}.
 
 
 
-package_srv_handle_call(get_domains, _From, _Service, #{my_name:=?MODULE}=State) ->
+srv_handle_call(get_domains, _From, _Service, #{my_name:=?MODULE}=State) ->
     Domains = nkserver:get(?MODULE, domains),
     {reply, {ok, Domains}, State};
 
-package_srv_handle_call({set_domains, Domains}, _From, _Service, #{my_name:=?MODULE}=State) ->
+srv_handle_call({set_domains, Domains}, _From, _Service, #{my_name:=?MODULE}=State) ->
     ok =  nkserver:put(?MODULE, domains, Domains),
     {reply, ok, State};
 
-package_srv_handle_call(_Msg, _From, _Service, _State) ->
+srv_handle_call(_Msg, _From, _Service, _State) ->
     continue.
 
 
 
-package_srv_handle_cast({cast_test, Ref, Pid}, _Service, #{my_name:=?MODULE}=State) ->
+srv_handle_cast({cast_test, Ref, Pid}, _Service, #{my_name:=?MODULE}=State) ->
     Pid ! {Ref, {cast_test, ?MODULE}},
     {noreply, State};
 
-package_srv_handle_cast(_Msg, _Service, _State) ->
+srv_handle_cast(_Msg, _Service, _State) ->
     continue.
 
 
-package_srv_handle_info({info_test, Ref, Pid}, _Service, #{my_name:=?MODULE}=State) ->
+srv_handle_info({info_test, Ref, Pid}, _Service, #{my_name:=?MODULE}=State) ->
     Pid ! {Ref, {info_test, ?MODULE}},
     {noreply, State};
 
-package_srv_handle_info(_Msg, _Service, _State) ->
+srv_handle_info(_Msg, _Service, _State) ->
     continue.
 
 

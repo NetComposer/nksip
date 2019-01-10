@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t17_path_test).
+-module(t18_path_test).
 -include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -91,6 +91,7 @@ stop() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic(),
     stop().

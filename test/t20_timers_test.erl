@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t14_timers_test).
+-module(t20_timers_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -95,6 +95,7 @@ stop() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic(),
     proxy(),

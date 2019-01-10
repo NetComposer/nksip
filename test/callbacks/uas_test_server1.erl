@@ -23,11 +23,11 @@
 
 -module(uas_test_server1).
 
--export([package_srv_init/2, sip_route/5]).
+-export([srv_init/2, sip_route/5]).
 
 -include_lib("nkserver/include/nkserver_module.hrl").
 
-package_srv_init(#{id:=Id}, State) ->
+srv_init(#{id:=Id}, State) ->
     ok =  nkserver:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 

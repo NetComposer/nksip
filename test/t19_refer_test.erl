@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t13_refer_test).
+-module(t19_refer_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -40,6 +40,7 @@ refer_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p normal", [?MODULE]),
     timer:sleep(1000),
     basic(),
     in_dialog(),

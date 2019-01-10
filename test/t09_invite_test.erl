@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t07_invite_test).
+-module(t09_invite_test).
 -include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -67,6 +67,7 @@ start() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     cancel(),
     dialog(),

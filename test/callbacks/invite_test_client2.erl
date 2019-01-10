@@ -85,7 +85,7 @@ sip_ack(Req, _Call) ->
 
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, PkgId} = nksip_request:pkg_id(Req),
+    {ok, PkgId} = nksip_request:srv_id(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([PkgId|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 

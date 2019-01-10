@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t05_torture2_test).
+-module(t06_torture2_test).
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 
@@ -76,6 +76,7 @@ stop() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     invalid_1(),
     invalid_2(),

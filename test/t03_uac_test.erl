@@ -44,6 +44,7 @@ uac_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     uac(),
     info(),
@@ -79,7 +80,7 @@ uac() ->
     {error, {invalid, <<"route">>}} = nksip_uac:options(uac_test_client2, SipC1, [{route, "<>"}]),
     {error, {invalid, <<"contact">>}} = nksip_uac:options(uac_test_client2, SipC1, [{contact, "<>"}]),
     {error, {invalid_config, cseq_num}} = nksip_uac:options(uac_test_client2, SipC1, [{cseq_num, -1}]),
-    {error, package_not_started} = nksip_uac:options(none, SipC1, []),
+    {error, service_not_started} = nksip_uac:options(none, SipC1, []),
     lager:error("Next 2 errors about 'too_many_calls' are expected"),
     nklib_counters:incr(nksip_calls, 1000000000),
     {error, too_many_calls} = nksip_uac:options(uac_test_client2, SipC1, []),

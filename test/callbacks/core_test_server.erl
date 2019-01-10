@@ -122,10 +122,10 @@ sip_ack(Req, _Call) ->
 
 sip_options(Req, _Call) ->
     send_reply(Req, options),
-    PkgId = nksip_sipmsg:get_meta(pkg_id, Req),
+    SrvId = nksip_sipmsg:get_meta(srv_id, Req),
     Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
     {ok, ReqId} = nksip_request:get_handle(Req),
-    Reply = {ok, [{add, "x-nk-id", [nklib_util:to_binary(PkgId)|Ids]}]},
+    Reply = {ok, [{add, "x-nk-id", [nklib_util:to_binary(SrvId)|Ids]}]},
     spawn(fun() -> nksip_request:reply(Reply, ReqId) end),
     noreply.
 
@@ -152,8 +152,8 @@ sip_session_update(State, Dialog, _Call) ->
 
 send_reply(Elem, Msg) ->
     App = case Elem of
-        #sipmsg{} -> nksip_sipmsg:get_meta(pkg_id, Elem);
-        #dialog{} -> nksip_dialog_lib:get_meta(pkg_id, Elem)
+        #sipmsg{} -> nksip_sipmsg:get_meta(srv_id, Elem);
+        #dialog{} -> nksip_dialog_lib:get_meta(srv_id, Elem)
     end,
     case nkserver:get(App, inline_test) of
         {Ref, Pid} -> Pid ! {Ref, {App, Msg}};

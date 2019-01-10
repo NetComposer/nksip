@@ -1,6 +1,7 @@
+
 %% -------------------------------------------------------------------
 %%
-%% ipv6_test: IPv6 Tests and RFC5118 Torture Tests
+%% basic_test: Basic Test Suite
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -20,29 +21,38 @@
 %%
 %% -------------------------------------------------------------------
 
--module(ipv6_test_client3).
+-module(all_tests).
 
--include_lib("nkserver/include/nkserver_module.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
--export([sip_invite/2, sip_ack/2, sip_bye/2]).
-
-
-sip_invite(Req, _Call) ->
-    tests_util:save_ref(Req),
-    {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, SrvId} = nksip_request:srv_id(Req),
-    Hds = [{add, "x-nk-id", nklib_util:bjoin([SrvId|Ids])}],
-    {reply, {ok, Hds}}.
+-compile([export_all, nowarn_export_all]).
 
 
-sip_ack(Req, _Call) ->
-    tests_util:send_ref(ack, Req),
+
+all() ->
+    t01_basic_test:all(),
+    t02_core_test:all(),
+    t03_uac_test:all(),
+    t04_uas_test:all(),
+    t05_torture1_test:all(),
+    t06_torture2_test:all(),
+    t07_torture3_test:all(),
+    t08_register_test:all(),
+    t09_invite_test:all(),
+    t10_proxy_test:all(),
+    t11_fork_test:all(),
+    t12_update_test:all(),
+    t13_auth_test:all(),
+    t14_event_test:all(),
+    t15_gruu_test:all(),
+    t16_publish_test:all(),
+    t17_prack_test:all(),
+    t18_path_test:all(),
+    t19_refer_test:all(),
+    t20_timers_test:all(),
+    t21_outbound_test:all(),
+    t22_ipv6_test:all(),
+    t23_websocket_test:all(),
+    t24_sctp_test:all(),
     ok.
-
-
-sip_bye(Req, _Call) ->
-    tests_util:send_ref(bye, Req),
-    {reply, ok}.
-
-
 

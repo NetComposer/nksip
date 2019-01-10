@@ -42,6 +42,7 @@ core_test_() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     basic(),
     cancel(),

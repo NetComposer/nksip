@@ -31,6 +31,7 @@
 
 
 all() ->
+    lager:warning("Starting TEST ~p", [?MODULE]),
     valid_1_test(),
     valid_2_test(),
     valid_3_test(),

@@ -32,7 +32,7 @@ sip_invite(Req, _Call) ->
     {ok, Values} = nksip_request:header(<<"x-nk">>, Req),
     {ok, Routes} = nksip_request:header(<<"route">>, Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, ?MODULE} = nksip_request:pkg_id(Req),
+    {ok, ?MODULE} = nksip_request:srv_id(Req),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nklib_util:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nklib_util:bjoin(Routes)} end,
@@ -96,7 +96,7 @@ sip_options(Req, _Call) ->
     {ok, Values} = nksip_request:header(<<"x-nk">>, Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, Routes} = nksip_request:header(<<"route">>, Req),
-    {ok, ?MODULE} = nksip_request:pkg_id(Req),
+    {ok, ?MODULE} = nksip_request:srv_id(Req),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nklib_util:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nklib_util:bjoin(Routes)} end,

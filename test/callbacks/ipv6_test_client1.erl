@@ -30,7 +30,7 @@
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, SrvId} = nksip_request:pkg_id(Req),
+    {ok, SrvId} = nksip_request:srv_id(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([SrvId|Ids])}],
     {reply, {ok, Hds}}.
 

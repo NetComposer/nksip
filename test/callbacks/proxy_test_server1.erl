@@ -24,10 +24,10 @@
 
 -include_lib("nkserver/include/nkserver_module.hrl").
 
--export([package_srv_init/2, sip_route/5]).
+-export([srv_init/2, sip_route/5]).
 
 
-package_srv_init(#{id:=?MODULE, config:=#{test_type:=Test}}, State) ->
+srv_init(#{id:=?MODULE, config:=#{test_type:=Test}}, State) ->
     Domains = [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>],
     ok =  nkserver:put(?MODULE, domains, Domains),
     ok =  nkserver:put(?MODULE, test_type, Test),

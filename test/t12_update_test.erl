@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(t09_update_test).
+-module(t12_update_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nksip/include/nksip.hrl").
@@ -69,6 +69,7 @@ stop() ->
 
 all() ->
     start(),
+    lager:warning("Starting TEST ~p", [?MODULE]),
     timer:sleep(1000),
     basic(),
     pending(),

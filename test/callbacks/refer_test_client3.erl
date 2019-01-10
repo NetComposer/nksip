@@ -32,7 +32,7 @@ sip_refer(_ReferTo, _Req, _Call) ->
 
 sip_refer_update(SubsHandle, Status, Call) ->
     {ok, DialogId} = nksip_dialog:get_handle(SubsHandle),
-    PkgId = nksip_call:pkg_id(Call),
+    PkgId = nksip_call:srv_id(Call),
     Dialogs = nkserver:get(PkgId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
