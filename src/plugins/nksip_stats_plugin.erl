@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([plugin_deps/0, plugin_start/4]).
+-export([plugin_deps/0, plugin_start/3]).
 
 
 
@@ -36,7 +36,7 @@ plugin_deps() ->
     [nksip].
 
 
-plugin_start(_PkgId, ?PACKAGE_CLASS_SIP, _Config, _Package) ->
+plugin_start(_PkgId, _Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     case whereis(nksip_debug_srv) of
         undefined ->
             Child = {

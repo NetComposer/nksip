@@ -39,12 +39,12 @@
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-reply(Class, UAC, #call{pkg_id=PkgId}=Call) ->
-    case ?CALL_PKG(PkgId, nksip_uac_reply, [Class, UAC, Call]) of
+reply(Class, UAC, #call{srv_id=SrvId}=Call) ->
+    case ?CALL_SRV(SrvId, nksip_uac_reply, [Class, UAC, Call]) of
         {continue, [Class1, UAC1, Call1]} ->
 %%            case Class of
 %%                {Type, #sipmsg{}=SipMsg} ->
-%%                    %lager:error("NKLOG DO REPLY ~p, ~p ~p", [PkgId, Type,  SipMsg#sipmsg.nkport#nkport.remote_port]);
+%%                    %lager:error("NKLOG DO REPLY ~p, ~p ~p", [SrvId, Type,  SipMsg#sipmsg.nkport#nkport.remote_port]);
 %%                {error, _} ->
 %%                    ok
 %%            end,

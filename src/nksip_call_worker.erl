@@ -44,7 +44,7 @@
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
-    {incoming, nkserver:id(), nkservide:package_id(), nksip:call_id(), nkpacket:nkport(), binary()} |
+    {incoming, nkserver:id(), nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()} |
     info |
     get_all_dialogs | 
     {stop_dialog, nksip_dialog_lib:id()} |
@@ -70,8 +70,8 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{pkg_id=PkgId, call_id=CallId} = Call,
-    case nksip_call_uac_make:make(PkgId, Method, Uri, CallId, Opts) of
+    #call{srv_id=SrvId, call_id=CallId} = Call,
+    case nksip_call_uac_make:make(SrvId, Method, Uri, CallId, Opts) of
         {ok, Req, ReqOpts} ->
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
@@ -127,16 +127,16 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
     end;
 
 work({incoming, NkPort, Msg}, _From, Call) ->
-    #call{ pkg_id=PkgId, call_id=CallId} = Call,
-    case nksip_parse:packet(PkgId, CallId, NkPort, Msg) of
+    #call{srv_id=SrvId, call_id=CallId} = Call,
+    case nksip_parse:packet(SrvId, CallId, NkPort, Msg) of
         {ok, SipMsg} ->
-             ?CALL_PKG(PkgId, nksip_connection_recv, [SipMsg, Msg]),
+             ?CALL_SRV(SrvId, nksip_connection_recv, [SipMsg, Msg]),
             work({incoming, SipMsg}, none, Call);
         {error, _Error} ->
             ?CALL_LOG(warning, "Error parsing SipMsg1: ~p", [_Error], Call),
             Call;
         {reply_error, _Error, Reply} ->
-            case nksip_util:get_connected(PkgId, NkPort) of
+            case nksip_util:get_connected(SrvId, NkPort) of
                 [Pid|_] ->
                     case nkpacket_connection:send(Pid, Reply) of
                         ok ->
@@ -217,7 +217,7 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
 
 work(info, From, Call) ->
     #call{
-        pkg_id = PkgId,
+        srv_id = SrvId,
         call_id = CallId,
         trans = Trans, 
         dialogs = Dialogs,
@@ -232,7 +232,7 @@ work(info, From, Call) ->
                 undefined ->
                     undefined
             end,
-            {trans, PkgId, CallId, Id, Class, Method, Status, T}
+            {trans, SrvId, CallId, Id, Class, Method, Status, T}
         end,
         Trans),
     InfoDialog = lists:map(
@@ -255,7 +255,7 @@ work(info, From, Call) ->
                     #subscription{id=EvId, status=Status, class=Class, timer_expire=Exp} 
                     <- Subs
                 ],
-            {dlg, PkgId, DlgId, {invite, Inv}, {event, Ev}}
+            {dlg, SrvId, DlgId, {invite, Inv}, {event, Ev}}
         end,
         Dialogs),
     InfoProvEvents = case ProvEvents of

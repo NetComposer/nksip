@@ -40,10 +40,10 @@
 -spec start(nkserver:id()) ->
     ok | {error, term()}.
 
-start(PkgId) ->
-    Plugins1 = ?CALL_PKG(PkgId, plugins, []),
+start(SrvId) ->
+    Plugins1 = ?CALL_SRV(SrvId, plugins, []),
     Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
-    case nksip:update(PkgId, #{plugins=>Plugins2, sip_debug=>true}) of
+    case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>true}) of
         ok ->
             ok;
         {error, Error} ->
@@ -55,10 +55,10 @@ start(PkgId) ->
 -spec stop(nkserver:id()) ->
     ok | {error, term()}.
 
-stop(PkgId) ->
-    Plugins1 = ?CALL_PKG(PkgId, plugins, []),
+stop(SrvId) ->
+    Plugins1 = ?CALL_SRV(SrvId, plugins, []),
     Plugins2 = Plugins1 -- [nksip_debug],
-    case nksip:update(PkgId, #{plugins=>Plugins2, sip_debug=>false}) of
+    case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>false}) of
         ok ->
             ok;
         {error, Error} ->
@@ -74,12 +74,12 @@ stop(PkgId) ->
 
 
 %% @private
-insert(#sipmsg{pkg_id=PkgId, call_id=CallId}, Info) ->
-    insert(PkgId, CallId, Info).
+insert(#sipmsg{srv_id=SrvId, call_id=CallId}, Info) ->
+    insert(SrvId, CallId, Info).
 
 
 %% @private
-insert(PkgId, CallId, Info) ->
+insert(SrvId, CallId, Info) ->
     Time = nklib_util:l_timestamp(),
     Info1 = case Info of
         {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
@@ -88,20 +88,20 @@ insert(PkgId, CallId, Info) ->
         _ ->
             Info
     end,
-    catch ets:insert(nksip_debug_msgs, {CallId, Time, PkgId, Info1}).
+    catch ets:insert(nksip_debug_msgs, {CallId, Time, SrvId, Info1}).
 
 
 %% @private
 find(CallId) ->
-    Lines = lists:sort([{Time, PkgId, Info} || {_, Time, PkgId, Info}
+    Lines = lists:sort([{Time, SrvId, Info} || {_, Time, SrvId, Info}
                          <- ets:lookup(nksip_debug_msgs, nklib_util:to_binary(CallId))]),
-    [{nklib_util:l_timestamp_to_float(Time), PkgId, Info}
-        || {Time, PkgId, Info} <- Lines].
+    [{nklib_util:l_timestamp_to_float(Time), SrvId, Info}
+        || {Time, SrvId, Info} <- Lines].
 
 
 %% @private
-find(PkgId, CallId) ->
-    [{Start, Info} || {Start, C, Info} <- find(CallId), C==PkgId].
+find(SrvId, CallId) ->
+    [{Start, Info} || {Start, C, Info} <- find(CallId), C==SrvId].
 
 
 %% @private

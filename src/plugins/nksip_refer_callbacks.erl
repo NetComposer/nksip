@@ -107,8 +107,8 @@ sip_notify(Req, Call) ->
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
             SubsHandle = nksip_subscription_lib:get_handle(Req),
-            #call{pkg_id=PkgId} = Call,
-            catch ?CALL_PKG(PkgId, sip_refer_update, [SubsHandle, {notify, Body}, Call]),
+            #call{srv_id=SrvId} = Call,
+            catch ?CALL_SRV(SrvId, sip_refer_update, [SubsHandle, {notify, Body}, Call]),
             {reply, ok};
         _ ->
             continue
@@ -120,7 +120,7 @@ sip_notify(Req, Call) ->
 -spec nksip_user_callback(nkserver:id(), atom(), list()) ->
     continue.
 
-nksip_user_callback(PkgId, sip_dialog_update, [Status, _Dialog, Call]) ->
+nksip_user_callback(SrvId, sip_dialog_update, [Status, _Dialog, Call]) ->
     case Status of
         {
             subscription_status,
@@ -134,7 +134,7 @@ nksip_user_callback(PkgId, sip_dialog_update, [Status, _Dialog, Call]) ->
                 middle_timer -> middle_timer;
                 {terminated, _} -> terminated
             end,
-            catch ?CALL_PKG(PkgId, sip_refer_update, [SubsId, SubStatus2, Call]);
+            catch ?CALL_SRV(SrvId, sip_refer_update, [SubsId, SubStatus2, Call]);
         _ ->
             ok
     end,

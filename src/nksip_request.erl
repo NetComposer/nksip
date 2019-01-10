@@ -22,7 +22,7 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, pkg_id/1, method/1, body/1, call_id/1]).
+-export([get_handle/1, srv_id/1, method/1, body/1, call_id/1]).
 -export([get_meta/2, get_metas/2, header/2, reply/2, is_local_ruri/1]).
 
 -include("nksip.hrl").
@@ -55,18 +55,18 @@ get_handle(Term) ->
 %% @doc Gets internal app's id
 %% @end
 %%----------------------------------------------------------------
--spec pkg_id( Request ) -> Result when
+-spec srv_id( Request ) -> Result when
         Request     :: nksip:request()
             | nksip:handle(),
         Result      :: {ok, nkserver:id()}.
 
-pkg_id(#sipmsg{class={req, _}, pkg_id=PkgId}) ->
-    {ok, PkgId};
+srv_id(#sipmsg{class={req, _}, srv_id=SrvId}) ->
+    {ok, SrvId};
     
-pkg_id(Handle) ->
+srv_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, PkgId, _Id, _CallId} ->
-            {ok, PkgId};
+        {req, SrvId, _Id, _CallId} ->
+            {ok, SrvId};
         _ ->
             error(invalid_request)
     end.
@@ -188,8 +188,8 @@ header(Name, Handle) when is_binary(Handle) ->
             | {error, term()}.
 
 reply(SipReply, Handle) ->
-    {req, PkgId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
-    nksip_call:send_reply(PkgId, CallId, ReqId, SipReply).
+    {req, SrvId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
+    nksip_call:send_reply(SrvId, CallId, ReqId, SipReply).
 
 
 %%----------------------------------------------------------------
@@ -200,6 +200,6 @@ reply(SipReply, Handle) ->
         Request :: nksip:request(),
         Result  :: boolean().
 
-is_local_ruri(#sipmsg{class={req, _}, pkg_id=PkgId, ruri=RUri}) ->
-    nksip_util:is_local(PkgId, RUri).
+is_local_ruri(#sipmsg{class={req, _}, srv_id=SrvId, ruri=RUri}) ->
+    nksip_util:is_local(SrvId, RUri).
 

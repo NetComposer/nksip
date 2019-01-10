@@ -43,8 +43,8 @@
 -spec start(nkserver:id(), nksip:call_id()) ->
     {ok, pid()}.
 
-start(PkgId, CallId) ->
-    gen_server:start(?MODULE, [PkgId, CallId], []).
+start(SrvId, CallId) ->
+    gen_server:start(?MODULE, [SrvId, CallId], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!).
@@ -81,8 +81,8 @@ get_data(Pid) ->
 -spec find_call(nkserver:id(), nksip:call_id()) ->
     pid() | undefined.
 
-find_call(PkgId, CallId) ->
-    case nklib_proc:values({?MODULE, PkgId, CallId}) of
+find_call(SrvId, CallId) ->
+    case nklib_proc:values({?MODULE, SrvId, CallId}) of
         [{_, Pid}] when is_pid(Pid) ->
             Pid;
         _ ->
@@ -100,16 +100,16 @@ find_call(PkgId, CallId) ->
 -spec init(term()) ->
     {ok, call()}.
 
-init([PkgId, CallId]) ->
-    nklib_counters:async([nksip_calls, {nksip_calls, PkgId}]),
-    nklib_proc:put(?MODULE, {CallId, PkgId}),
-    true = nklib_proc:reg({?MODULE, PkgId, CallId}),
+init([SrvId, CallId]) ->
+    nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
+    nklib_proc:put(?MODULE, {CallId, SrvId}),
+    true = nklib_proc:reg({?MODULE, SrvId, CallId}),
     Id = erlang:phash2(make_ref()) * 1000,
-    #config{debug=DebugList, times=Times} = nksip_config:pkg_config(PkgId),
+    #config{debug=DebugList, times=Times} = nksip_config:srv_config(SrvId),
     #call_times{trans=TransTime} = Times,
     Call = #call{
-        pkg_id = PkgId,
-        pkg_ref = monitor(process, whereis(PkgId)),
+        srv_id = SrvId,
+        srv_ref = monitor(process, whereis(SrvId)),
         call_id = CallId, 
         next = Id+1,
         hibernate = false,
@@ -173,8 +173,8 @@ handle_info({timeout, _Ref, check_call}, Call) ->
 handle_info({timeout, Ref, Type}, Call) ->
     next(nksip_call_worker:timeout(Type, Ref, Call));
 
-handle_info({'DOWN', Ref, process, _Pid, _Reason}, #call{pkg_ref=Ref}=Call) ->
-    ?CALL_DEBUG("package stopped, stopping call", [], Call),
+handle_info({'DOWN', Ref, process, _Pid, _Reason}, #call{srv_ref =Ref}=Call) ->
+    ?CALL_DEBUG("service stopped, stopping call", [], Call),
     {stop, normal, Call};
 
 handle_info(Info, Call) ->

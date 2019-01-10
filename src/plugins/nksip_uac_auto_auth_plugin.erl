@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 
--export([plugin_deps/0, plugin_config/4, plugin_cache/4]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3]).
 
 
 %% ===================================================================
@@ -38,12 +38,12 @@ plugin_deps() ->
     [nksip].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Syntax = nksip_uac_auto_auth:syntax(),
     nklib_syntax:parse_all(Config, Syntax).
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
     Cache = #{
         max_tries => maps:get(sip_uac_auto_auth_max_tries, Config, 5),
         passwords => maps:get(sip_pass, Config, [])

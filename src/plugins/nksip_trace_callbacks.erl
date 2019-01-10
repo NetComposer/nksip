@@ -38,8 +38,8 @@
     continue.
 
 nksip_connection_sent(SipMsg, Packet) ->
-    #sipmsg{pkg_id=PkgId, call_id=CallId, nkport=NkPort} = SipMsg,
-    nksip_trace:sipmsg(PkgId, CallId, <<"TO">>, NkPort, Packet),
+    #sipmsg{srv_id=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
+    nksip_trace:sipmsg(SrvId, CallId, <<"TO">>, NkPort, Packet),
     continue.
 
 
@@ -48,7 +48,7 @@ nksip_connection_sent(SipMsg, Packet) ->
     continue.
 
 nksip_connection_recv(SipMsg, Packet) ->
-    #sipmsg{pkg_id=PkgId, call_id=CallId, nkport=NkPort} = SipMsg,
-    nksip_trace:sipmsg(PkgId, CallId, <<"FROM">>, NkPort, Packet),
+    #sipmsg{srv_id=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
+    nksip_trace:sipmsg(SrvId, CallId, <<"FROM">>, NkPort, Packet),
     continue.
 

@@ -22,8 +22,8 @@
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([package_srv_init/2, package_srv_terminate/3, package_srv_handle_call/4,
-         package_srv_handle_cast/3, package_srv_handle_info/3]).
+-export([srv_init/2, srv_terminate/3, srv_handle_call/4,
+         srv_handle_cast/3, srv_handle_info/3]).
 -export([nksip_uac_auto_register_send_reg/4,
          nksip_uac_auto_register_send_unreg/4,
          nksip_uac_auto_register_upd_reg/5]).
@@ -43,22 +43,22 @@
 
 
 %% @doc Called when the service is started
--spec package_srv_init(nkserver:package(), map()) ->
+-spec srv_init(nkserver:service(), map()) ->
     nkserver_callbacks:continue().
 
-package_srv_init(#{id:=PkgId}=Package, State) ->
-    #config{supported=Supported} = nksip_config:pkg_config(PkgId),
+srv_init(#{id:=SrvId}=Service, State) ->
+    #config{supported=Supported} = nksip_config:srv_config(SrvId),
     ObState = #state_ob{
         outbound = lists:member(<<"outbound">>, Supported),
         pos = 1,
         regs = []
     },
     State2 = State#{nksip_uac_auto_outbound=>ObState},
-    {continue, [Package, State2]}.
+    {continue, [Service, State2]}.
 
 
 %% @private
-package_srv_handle_call(nksip_uac_auto_outbound_get_regs, _From, _Package, State) ->
+srv_handle_call(nksip_uac_auto_outbound_get_regs, _From, _Service, State) ->
     #{
         nksip_uac_auto_register := RegState, 
         nksip_uac_auto_outbound := ObState
@@ -80,20 +80,20 @@ package_srv_handle_call(nksip_uac_auto_outbound_get_regs, _From, _Package, State
     ],
     {reply, Info, State};
 
-package_srv_handle_call(_Msg, _From, _Package, _State) ->
+srv_handle_call(_Msg, _From, _Service, _State) ->
     continue.
 
 
-package_srv_handle_cast(nksip_uac_auto_outbound_terminate, Package, State) ->
-    {continue, [_, _, State2]} = package_srv_terminate(normal, Package, State),
+srv_handle_cast(nksip_uac_auto_outbound_terminate, Service, State) ->
+    {continue, [_, _, State2]} = srv_terminate(normal, Service, State),
     {noreply, State2};
 
-package_srv_handle_cast(_Msg, _Package, _State) ->
+srv_handle_cast(_Msg, _Service, _State) ->
     continue.
 
 
 %% @private
-package_srv_handle_info({'DOWN', Mon, process, _Pid, _}, _Package,
+srv_handle_info({'DOWN', Mon, process, _Pid, _}, _Service,
                         #{nksip_uac_auto_outbound:=ObState}=State) ->
     #state_ob{regs=RegsOb} = ObState,
     case lists:keyfind(Mon, #sipreg_ob.conn_monitor, RegsOb) of
@@ -107,7 +107,7 @@ package_srv_handle_info({'DOWN', Mon, process, _Pid, _}, _Package,
             continue
     end;
 
-package_srv_handle_info({nksip_uac_auto_outbound_notify, RegId}, _Package,
+srv_handle_info({nksip_uac_auto_outbound_notify, RegId}, _Service,
                     #{nksip_uac_auto_outbound:=ObState}=State) ->
     #state_ob{regs=RegsOb} = ObState,
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
@@ -120,15 +120,15 @@ package_srv_handle_info({nksip_uac_auto_outbound_notify, RegId}, _Package,
             continue
     end;
 
-package_srv_handle_info(_Msg, _Package, _State) ->
+srv_handle_info(_Msg, _Service, _State) ->
     continue.
 
 
 %% @doc Called when the plugin is shutdown
--spec package_srv_terminate(nkserver:id(), nkserver:package(), map()) ->
+-spec srv_terminate(nkserver:id(), nkserver:service(), map()) ->
     {ok, map()}.
 
-package_srv_terminate(Reason, Package, State) ->
+srv_terminate(Reason, Service, State) ->
     State2 = case State of
         #{nksip_uac_auto_outbound:=ObState} ->
             #state_ob{regs=RegsOb} = ObState,
@@ -152,14 +152,14 @@ package_srv_terminate(Reason, Package, State) ->
         _ ->
             State
     end,
-    {continue, [Reason, Package, State2]}.
+    {continue, [Reason, Service, State2]}.
 
 
 %% @private
 -spec nksip_uac_auto_register_send_reg(nkserver:id(), #sipreg{}, boolean(), map()) ->
     {ok, #sipreg{}, map()} | continue.
 
-nksip_uac_auto_register_send_reg(PkgId, Reg, Sync, State) ->
+nksip_uac_auto_register_send_reg(SrvId, Reg, Sync, State) ->
     #{nksip_uac_auto_outbound:=ObState} = State,
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,   
     #state_ob{outbound=Ob, pos=NextPos, regs=RegsOb} = ObState,
@@ -183,7 +183,7 @@ nksip_uac_auto_register_send_reg(PkgId, Reg, Sync, State) ->
             Opts1 = [contact, {cseq_num, CSeq}, {get_meta, Meta}, {reg_id, Pos} | Opts],
             Self = self(),
             Fun = fun() ->
-                {Code, Meta1} = case nksip_uac:register(PkgId, RUri, Opts1) of
+                {Code, Meta1} = case nksip_uac:register(SrvId, RUri, Opts1) of
                     {ok, Code0, Meta0} ->
                         {Code0, Meta0};
                     _ ->
@@ -212,7 +212,7 @@ nksip_uac_auto_register_send_reg(PkgId, Reg, Sync, State) ->
 -spec nksip_uac_auto_register_send_unreg(nkserver:id(), #sipreg{}, boolean(), map()) ->
     {ok, map()} | continue | {continue, list()}.
 
-nksip_uac_auto_register_send_unreg(PkgId, Reg, Sync, State)->
+nksip_uac_auto_register_send_unreg(SrvId, Reg, Sync, State)->
     #{nksip_uac_auto_outbound:=ObState} = State,
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
     case lists:keytake(RegId, #sipreg_ob.id, ObState#state_ob.regs) of
@@ -231,7 +231,7 @@ nksip_uac_auto_register_send_unreg(PkgId, Reg, Sync, State)->
             end,
             Opts1 = [contact, {cseq_num, CSeq}, {reg_id, Pos} |
                      nklib_util:store_value(expires, 0, Opts)],
-            Fun = fun() -> nksip_uac:register(PkgId, RUri, Opts1) end,
+            Fun = fun() -> nksip_uac:register(SrvId, RUri, Opts1) end,
             SrvState1 = case Sync of
                 true ->
                     Fun(),
@@ -256,7 +256,7 @@ nksip_uac_auto_register_send_unreg(PkgId, Reg, Sync, State)->
 nksip_uac_auto_register_upd_reg(_PkgId, Reg, Code, _Meta, SrvState) when Code<200 ->
     {ok, Reg, SrvState};
 
-nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, State) when Code<300 ->
+nksip_uac_auto_register_upd_reg(SrvId, Reg, Code, Meta, State) when Code<300 ->
     #{nksip_uac_auto_outbound:=ObState} = State,
     #sipreg{id=RegId, call_id=CallId, opts=Opts} = Reg,
     #state_ob{regs=RegsOb} = ObState,
@@ -274,9 +274,9 @@ nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, State) when Code<300 ->
             % (or process down)
             RegOb2 = case lists:member(<<"outbound">>, Require) of
                 true ->
-                    case nksip_util:get_connected(PkgId, Transp, Ip, Port, Path) of
+                    case nksip_util:get_connected(SrvId, Transp, Ip, Port, Path) of
                         [Pid|_] ->
-                            case start_refresh(PkgId, Meta, Transp, Pid, Reg) of
+                            case start_refresh(SrvId, Meta, Transp, Pid, Reg) of
                                 ok ->
                                     Mon = erlang:monitor(process, Pid),
                                     RegOb1#sipreg_ob{conn_monitor=Mon, conn_pid=Pid};
@@ -293,12 +293,12 @@ nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, State) when Code<300 ->
             State2 = ObState#state_ob{regs=[RegOb2|RegsOb1]},
             Time = nklib_util:get_value(expires, Opts),
             Reg1 = Reg#sipreg{interval=Time},
-            {continue, [PkgId, Reg1, Code, Meta, State#{nksip_uac_auto_outbound:=State2}]};
+            {continue, [SrvId, Reg1, Code, Meta, State#{nksip_uac_auto_outbound:=State2}]};
         false ->
             continue
     end;
 
-nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, SrvState) ->
+nksip_uac_auto_register_upd_reg(SrvId, Reg, Code, Meta, SrvState) ->
     #{nksip_uac_auto_outbound:=State} = SrvState,
     #sipreg{id=RegId, call_id=CallId} = Reg,
     #state_ob{regs=RegsOb} = State,
@@ -317,7 +317,7 @@ nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, SrvState) ->
                 false ->
                     ok
             end,
-            Config = nkserver:get_plugin_config(PkgId, nksip_uac_auto_outbound, config),
+            Config = nkserver:get_plugin_config(SrvId, nksip_uac_auto_outbound, config),
             #nksip_uac_auto_outbound{
                 max_time = MaxTime,
                 all_fail = AllFail,
@@ -341,7 +341,7 @@ nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, SrvState) ->
             },
             State1 = State#state_ob{regs=[RegOb2|RegsOb1]},
             Reg1 = Reg#sipreg{interval=Time},
-            {continue, [PkgId, Reg1, Code, Meta, SrvState#{nksip_uac_auto_outbound:=State1}]};
+            {continue, [SrvId, Reg1, Code, Meta, SrvState#{nksip_uac_auto_outbound:=State1}]};
         false ->
             continue
     end.
@@ -354,7 +354,7 @@ nksip_uac_auto_register_upd_reg(PkgId, Reg, Code, Meta, SrvState) ->
 
 
 %% @private
-start_refresh(PkgId, Meta, Transp, Pid, Reg) ->
+start_refresh(SrvId, Meta, Transp, Pid, Reg) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
     FlowTimer = case nklib_util:get_value(<<"flow-timer">>, Meta) of
         [FlowTimer0] ->
@@ -362,7 +362,7 @@ start_refresh(PkgId, Meta, Transp, Pid, Reg) ->
         _ ->
             undefined
     end,
-    Config = nkserver:get_plugin_config(PkgId, nksip_uac_auto_outbound, config),
+    Config = nkserver:get_plugin_config(SrvId, nksip_uac_auto_outbound, config),
     Secs = case FlowTimer of
         FT when is_integer(FT), FT > 5 ->
             FT;

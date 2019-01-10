@@ -70,12 +70,12 @@ initial_cseq() ->
 -spec get_listenhost(nkserver:id(), inet:ip_address(), nksip:optslist()) ->
     binary().
 
-get_listenhost(PkgId, Ip, Opts) ->
+get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
             Host = case nklib_util:get_value(local_host, Opts) of
                 undefined ->
-                    Config = nksip_config:pkg_config(PkgId),
+                    Config = nksip_config:srv_config(SrvId),
                     Config#config.local_host;
                 Host0 ->
                     Host0
@@ -91,7 +91,7 @@ get_listenhost(PkgId, Ip, Opts) ->
         8 ->
             Host = case nklib_util:get_value(local_host6, Opts) of
                 undefined ->
-                    Config = nksip_config:pkg_config(PkgId),
+                    Config = nksip_config:srv_config(SrvId),
                     Config#config.local_host6;
                 Host0 ->
                     Host0
@@ -134,9 +134,9 @@ make_route(Scheme, Transp, ListenHost, Port, User, Opts) ->
 -spec get_connected(nkserver:id(), nkpacket:nkport()) ->
     [pid()].
 
-get_connected(PkgId, #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, opts=Opts}) ->
+get_connected(SrvId, #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, opts=Opts}) ->
     Path = maps:get(path, Opts, <<"/">>),
-    get_connected(PkgId, Transp, Ip, Port, Path).
+    get_connected(SrvId, Transp, Ip, Port, Path).
 
 
 %% @private
@@ -144,8 +144,8 @@ get_connected(PkgId, #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, opts
                     inet:port_number(), binary()) ->
     [pid()].
 
-get_connected(PkgId, Transp, Ip, Port, Path) ->
-    Opts = #{class=>{nksip, PkgId}, path=>Path},
+get_connected(SrvId, Transp, Ip, Port, Path) ->
+    Opts = #{class=>{nksip, SrvId}, path=>Path},
     Conn = #nkconn{protocol=nksip_protocol, transp=Transp, ip=Ip, port=Port, opts=Opts},
     nkpacket_transport:get_connected(Conn).
 
@@ -154,14 +154,14 @@ get_connected(PkgId, Transp, Ip, Port, Path) ->
 -spec is_local(nkserver:id(), Input::nksip:uri()|nksip:via()) ->
     boolean().
 
-is_local(PkgId, #uri{}=Uri) ->
-    nkpacket:is_local(Uri, #{class=>{nksip, PkgId}});
+is_local(SrvId, #uri{}=Uri) ->
+    nkpacket:is_local(Uri, #{class=>{nksip, SrvId}});
 
-is_local(PkgId, #via{}=Via) ->
+is_local(SrvId, #via{}=Via) ->
     {Transp, Host, Port} = nksip_parse:transport(Via),
     Transp = {<<"transport">>, nklib_util:to_binary(Transp)},
     Uri = #uri{scheme=sip, domain=Host, port=Port, opts=[Transp]},
-    is_local(PkgId, Uri).
+    is_local(SrvId, Uri).
 
 
 %% @private
@@ -170,12 +170,12 @@ is_local(PkgId, #via{}=Via) ->
            [nksip_uac:req_option()]) ->
     {ok, #sipmsg{}} | {error, term()}.
 
-send(PkgId, Spec, Msg, Opts) when is_list(Spec) ->
+send(SrvId, Spec, Msg, Opts) when is_list(Spec) ->
     Opts2 = lists:filter(fun send_opts/1, Opts),
     Opts3 = maps:from_list(Opts2),
-    Config = nksip_config:pkg_config(PkgId),
+    Config = nksip_config:srv_config(SrvId),
     Opts4 = Opts3#{
-        class => {nksip, PkgId},
+        class => {nksip, SrvId},
         base_nkport => true,                % Find a listening transport
         udp_to_tcp => true,
         udp_max_size => Config#config.udp_max_size,
@@ -200,8 +200,8 @@ send_opts(_) -> false.
 
 
 %% @private
-user_callback(PkgId, Fun, Args) ->
-    ?CALL_PKG(PkgId, nksip_user_callback, [PkgId, Fun, Args]).
+user_callback(SrvId, Fun, Args) ->
+    ?CALL_SRV(SrvId, nksip_user_callback, [SrvId, Fun, Args]).
 
 
 
@@ -216,9 +216,9 @@ user_callback(PkgId, Fun, Args) ->
 print_all() ->
     lists:foreach(
         fun(Pid) ->
-            {ok, #nkport{class={nksip, PkgId}}=NkPort} = nkpacket:get_nkport(Pid),
+            {ok, #nkport{class={nksip, SrvId}}=NkPort} = nkpacket:get_nkport(Pid),
             {ok, Conn} = nkpacket:get_local(NkPort),
-            io:format("PkgId ~p: ~p\n", [PkgId, Conn])
+            io:format("SrvId ~p: ~p\n", [SrvId, Conn])
         end,
         nkpacket:get_all()).
 

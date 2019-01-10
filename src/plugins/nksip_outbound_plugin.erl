@@ -24,14 +24,14 @@
 
 -include("nksip.hrl").
 
--export([plugin_deps/0, plugin_config/4]).
+-export([plugin_deps/0, plugin_config/3]).
 
 
 plugin_deps() ->
     [nksip].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
     Supported2 = nklib_util:store_value(<<"outbound">>, Supported1),
     Config2 = Config#{sip_supported=>Supported2},

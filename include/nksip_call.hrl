@@ -48,13 +48,13 @@
 -define(CALL_LOG(Type, Txt, Args, Call),
     lager:Type(
         [
-            {package, Call#call.pkg_id},
+            {package, Call#call.srv_id},
             {call_id, Call#call.call_id}
         ],
         "NKSIP CALL '~s' (~s) " ++ Txt,
         [
             Call#call.call_id,
-            Call#call.pkg_id |
+            Call#call.srv_id |
             Args
         ]
     )).
@@ -147,8 +147,8 @@
 %% - nksip_min_se: Pre-dialog received MinSE header
 
 -record(call, {
-    pkg_id :: nkservice:package_id(),
-    pkg_ref :: reference(),
+    srv_id :: nkservice:package_id(),
+    srv_ref :: reference(),
     call_id :: nksip:call_id(),
     hibernate :: atom(),
     next :: integer(),

@@ -175,7 +175,7 @@ check_auth(#sipmsg{dialog_id = <<>>}, _Call) ->
 check_auth(#sipmsg{dialog_id=DialogId, nkport=NkPort}, Call) when is_tuple(NkPort)->
     {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     #call{auths=AuthList} = Call,
-    % lager:error("NKLOG CHECK AUTH (~p) ~p IN ~p", [PkgId, {DialogId, Transp, Ip, Port}, AuthList]),
+    % lager:error("NKLOG CHECK AUTH (~p) ~p IN ~p", [SrvId, {DialogId, Transp, Ip, Port}, AuthList]),
     case lists:member({DialogId, Transp, Ip, Port}, AuthList) of
         true ->
             ?CALL_DEBUG("Origin ~p:~p:~p is in dialog ~s authorized list",

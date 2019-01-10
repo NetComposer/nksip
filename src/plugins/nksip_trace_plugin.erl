@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([plugin_deps/0, plugin_config/4, plugin_cache/4, plugin_start/4, plugin_stop/4]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3, plugin_start/3, plugin_stop/3]).
 
 
 %% ===================================================================
@@ -35,7 +35,7 @@ plugin_deps() ->
     [nksip].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Syntax = #{
         sip_trace => boolean,
         sip_trace_file => [{atom, [console]}, binary],
@@ -49,7 +49,7 @@ plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     nklib_syntax:parse_all(Config, Syntax).
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
     Cache = {
         maps:get(sip_trace, Config),
         maps:get(sip_trace_file, Config),
@@ -58,17 +58,17 @@ plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     {ok, #{config=>Cache}}.
 
 
-plugin_start(PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_start(SrvId, Config, _Service) ->
     case Config of
         #{sip_trace_file:=File} ->
-            ok = nksip_trace:open_file(PkgId, File);
+            ok = nksip_trace:open_file(SrvId, File);
         _ ->
             ok
     end.
 
 
-plugin_stop(PkgId, ?PACKAGE_CLASS_SIP, _Config, _Package) ->
-    catch nksip_trace:close_file(PkgId),
+plugin_stop(SrvId, _Config, _Service) ->
+    catch nksip_trace:close_file(SrvId),
     ok.
 
 

@@ -47,9 +47,9 @@ launch(UAS, Call) ->
 -spec send_100(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-send_100(UAS, #call{ pkg_id=PkgId}=Call) ->
+send_100(UAS, #call{srv_id=SrvId}=Call) ->
     #trans{method=Method, request=Req} = UAS,
-    Config = nksip_config:pkg_config(PkgId),
+    Config = nksip_config:srv_config(SrvId),
     case Method=='INVITE' andalso (not Config#config.no_100) of
         true ->
             {Resp, SendOpts} = nksip_reply:reply(Req, 100),
@@ -69,13 +69,13 @@ send_100(UAS, #call{ pkg_id=PkgId}=Call) ->
 -spec check_cancel(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-check_cancel(UAS, #call{pkg_id=PkgId}=Call) ->
+check_cancel(UAS, #call{srv_id=SrvId}=Call) ->
     case is_cancel(UAS, Call) of
         {true, #trans{status=invite_proceeding, from=From}=InvUAS} ->
             ?CALL_DEBUG("UAS ~p matched 'CANCEL' as ~p", [UAS#trans.id, InvUAS#trans.id], Call),
             Call1 = nksip_call_uas:do_reply(ok, UAS, Call), 
             Args = [InvUAS#trans.request, UAS#trans.request, Call1],
-            nksip_util:user_callback(PkgId, sip_cancel, Args),
+            nksip_util:user_callback(SrvId, sip_cancel, Args),
             case From of
                 {fork, ForkId} ->
                     % We do not cancel our UAS request, we send it to the fork
@@ -128,16 +128,16 @@ is_cancel(_, _) ->
 -spec authorize_launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-authorize_launch(#trans{request=Req}=UAS, #call{pkg_id=PkgId}=Call) ->
+authorize_launch(#trans{request=Req}=UAS, #call{srv_id=SrvId}=Call) ->
     % In case app has not implemented sip_authorize, we don't spend time
     % finding authentication info
-    case catch ?CALL_PKG(PkgId, sip_authorize, [[], Req, Call]) of
+    case catch ?CALL_SRV(SrvId, sip_authorize, [[], Req, Call]) of
         ok ->
             authorize_reply(ok, UAS, Call);
         _ ->
-            {ok, AuthData} =  ?CALL_PKG(PkgId, nksip_authorize_data, [[], UAS, Call]),
+            {ok, AuthData} =  ?CALL_SRV(SrvId, nksip_authorize_data, [[], UAS, Call]),
             Args = [AuthData, Req, Call],
-            case nksip_util:user_callback(PkgId, sip_authorize, Args) of
+            case nksip_util:user_callback(SrvId, sip_authorize, Args) of
                 {ok, Reply} ->
                     authorize_reply(Reply, UAS, Call);
                 error ->
@@ -183,10 +183,10 @@ authorize_reply(Reply, UAS, Call) ->
 -spec route_launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-route_launch(#trans{ruri=RUri}=UAS, #call{pkg_id=PkgId}=Call) ->
+route_launch(#trans{ruri=RUri}=UAS, #call{srv_id=SrvId}=Call) ->
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
     Args = [Scheme, User, Domain, UAS#trans.request, Call],
-    case nksip_util:user_callback(PkgId, sip_route, Args) of
+    case nksip_util:user_callback(SrvId, sip_route, Args) of
         {ok, Reply} ->
             route_reply(Reply, UAS, Call);
         error ->

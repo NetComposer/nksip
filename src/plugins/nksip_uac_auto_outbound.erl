@@ -37,24 +37,24 @@
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(PkgId, RegId, Uri, Opts) when is_list(Opts) ->
+start_register(SrvId, RegId, Uri, Opts) when is_list(Opts) ->
     Opts1 = [{user, [nksip_uac_auto_outbound]}|Opts],
-    nksip_uac_auto_register:start_register(PkgId, RegId, Uri, Opts1).
+    nksip_uac_auto_register:start_register(SrvId, RegId, Uri, Opts1).
 
 
 %% @doc Stops a previously started registration series.
 -spec stop_register(nkserver:id(), term()) ->
     ok | not_found.
 
-stop_register(PkgId, RegId) ->
-    nksip_uac_auto_register:stop_register(PkgId, RegId).
+stop_register(SrvId, RegId) ->
+    nksip_uac_auto_register:stop_register(SrvId, RegId).
     
 
 %% @doc Get current registration status.
 -spec get_registers(nkserver:id()) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(PkgId) ->
-     nkserver_srv:call(PkgId, nksip_uac_auto_outbound_get_regs).
+get_registers(SrvId) ->
+     nkserver_srv:call(SrvId, nksip_uac_auto_outbound_get_regs).
 
     

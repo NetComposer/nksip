@@ -208,20 +208,20 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 
 make_response(Realm, Req) ->
     #sipmsg{
-        pkg_id = PkgId,
+        srv_id = SrvId,
         call_id = CallId,
         nkport = NkPort
     } = Req,
     {ok, {_, _, Ip, _Port}} = nkpacket:get_remote(NkPort),
     Nonce = nklib_util:luid(),
-    #config{nonce_timeout=Timeout} = nksip_config:pkg_config(PkgId),
-    % lager:error("NKLOG PUT NONCE ~p ~p ~p ~p", [{PkgId, CallId, Nonce, Ip, Port}]),
+    #config{nonce_timeout=Timeout} = nksip_config:srv_config(SrvId),
+    % lager:error("NKLOG PUT NONCE ~p ~p ~p ~p", [{SrvId, CallId, Nonce, Ip, Port}]),
     % We don't put the port any more, since in an deep chain of proxies,
     % we can start with UDP and switch to TCP in the middle of the process
     %Term = {Ip, Port},
     Term = Ip,
-    put_nonce(PkgId, CallId, Nonce, Term, Timeout),
-    Opaque = nklib_util:hash(PkgId),
+    put_nonce(SrvId, CallId, Nonce, Term, Timeout),
+    Opaque = nklib_util:hash(SrvId),
     list_to_binary([
         "Digest realm=\"", Realm, "\", nonce=\"", Nonce, "\", "
         "algorithm=MD5, qop=\"auth\", opaque=\"", Opaque, "\""
@@ -252,10 +252,10 @@ make_response(Realm, Req) ->
             | {{digest, Realm}, false},
         Realm           :: binary().
 
-authorize_data(Req, #call{pkg_id=PkgId}=Call) ->
+authorize_data(Req, #call{srv_id=SrvId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
-        Reply = case nksip_util:user_callback(PkgId, sip_get_user_pass, Args) of
+        Reply = case nksip_util:user_callback(SrvId, sip_get_user_pass, Args) of
             {ok, Reply0} ->
                 Reply0;
             error ->
@@ -447,7 +447,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
-        pkg_id = PkgId,
+        srv_id = SrvId,
         class = {req, Method},
         call_id = CallId,
         nkport = NkPort
@@ -466,12 +466,12 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
             % Should we check the uri in the authdata matches the ruri of the request?
             Uri = nklib_util:get_value(uri, AuthHeader),
             Nonce = nklib_util:get_value(nonce, AuthHeader),
-            TestTerm = get_nonce(PkgId, CallId, Nonce),
-            % lager:error("NKLOG GET NONCE ~p ~p ~p ~p", [{PkgId, CallId, Nonce}, Found]),
+            TestTerm = get_nonce(SrvId, CallId, Nonce),
+            % lager:error("NKLOG GET NONCE ~p ~p ~p ~p", [{SrvId, CallId, Nonce}, Found]),
             if
                 TestTerm==not_found ->
                     Opaque = nklib_util:get_value(opaque, AuthHeader),
-                    case nklib_util:hash(PkgId) of
+                    case nklib_util:hash(SrvId) of
                         Opaque ->
                             ?CALL_LOG(notice, "received invalid nonce", []);
                         _ ->
@@ -503,7 +503,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
                     %       [QOP, Method1, Uri, HA1, Nonce, CNonce, Nc]),
                     Resp == ValidResp;
                 true ->
-                    ?CALL_LOG(warning, "received nonce (~p) from different Ip or Port", [PkgId]),
+                    ?CALL_LOG(warning, "received nonce (~p) from different Ip or Port", [SrvId]),
                     %?CALL_LOG(warning, "M: ~p, F:~p, IP:~p", [Method, Found, {Ip, Port}]),
                     false
             end
@@ -580,12 +580,12 @@ md5(Term) -> crypto:hash(md5, Term).
 
 
 %% @private
-get_nonce(PkgId, CallId, Nonce) ->
-    nklib_store:get({nksip_auth_nonce, PkgId, CallId, Nonce}).
+get_nonce(SrvId, CallId, Nonce) ->
+    nklib_store:get({nksip_auth_nonce, SrvId, CallId, Nonce}).
 
 %% @private
-put_nonce(PkgId, CallId, Nonce, Term, Timeout) ->
-    nklib_store:put({nksip_auth_nonce, PkgId, CallId, Nonce}, Term,
+put_nonce(SrvId, CallId, Nonce, Term, Timeout) ->
+    nklib_store:put({nksip_auth_nonce, SrvId, CallId, Nonce}, Term,
                     [{ttl, Timeout}]).
 
 

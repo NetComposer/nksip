@@ -107,13 +107,13 @@
     lager:Type(
         [
             {srv, SipMsg#sipmsg.srv},
-            {package, SipMsg#sipmsg.pkg_id},
+            {package, SipMsg#sipmsg.srv_id},
             {call_id, SipMsg#sipmsg.call_id}
         ],
         "NKSIP (~s/~s/~s) " ++ Txt,
         [
             SipMsg#sipmsg.srv,
-            SipMsg#sipmsg.pkg_id,
+            SipMsg#sipmsg.srv_id,
             SipMsg#sipmsg.call_id
         ]
     )).
@@ -133,7 +133,7 @@
 -record(sipmsg, {
     id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
-    pkg_id :: nkserver:id(),
+    srv_id :: nkserver:id(),
     dialog_id :: nksip_dialog_lib:id(),
     ruri :: nksip:uri(),
     vias = [] :: [nksip:via()],
@@ -210,7 +210,7 @@
 
 -record(dialog, {
     id :: nksip_dialog_lib:id(),
-    pkg_id :: nkservice:package_id(),
+    srv_id :: nkserver:id(),
     call_id :: nksip:call_id(),
     created :: nklib_util:timestamp(),
     updated :: nklib_util:timestamp(),

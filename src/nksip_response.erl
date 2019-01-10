@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([get_handle/1, pkg_id/1, code/1, body/1, call_id/1]).
+-export([get_handle/1, srv_id/1, code/1, body/1, call_id/1]).
 -export([get_meta/2, get_metas/2, header/2]).
 -export([wait_491/0]).
 
@@ -59,17 +59,17 @@ get_handle(Term) ->
 %% @doc Gets internal app's id
 %% @end
 %%----------------------------------------------------------------
--spec pkg_id( Response ) -> Result when
+-spec srv_id( Response ) -> Result when
         Response    :: nksip:response()
             | nksip:handle(),
         Result      :: {ok, nkserver:id()}.
 
-pkg_id(#sipmsg{class={resp, _, _}, pkg_id=PkgId}) ->
-    {ok, PkgId};
-pkg_id(Handle) ->
+srv_id(#sipmsg{class={resp, _, _}, srv_id=SrvId}) ->
+    {ok, SrvId};
+srv_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {resp, PkgId, _Id, _CallId} ->
-            {ok, PkgId};
+        {resp, SrvId, _Id, _CallId} ->
+            {ok, SrvId};
         _ ->
             error(invalid_response)
     end.

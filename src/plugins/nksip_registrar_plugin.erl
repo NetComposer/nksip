@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 -include("nksip_registrar.hrl").
--export([plugin_deps/0, plugin_config/4, plugin_cache/4]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3]).
 
 %% ===================================================================
 %% Plugin
@@ -35,7 +35,7 @@ plugin_deps() ->
 
 
 %% @doc
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Syntax = #{
         sip_allow => words,
         sip_registrar_default_time => {integer, 5, none},
@@ -53,7 +53,7 @@ plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     end.
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
     Cache = #{
         times => #nksip_registrar_time{
             min = maps:get(sip_registrar_min_time, Config, 60),

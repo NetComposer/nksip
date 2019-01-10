@@ -43,7 +43,7 @@
 
 route(UriList, ProxyOpts, UAS, Call) ->
     try
-        #call{pkg_id=PkgId} = Call,
+        #call{srv_id=SrvId} = Call,
         UriSet = case normalize_uriset(UriList) of
             [[]] ->
                 throw({reply, temporarily_unavailable});
@@ -53,7 +53,7 @@ route(UriList, ProxyOpts, UAS, Call) ->
         % lager:warning("URISET: ~p", [UriList]),
         #trans{method=Method} = UAS,
         {UriSet2, ProxyOpts2, UAS2, Call2} = case
-            ?CALL_PKG(PkgId, nksip_route, [UriSet, ProxyOpts, UAS, Call])
+            ?CALL_SRV(SrvId, nksip_route, [UriSet, ProxyOpts, UAS, Call])
         of
             {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->
                 {UriSet1, ProxyOpts1, UAS1, Call1};

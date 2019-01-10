@@ -51,12 +51,12 @@
     nksip:handle().
 
 get_handle({user_subs, #subscription{id=SubsId}, 
-               #dialog{pkg_id=PkgId, id=DialogId, call_id=CallId}}) ->
-    make_handle(PkgId, SubsId, DialogId, CallId);
+               #dialog{srv_id=SrvId, id=DialogId, call_id=CallId}}) ->
+    make_handle(SrvId, SubsId, DialogId, CallId);
 
-get_handle(#sipmsg{pkg_id=PkgId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
+get_handle(#sipmsg{srv_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
-    make_handle(PkgId, SubsId, DialogId, CallId);
+    make_handle(SrvId, SubsId, DialogId, CallId);
 
 get_handle(<<"U_", _/binary>>=Id) ->
     Id;
@@ -71,8 +71,8 @@ get_handle(_) ->
 
 parse_handle(<<"U_", Rest/binary>>) ->
     case catch binary_to_term(base64:decode(Rest)) of
-        {PkgId, SubsId, DialogId, CallId} ->
-            {PkgId, SubsId, DialogId, CallId};
+        {SrvId, SubsId, DialogId, CallId} ->
+            {SrvId, SubsId, DialogId, CallId};
         _ ->
             error(invalid_handle)
     end;
@@ -135,7 +135,7 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {PkgId, SubsId, DialogId, CallId} = parse_handle(Handle),
+    {SrvId, SubsId, DialogId, CallId} = parse_handle(Handle),
     Fun = fun(Dialog) ->
         case find(SubsId, Dialog) of
             #subscription{} = U -> 
@@ -149,7 +149,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {error, invalid_subscription}
         end
     end,
-    case nksip_call:apply_dialog(PkgId, CallId, DialogId, Fun) of
+    case nksip_call:apply_dialog(SrvId, CallId, DialogId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 
@@ -217,8 +217,8 @@ remote_id(Handle, Srv) ->
     {_PkgId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
     {ok, DialogHandle} = nksip_dialog:get_handle(Handle),
     RemoteId = nksip_dialog_lib:remote_id(DialogHandle, Srv),
-    {PkgId, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
-    make_handle(PkgId, SubsId, RemDialogId, CallId).
+    {SrvId, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
+    make_handle(SrvId, SubsId, RemDialogId, CallId).
 
 
 %%    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
@@ -291,5 +291,5 @@ state(#sipmsg{}=SipMsg) ->
 
 
 
-make_handle(PkgId, SubsId, DialogId, CallId) ->
-    <<"U_", (base64:encode(term_to_binary({PkgId, SubsId, DialogId, CallId})))/binary>>.
+make_handle(SrvId, SubsId, DialogId, CallId) ->
+    <<"U_", (base64:encode(term_to_binary({SrvId, SubsId, DialogId, CallId})))/binary>>.

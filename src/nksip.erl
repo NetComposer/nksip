@@ -160,7 +160,7 @@
 %% Public functions
 %% ===================================================================
 
-%% @doc Starts a new nksip package
+%% @doc Starts a new nksip service
 %% Module must implement nksip behaviour
 
 -spec start_link(id(), map()) ->
@@ -174,7 +174,7 @@ start_link(Id, Config) ->
 
 
 stop(Id) ->
-    nkserver_package_sup:stop(Id).
+    nkserver_srv_sup:stop(Id).
 
 
 -spec update(id(), map()) ->

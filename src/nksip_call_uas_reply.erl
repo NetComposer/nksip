@@ -60,8 +60,8 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                 ) ->
     {Resp1, SendOpts1} = 
         nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
-    #call{pkg_id=PkgId} = Call,
-    case  ?CALL_PKG(PkgId, nksip_uas_send_reply, [{Resp1, SendOpts1}, UAS, Call]) of
+    #call{srv_id=SrvId} = Call,
+    case  ?CALL_SRV(SrvId, nksip_uas_send_reply, [{Resp1, SendOpts1}, UAS, Call]) of
         {continue, [{Resp2, SendOpts2}, UAS2, Call2]} ->
             send({Resp2, SendOpts2}, UAS2, update(UAS2, Call2));
         {error, Error} ->
@@ -89,7 +89,7 @@ reply(_SipReply, #trans{id=_Id, method=_Method, status=_Status}, Call) ->
 
 send({Resp, SendOpts}, UAS, Call) ->
     #sipmsg{
-        pkg_id = PkgId,
+        srv_id = SrvId,
         id = MsgId,
         dialog_id = DialogId
     } = Resp,
@@ -135,7 +135,7 @@ send({Resp, SendOpts}, UAS, Call) ->
             ?CALL_DEBUG("UAS ~p ~p stateful reply ~p", [Id, Method, Code2], Call),
             UAS2 = UAS#trans{response=Resp2, code=Code2},
             Call4 = update(UAS2, Call3),
-            case  ?CALL_PKG(PkgId, nksip_uas_sent_reply, [Call4]) of
+            case  ?CALL_SRV(SrvId, nksip_uas_sent_reply, [Call4]) of
                 {ok, Call5} ->
                     {UserReply, Call5};
                 {continue, [Call5]} ->

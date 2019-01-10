@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 -include("nksip_event_compositor.hrl").
 
--export([plugin_deps/0, plugin_config/4, plugin_cache/4]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3]).
 
 
 %% ===================================================================
@@ -37,7 +37,7 @@ plugin_deps() ->
     [nksip].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Syntax = #{
         sip_event_compositor_default_expires => {integer, 1, none}
     },
@@ -52,7 +52,7 @@ plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     end.
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
     Expires = maps:get(sip_event_compositor_default_expires, Config, 60),
     {ok, #{expires=>Expires}}.
 

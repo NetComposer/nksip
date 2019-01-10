@@ -37,8 +37,8 @@
 -spec store_get(nkserver:id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
-store_get(PkgId, AOR, Tag) ->
-    case callback(PkgId, {get, AOR, Tag}) of
+store_get(SrvId, AOR, Tag) ->
+    case callback(SrvId, {get, AOR, Tag}) of
         {ok, #reg_publish{} = Reg} ->
             {ok, Reg};
         {ok, not_found} ->
@@ -55,7 +55,7 @@ store_get(PkgId, AOR, Tag) ->
                 #reg_publish{}|nksip:body()) ->
     nksip:sipreply().
 
-store_put(PkgId, AOR, Tag, Expires, Reg) ->
+store_put(SrvId, AOR, Tag, Expires, Reg) ->
     Reg1 = case is_record(Reg, reg_publish) of
         true ->
             Reg;
@@ -64,7 +64,7 @@ store_put(PkgId, AOR, Tag, Expires, Reg) ->
     end,
     Now = nklib_util:timestamp(),
     Reg2 = Reg1#reg_publish{expires=Now+Expires},
-    case callback(PkgId, {put, AOR, Tag, Reg2, Expires}) of
+    case callback(SrvId, {put, AOR, Tag, Reg2, Expires}) of
         {ok, ok} ->
             reply(Tag, Expires);
         {ok, Resp} ->
@@ -80,8 +80,8 @@ store_put(PkgId, AOR, Tag, Expires, Reg) ->
 -spec store_del(nkserver:id(), nksip:aor(), binary()) ->
     nksip:sipreply().
 
-store_del(PkgId, AOR, Tag) ->
-    case callback(PkgId, {del, AOR, Tag}) of
+store_del(SrvId, AOR, Tag) ->
+    case callback(SrvId, {del, AOR, Tag}) of
         {ok, ok} ->
             reply(Tag, 0);
         {ok, Resp} ->
@@ -99,8 +99,8 @@ store_del(PkgId, AOR, Tag) ->
 -spec store_del_all(nkserver:id()) ->
     ok | {error, term()}.
 
-store_del_all(PkgId) ->
-    case callback(PkgId, del_all) of
+store_del_all(SrvId) ->
+    case callback(SrvId, del_all) of
         {ok, ok} ->
             ok;
         {ok, _Resp} ->
@@ -119,8 +119,8 @@ reply(Tag, Expires) ->
 -spec callback(nkserver:id(), term()) ->
     term() | error.
 
-callback(PkgId, Op) ->
-    nksip_util:user_callback(PkgId, sip_event_compositor_store, [Op, PkgId]).
+callback(SrvId, Op) ->
+    nksip_util:user_callback(SrvId, sip_event_compositor_store, [Op, SrvId]).
 
 
 

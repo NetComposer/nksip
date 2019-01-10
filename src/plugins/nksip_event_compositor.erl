@@ -51,8 +51,8 @@
 -spec find(nkserver:id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
-find(PkgId, AOR, Tag) ->
-    nksip_event_compositor_lib:store_get(PkgId, AOR, Tag).
+find(SrvId, AOR, Tag) ->
+    nksip_event_compositor_lib:store_get(SrvId, AOR, Tag).
 
 
 %% @doc Processes a PUBLISH request according to RFC3903
@@ -60,12 +60,12 @@ find(PkgId, AOR, Tag) ->
     nksip:sipreply().
 
 request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
-    #sipmsg{pkg_id=PkgId, ruri=RUri, expires=Expires, body=Body} = Req,
+    #sipmsg{srv_id=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
     Expires1 = case is_integer(Expires) andalso Expires>0 of
         true -> 
             Expires;
         _ -> 
-            nkserver:get_plugin_config(PkgId, nksip_event_compositor, expires)
+            nkserver:get_plugin_config(SrvId, nksip_event_compositor, expires)
     end,
     AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
     case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
@@ -73,15 +73,15 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
             {invalid_request, <<"No Body">>};
         [] ->
             Tag = nklib_util:uid(),
-            nksip_event_compositor_lib:store_put(PkgId, AOR, Tag, Expires1, Body);
+            nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Body);
         [Tag] ->
-            case find(PkgId, AOR, Tag) of
+            case find(SrvId, AOR, Tag) of
                 {ok, _Reg} when Expires==0 -> 
-                    nksip_event_compositor_lib:store_del(PkgId, AOR, Tag);
+                    nksip_event_compositor_lib:store_del(SrvId, AOR, Tag);
                 {ok, Reg} when Body == <<>> -> 
-                    nksip_event_compositor_lib:store_put(PkgId, AOR, Tag, Expires1, Reg);
+                    nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Reg);
                 {ok, _} -> 
-                    nksip_event_compositor_lib:store_put(PkgId, AOR, Tag, Expires1, Body);
+                    nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Body);
                 not_found ->    
                     conditional_request_failed;
                 {error, Error} ->
@@ -97,8 +97,8 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 -spec clear(nkserver:id()) ->
     ok | callback_error | service_not_found.
 
-clear(PkgId) ->
-    case nksip_event_compositor_lib:store_del_all(PkgId) of
+clear(SrvId) ->
+    case nksip_event_compositor_lib:store_del_all(SrvId) of
         ok ->
             ok;
         _ ->

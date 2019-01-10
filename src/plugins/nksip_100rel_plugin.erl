@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([plugin_deps/0, plugin_config/4]).
+-export([plugin_deps/0, plugin_config/3]).
 
 
 %% ===================================================================
@@ -36,7 +36,7 @@ plugin_deps() ->
     [nksip].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Allow1 = maps:get(sip_allow, Config, nksip_syntax:default_allow()),
     Allow2 = nklib_util:store_value(<<"PRACK">>, Allow1),
     Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),

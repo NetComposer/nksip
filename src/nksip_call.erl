@@ -27,7 +27,7 @@
 -module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([pkg_id/1, call_id/1]).
+-export([srv_id/1, call_id/1]).
 -export([send/2, send/5, send_dialog/5, send_cancel/4]).
 -export([send_reply/4]).
 -export([get_all/0, get_info/0, clear_all/0]).
@@ -64,12 +64,12 @@
 %% Public
 %% ===================================================================
 
-%% @doc Gets the package id
--spec pkg_id(call()) ->
+%% @doc Gets the service id
+-spec srv_id(call()) ->
     nkserver:id().
 
-pkg_id(#call{pkg_id=PkgId}) ->
-    PkgId.
+srv_id(#call{srv_id=SrvId}) ->
+    SrvId.
 
 
 %% @doc Gets the CallId
@@ -88,8 +88,8 @@ call_id(#call{call_id=CallId}) ->
 -spec send(nksip:request(), [nksip_uac:req_option()]) ->
     nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
-send(#sipmsg{pkg_id=PkgId, call_id=CallId}=Req, Opts) ->
-    nksip_router:send_work(PkgId, CallId, {send, Req, Opts}).
+send(#sipmsg{srv_id=SrvId, call_id=CallId}=Req, Opts) ->
+    nksip_router:send_work(SrvId, CallId, {send, Req, Opts}).
 
 
 %% @private Generates and sends a new request.
@@ -97,8 +97,8 @@ send(#sipmsg{pkg_id=PkgId, call_id=CallId}=Req, Opts) ->
     nksip:user_uri(), [nksip_uac:req_option()]) ->
     nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
-send(PkgId, CallId, Method, Uri, Opts) ->
-    nksip_router:send_work(PkgId, CallId, {send, Method, Uri, Opts}).
+send(SrvId, CallId, Method, Uri, Opts) ->
+    nksip_router:send_work(SrvId, CallId, {send, Method, Uri, Opts}).
 
 
 
@@ -107,8 +107,8 @@ send(PkgId, CallId, Method, Uri, Opts) ->
                   nksip_dialog_lib:id(), [nksip_uac:req_option()]) ->
     nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
-send_dialog(PkgId, CallId, Method, DialogId, Opts) ->
-    nksip_router:send_work(PkgId, CallId, {send_dialog, DialogId, Method, Opts}).
+send_dialog(SrvId, CallId, Method, DialogId, Opts) ->
+    nksip_router:send_work(SrvId, CallId, {send_dialog, DialogId, Method, Opts}).
 
 
 %% @private Cancels an ongoing INVITE request.
@@ -116,8 +116,8 @@ send_dialog(PkgId, CallId, Method, DialogId, Opts) ->
                   nksip_sipmsg:id(), [nksip_uac:req_option()]) ->
     nksip_uac:uac_cancel_result().
 
-send_cancel(PkgId, CallId, RequestId, Opts) ->
-    nksip_router:send_work(PkgId, CallId, {send_cancel, RequestId, Opts}).
+send_cancel(SrvId, CallId, RequestId, Opts) ->
+    nksip_router:send_work(SrvId, CallId, {send_cancel, RequestId, Opts}).
 
 
 %% @private Sends a synchronous request reply.
@@ -125,8 +125,8 @@ send_cancel(PkgId, CallId, RequestId, Opts) ->
                  nksip_sipmsg:id(), nksip:sipreply()) ->
     {ok, nksip:response()} | {error, term()}.
 
-send_reply(PkgId, CallId, ReqId, SipReply) ->
-    nksip_router:send_work(PkgId, CallId, {send_reply, ReqId, SipReply}).
+send_reply(SrvId, CallId, ReqId, SipReply) ->
+    nksip_router:send_work(SrvId, CallId, {send_reply, ReqId, SipReply}).
 
 
 %% @private Get all started calls (dangerous in production with many calls)
@@ -135,8 +135,8 @@ send_reply(PkgId, CallId, ReqId, SipReply) ->
 
 get_all() ->
     [
-        {PkgId, CallId, Pid} ||
-        {{CallId, PkgId}, Pid} <- nklib_proc:values(nksip_call_srv)
+        {SrvId, CallId, Pid} ||
+        {{CallId, SrvId}, Pid} <- nklib_proc:values(nksip_call_srv)
     ].
 
 %% @private Get information about all started calls (dangerous in production with many calls)
@@ -144,8 +144,8 @@ get_all() ->
     [term()].
 
 get_info() ->
-    lists:sort(lists:flatten([nksip_router:send_work(PkgId, CallId, info)
-        || {PkgId, CallId, _} <- get_all()])).
+    lists:sort(lists:flatten([nksip_router:send_work(SrvId, CallId, info)
+        || {SrvId, CallId, _} <- get_all()])).
 
 
 %% @private Deletes all started calls
@@ -165,14 +165,14 @@ clear_all() ->
 
 get_all_dialogs() ->
     lists:flatten([
-        case get_all_dialogs(PkgId, CallId) of
+        case get_all_dialogs(SrvId, CallId) of
             {ok, Handles} ->
                 Handles;
             {error, _} ->
                 []
         end
         || 
-        {PkgId, CallId, _} <- get_all()
+        {SrvId, CallId, _} <- get_all()
     ]).
 
 
@@ -180,40 +180,40 @@ get_all_dialogs() ->
 -spec get_all_dialogs(nkserver:id(), nksip:call_id()) ->
     {ok, [nksip:handle()]} | {error, term()}.
 
-get_all_dialogs(PkgId, CallId) ->
-    nksip_router:send_work(PkgId, CallId, get_all_dialogs).
+get_all_dialogs(SrvId, CallId) ->
+    nksip_router:send_work(SrvId, CallId, get_all_dialogs).
 
 
 %% @private Deletes a dialog
 -spec stop_dialog(nkserver:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     ok | {error, term()}.
  
-stop_dialog(PkgId, CallId, DialogId) ->
-    nksip_router:send_work(PkgId, CallId, {stop_dialog, DialogId}).
+stop_dialog(SrvId, CallId, DialogId) ->
+    nksip_router:send_work(SrvId, CallId, {stop_dialog, DialogId}).
 
 
 %% @private
 -spec apply_dialog(nkserver:id(), nksip:call_id(), nksip_dialog_lib:id(), function()) ->
     {apply, term()} | {error, term()}.
 
-apply_dialog(PkgId, CallId, DialogId, Fun) ->
-    nksip_router:send_work(PkgId, CallId, {apply_dialog, DialogId, Fun}).
+apply_dialog(SrvId, CallId, DialogId, Fun) ->
+    nksip_router:send_work(SrvId, CallId, {apply_dialog, DialogId, Fun}).
 
 
 %% @private Gets authorized list of transport, ip and ports for a dialog.
 -spec get_authorized_list(nkserver:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     {ok, [{nkpacket:transport(), inet:ip_address(), inet:port_number()}]} | {error, term()}.
 
-get_authorized_list(PkgId, CallId, DialogId) ->
-    nksip_router:send_work(PkgId, CallId, {get_authorized_list, DialogId}).
+get_authorized_list(SrvId, CallId, DialogId) ->
+    nksip_router:send_work(SrvId, CallId, {get_authorized_list, DialogId}).
 
 
 %% @private Gets authorized list of transport, ip and ports for a dialog.
 -spec clear_authorized_list(nkserver:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     ok | {error, term()}.
 
-clear_authorized_list(PkgId, CallId, DialogId) ->
-    nksip_router:send_work(PkgId, CallId, {clear_authorized_list, DialogId}).
+clear_authorized_list(SrvId, CallId, DialogId) ->
+    nksip_router:send_work(SrvId, CallId, {clear_authorized_list, DialogId}).
 
 
 %% @private Get all active transactions for all calls.
@@ -224,13 +224,13 @@ clear_authorized_list(PkgId, CallId, DialogId) ->
 get_all_transactions() ->
     lists:flatten(
         [
-            case get_all_transactions(PkgId, CallId) of
+            case get_all_transactions(SrvId, CallId) of
                 {ok, List} ->
-                    [{PkgId, CallId, Class, Id} || {Class, Id} <- List];
+                    [{SrvId, CallId, Class, Id} || {Class, Id} <- List];
                 {error, _} ->
                     []
             end
-            || {PkgId, CallId, _} <- get_all()
+            || {SrvId, CallId, _} <- get_all()
         ]).
 
 
@@ -238,24 +238,24 @@ get_all_transactions() ->
 -spec get_all_transactions(nkserver:id(), nksip:call_id()) ->
     {ok, [{uac|uas, nksip_call:trans_id()}]} | {error, term()}.
 
-get_all_transactions(PkgId, CallId) ->
-    nksip_router:send_work(PkgId, CallId, get_all_transactions).
+get_all_transactions(SrvId, CallId) ->
+    nksip_router:send_work(SrvId, CallId, get_all_transactions).
 
 
 %% @private Applies a fun to a transaction and returns the result.
 -spec apply_transaction(nkserver:id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
     {apply, term()} | {error, term()}.
 
-apply_transaction(PkgId, CallId, MsgId, Fun) ->
-    nksip_router:send_work(PkgId, CallId, {apply_transaction, MsgId, Fun}).
+apply_transaction(SrvId, CallId, MsgId, Fun) ->
+    nksip_router:send_work(SrvId, CallId, {apply_transaction, MsgId, Fun}).
 
 
 %% @private
 -spec apply_sipmsg(nkserver:id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
     {apply, term()} | {error, term()}.
 
-apply_sipmsg(PkgId, CallId, MsgId, Fun) ->
-    nksip_router:send_work(PkgId, CallId, {apply_sipmsg, MsgId, Fun}).
+apply_sipmsg(SrvId, CallId, MsgId, Fun) ->
+    nksip_router:send_work(SrvId, CallId, {apply_sipmsg, MsgId, Fun}).
 
 
 %% @private Checks if the call has expired elements

@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([plugin_deps/0, plugin_config/4, plugin_cache/4]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3]).
 
 
 %% ===================================================================
@@ -36,7 +36,7 @@ plugin_deps() ->
     [nksip].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Syntax = #{
         sip_timers_se =>  {integer, 5, none},
         sip_timers_min_se => {integer, 1, none}
@@ -52,7 +52,7 @@ plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     end.
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
     SE = maps:get(sip_timers_se, Config, 1800),      % (secs) 30 min
     MinSE = maps:get(sip_timers_min_se, Config, 90), % (secs) 90 secs (min 90, recom. 1800)
     {ok, #{se_minse => {SE, MinSE}}}.

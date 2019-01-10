@@ -32,8 +32,8 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include_lib("nkserver/include/nkserver.hrl").
 
--export([plugin_deps/0, plugin_config/4, plugin_cache/4,  plugin_start/4,
-	     plugin_stop/4, plugin_update/5]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3,  plugin_start/3,
+	     plugin_stop/3, plugin_update/4]).
 
 
 
@@ -50,12 +50,12 @@ plugin_deps() ->
 
 
 %% @doc
-plugin_config(PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(SrvId, Config, #{class:=?PACKAGE_CLASS_SIP}) ->
 	Syntax1 = nksip_syntax:app_syntax(),
 	Syntax2 = Syntax1#{'__defaults' => #{sip_listen => <<"sip:all">>}},
     case nklib_syntax:parse_all(Config, Syntax2) of
 		{ok, Config2} ->
-			case get_listen(PkgId, Config2) of
+			case get_listen(SrvId, Config2) of
 				{ok, _Conns} ->
 					{ok, Config2};
 				{error, Error} ->
@@ -66,28 +66,28 @@ plugin_config(PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
 	end.
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
 	{ok, #{all_config=>nksip_syntax:make_config(Config)}}.
 
 
 %% @doc
-plugin_start(PkgId, ?PACKAGE_CLASS_SIP, Config, Package) ->
-	{ok, Conns} = get_listen(PkgId, Config),
-    {ok, Listeners} = make_listen_transps(PkgId, Conns),
-	insert_listeners(PkgId, Listeners, Package).
+plugin_start(SrvId, Config, Service) ->
+	{ok, Conns} = get_listen(SrvId, Config),
+    {ok, Listeners} = make_listen_transps(SrvId, Conns),
+	insert_listeners(SrvId, Listeners, Service).
 
 
-plugin_stop(PkgId, ?PACKAGE_CLASS_SIP, _Config, _Package) ->
-	nkserver_workers_sup:remove_all_childs(PkgId).
+plugin_stop(SrvId, _Config, _Service) ->
+	nkserver_workers_sup:remove_all_childs(SrvId).
 
 
 %% @doc
-plugin_update(PkgId, ?PACKAGE_CLASS_SIP, NewConfig, OldConfig, Package) ->
+plugin_update(SrvId, NewConfig, OldConfig, Service) ->
 	case NewConfig of
 		OldConfig ->
 			ok;
 		_ ->
-			plugin_start(PkgId, ?PACKAGE_CLASS_SIP, NewConfig, Package)
+			plugin_start(SrvId, NewConfig, Service)
 	end.
 
 
@@ -100,7 +100,7 @@ plugin_update(PkgId, ?PACKAGE_CLASS_SIP, NewConfig, OldConfig, Package) ->
 
 
 %% @private
-get_listen(PkgId, #{sip_listen:=Url}=Config) ->
+get_listen(SrvId, #{sip_listen:=Url}=Config) ->
     SipConfig = nksip_syntax:make_config(Config),
 	ResolveOpts = #{resolve_type => listen},
 	case nkpacket_resolve:resolve(Url, ResolveOpts) of
@@ -108,8 +108,8 @@ get_listen(PkgId, #{sip_listen:=Url}=Config) ->
             Debug = maps:get(sip_debug, Config, []),
 			Tls = nkpacket_syntax:extract_tls(Config),
             Opts = Tls#{
-                id => {?PACKAGE_CLASS_SIP, PkgId},
-                class => {nksip, PkgId},
+                id => {?PACKAGE_CLASS_SIP, SrvId},
+                class => {nksip, SrvId},
 				debug => lists:member(nkpacket, Debug)
 			},
             get_listen(Conns, Opts, SipConfig, []);
@@ -150,37 +150,37 @@ get_listen(_, _Opts, _SipConfig, _Acc) ->
 
 
 %% @private
-make_listen_transps(PkgId, Conns) ->
-	make_listen_transps(PkgId, Conns, []).
+make_listen_transps(SrvId, Conns) ->
+	make_listen_transps(SrvId, Conns, []).
 
 
 %% @private
 make_listen_transps(_PkgId, [], Acc) ->
 	{ok, Acc};
 
-make_listen_transps(PkgId, [Conn|Rest], Acc) ->
+make_listen_transps(SrvId, [Conn|Rest], Acc) ->
 	case nkpacket:get_listener(Conn) of
 		{ok, _Id, Spec} ->
-			make_listen_transps(PkgId, Rest, [Spec|Acc]);
+			make_listen_transps(SrvId, Rest, [Spec|Acc]);
 		{error, Error} ->
 			{error, Error}
 	end.
 
 
 %% @private
-insert_listeners(PkgId, SpecList, Package) ->
-	case nkserver_workers_sup:update_child_multi(PkgId, SpecList, #{}) of
+insert_listeners(SrvId, SpecList, Service) ->
+	case nkserver_workers_sup:update_child_multi(SrvId, SpecList, #{}) of
 		ok ->
-			?PKG_LOG(info, "listeners started", [], Package),
+			?SRV_LOG(info, "listeners started", [], Service),
 			ok;
 		not_updated ->
-			?PKG_LOG(debug, "listeners didn't upgrade", [], Package),
+			?SRV_LOG(debug, "listeners didn't upgrade", [], Service),
 			ok;
 		upgraded ->
-			?PKG_LOG(info, "listeners upgraded", [], Package),
+			?SRV_LOG(info, "listeners upgraded", [], Service),
 			ok;
 		{error, Error} ->
-			?PKG_LOG(notice, "listeners start/update error: ~p", [Error], Package),
+			?SRV_LOG(notice, "listeners start/update error: ~p", [Error], Service),
 			{error, Error}
 	end.
 

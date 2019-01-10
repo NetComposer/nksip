@@ -177,8 +177,8 @@ sip_options(_Req, _Call) ->
 		DefaultResult	:: see_docs_on_this_function_for_default_results.
 
 sip_register(_Req, Call) ->
-	#call{ pkg_id=PkgId} = Call,
-	Config = nksip_config:pkg_config(PkgId),
+	#call{srv_id=SrvId} = Call,
+	Config = nksip_config:srv_config(SrvId),
 	{reply, {method_not_allowed, Config#config.allow}}.
 
 
@@ -219,8 +219,8 @@ sip_invite(_Req, _Call) ->
 		DefaultResult	:: see_docs_on_this_function_for_default_results.
 
 sip_reinvite(Req, Call) ->
-    {ok, PkgId} = nksip_request:pkg_id(Req),
-    ?CALL_PKG(PkgId, sip_invite, [Req, Call]).
+    {ok, SrvId} = nksip_request:srv_id(Req),
+    ?CALL_SRV(SrvId, sip_invite, [Req, Call]).
 
 %%----------------------------------------------------------------
 %% @doc Called when a pending INVITE request is cancelled.
@@ -357,8 +357,8 @@ sip_refer(_Req, _Call) ->
 		DefaultResult	:: see_docs_on_this_function_for_default_result.
 	
 sip_publish(_Req, Call) ->
-	#call{ pkg_id=PkgId} = Call,
-	Config = nksip_config:pkg_config(PkgId),
+	#call{srv_id=SrvId} = Call,
+	Config = nksip_config:srv_config(SrvId),
     {reply, {method_not_allowed, Config#config.allow}}.
 
 
@@ -464,9 +464,9 @@ nksip_preparse(SipMsg, Headers) ->
 				| error 
 				| continue().
 
-nksip_user_callback(PkgId, Fun, Args) ->
-	%lager:error("NKLOG CALLING ~p, ~p, ~p", [PkgId, Fun, Args]),
-	case catch ?CALL_PKG(PkgId, Fun, Args) of
+nksip_user_callback(SrvId, Fun, Args) ->
+	%lager:error("NKLOG CALLING ~p, ~p, ~p", [SrvId, Fun, Args]),
+	case catch ?CALL_SRV(SrvId, Fun, Args) of
 	    {'EXIT', Error} ->
 	        ?CALL_LOG(error, "Error calling callback ~p/~p: ~p", [Fun, length(Args), Error]),
 	        error;

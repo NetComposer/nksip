@@ -53,24 +53,24 @@
 -spec start(nkserver:id()) ->
     ok | {error, term()}.
 
-start(PkgId) ->
-    start(PkgId, console, []).
+start(SrvId) ->
+    start(SrvId, console, []).
 
 
-%% @doc Equivalent to `start(PkgId, File, all)'.
+%% @doc Equivalent to `start(SrvId, File, all)'.
 -spec start(nkserver:id(), file()) ->
     ok | {error, term()}.
 
-start(PkgId, File) ->
-    start(PkgId, File, []).
+start(SrvId, File) ->
+    start(SrvId, File, []).
 
 
 %% @doc Configures a Service to start tracing SIP messages.
 -spec start(nkserver:id(), file(), ip_list()) ->
     ok | {error, term()}.
 
-start(PkgId, File, IpList) ->
-    Config1 = ?CALL_PKG(PkgId, config, []),
+start(SrvId, File, IpList) ->
+    Config1 = ?CALL_SRV(SrvId, config, []),
     Plugins1 = maps:get(plugins, Config1),
     Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
     Config2 = Config1#{
@@ -79,7 +79,7 @@ start(PkgId, File, IpList) ->
         nksip_trace_file => File,
         nksip_trace_ips => IpList
     },
-    nkserver:replace(PkgId, Config2).
+    nkserver:replace(SrvId, Config2).
 
 
 
@@ -87,13 +87,13 @@ start(PkgId, File, IpList) ->
 -spec stop(nkserver:id()) ->
     ok | {error, term()}.
 
-stop(PkgId) ->
-    Config1 = ?CALL_PKG(PkgId, config, []),
+stop(SrvId) ->
+    Config1 = ?CALL_SRV(SrvId, config, []),
     Plugins1 = maps:get(plugins, Config1),
     Plugins2 = Plugins1 -- [nksip_trace],
     Config2 = Config1#{plugins:=Plugins2},
     Config3 = maps:without([nksip_trace, nksip_trace_file, nksip_trace_ips], Config2),
-    nkserver:replace(PkgId, Config3).
+    nkserver:replace(SrvId, Config3).
 
 
 
@@ -123,17 +123,17 @@ print(Header, #sipmsg{}=SipMsg) ->
              nkpacket:nkport(), binary()) ->
     ok.
 
-sipmsg(PkgId, _CallId, Header, Transport, Binary) ->
-    case nkserver:get_plugin_config(PkgId, nksip_trace, config) of
+sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
+    case nkserver:get_plugin_config(SrvId, nksip_trace, config) of
         {true, File, []} ->
-            Msg = print_packet(PkgId, Header, Transport, Binary),
-            write(PkgId, File, Msg);
+            Msg = print_packet(SrvId, Header, Transport, Binary),
+            write(SrvId, File, Msg);
         {true, File, IpList} ->
             #nkport{local_ip=Ip1, remote_ip=Ip2} = Transport,
             case has_ip([Ip1, Ip2], IpList) of
                 true ->
-                    Msg = print_packet(PkgId, Header, Transport, Binary),
-                    write(PkgId, File, Msg);
+                    Msg = print_packet(SrvId, Header, Transport, Binary),
+                    write(SrvId, File, Msg);
                 false ->
                     ok
             end;
@@ -149,13 +149,13 @@ sipmsg(PkgId, _CallId, Header, Transport, Binary) ->
 
 
 %% @private
-close_file(PkgId) ->
-    case nksip_app:get({nksip_trace_file, PkgId}) of
+close_file(SrvId) ->
+    case nksip_app:get({nksip_trace_file, SrvId}) of
         undefined -> 
             ok;
         {File, OldDevice} ->
             ?SIP_LOG(notice, "Closing file ~s (~p)", [File, OldDevice]),
-            nksip_app:del({nksip_trace_file, PkgId}),
+            nksip_app:del({nksip_trace_file, SrvId}),
             file:close(OldDevice),
             ok
     end.
@@ -165,11 +165,11 @@ close_file(PkgId) ->
 open_file(_PkgId, console) ->
     ok;
 
-open_file(PkgId, File) ->
+open_file(SrvId, File) ->
     case file:open(File, [append]) of
         {ok, IoDevice} -> 
             ?SIP_LOG(notice, "File ~s opened for trace (~p)", [File, IoDevice]),
-            nksip_app:put({nksip_trace_file, PkgId}, {File, IoDevice}),
+            nksip_app:put({nksip_trace_file, SrvId}, {File, IoDevice}),
             ok;
         {error, _Error} -> 
             error
@@ -179,13 +179,13 @@ open_file(PkgId, File) ->
 
 
 %% @private
-write(PkgId, File, Msg) ->
+write(SrvId, File, Msg) ->
     Time = nklib_util:l_timestamp_to_float(nklib_util:l_timestamp()), 
     case File of
         console ->
             io:format("\n        ---- ~f ~s", [Time, Msg]);
         _ ->
-            case nksip_app:get({nksip_trace_file, PkgId}) of
+            case nksip_app:get({nksip_trace_file, SrvId}) of
                 {File, Device} ->
                     Txt = io_lib:format("\n        ---- ~f ~s", [Time, Msg]),
                     catch file:write(Device, Txt);
@@ -196,7 +196,7 @@ write(PkgId, File, Msg) ->
 
 
 %% @private
-print_packet(PkgId, Info,
+print_packet(SrvId, Info,
                 #nkport{
                     transp = Transp,
                     local_ip = LIp, 
@@ -226,7 +226,7 @@ print_packet(PkgId, Info,
         || Line <- binary:split(Binary, <<"\r\n">>, [global])
     ],
     io_lib:format("~p ~s ~s:~p (~p, ~s:~p) (~p)\n\n~s", 
-                    [PkgId, Info, RHost, RPort,
+                    [SrvId, Info, RHost, RPort,
                     Transp, LHost, LPort, self(), list_to_binary(Lines)]).
 
 

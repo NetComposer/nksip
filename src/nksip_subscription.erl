@@ -24,7 +24,7 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, pkg_id/1, call_id/1, get_meta/2, get_metas/2]).
+-export([get_handle/1, srv_id/1, call_id/1, get_meta/2, get_metas/2]).
 -export([get_all/0, get_all/2]).
 -export_type([field/0, status/0, subscription_state/0, terminated_reason/0]).
 
@@ -75,15 +75,15 @@ get_handle(Term) ->
     {ok, nksip_subscription_lib:get_handle(Term)}.
 
 
-%% @doc Gets the PkgId of a dialog
--spec pkg_id(nksip:subscription()|nksip:handle()) ->
+%% @doc Gets the SrvId of a dialog
+-spec srv_id(nksip:subscription()|nksip:handle()) ->
     {ok, nkserver:id()}.
 
-pkg_id({user_subs, _, #dialog{pkg_id=PkgId}}) ->
-    {ok, PkgId};
-pkg_id(Handle) ->
-    {PkgId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
-    {ok, PkgId}.
+srv_id({user_subs, _, #dialog{srv_id=SrvId}}) ->
+    {ok, SrvId};
+srv_id(Handle) ->
+    {SrvId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
+    {ok, SrvId}.
 
 
 
@@ -164,7 +164,7 @@ get_all() ->
 -spec get_all(nkserver:id(), nksip:call_id()) ->
     [nksip:handle()].
 
-get_all(PkgId, CallId) ->
+get_all(SrvId, CallId) ->
     lists:flatten([
         case nksip_dialog:get_meta(subscriptions, Id) of
             {ok, Ids} ->
@@ -172,7 +172,7 @@ get_all(PkgId, CallId) ->
             _ ->
                 []
         end
-        || Id <- nksip_dialog:get_all(PkgId, CallId)
+        || Id <- nksip_dialog:get_all(SrvId, CallId)
     ]).
 
 

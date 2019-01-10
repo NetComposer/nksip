@@ -144,8 +144,8 @@ conn_init(NkPort) ->
     State = #conn_state{
         rnrn_pattern = binary:compile_pattern(<<"\r\n\r\n">>)
     },
-    #nkport{class={nksip, PkgId}} = NkPort,
-    #config{debug=DebugList} = nksip_config:pkg_config(PkgId),
+    #nkport{class={nksip, SrvId}} = NkPort,
+    #config{debug=DebugList} = nksip_config:srv_config(SrvId),
     Debug = lists:member(protocol, DebugList),
     erlang:put(nksip_debug, Debug),
     ?SIP_DEBUG("connection started (~p)", [self()]),
@@ -193,9 +193,9 @@ conn_encode(_Term, _NkPort, ConnState) ->
 -spec conn_encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
     {ok, nkpacket:outcoming()} | continue | {error, term()}.
 
-conn_encode(#sipmsg{pkg_id=PkgId}=SipMsg, _NkPort) ->
+conn_encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
     Packet = nksip_unparse:packet(SipMsg),
-     ?CALL_PKG(PkgId, nksip_connection_sent, [SipMsg, Packet]),
+     ?CALL_SRV(SrvId, nksip_connection_sent, [SipMsg, Packet]),
     {ok, Packet};
 
 conn_encode(Bin, _NkPort) when is_binary(Bin) ->
@@ -412,8 +412,8 @@ do_parse(Data, #nkport{transp=Transp}=NkPort, State) ->
 do_parse(#nkport{transp=Transp}=NkPort, Data, Pos, State) ->
     case extract(Transp, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
-            #nkport{class={nksip, PkgId}} = NkPort,
-            case nksip_router:incoming(PkgId, CallId, NkPort, Msg) of
+            #nkport{class={nksip, SrvId}} = NkPort,
+            case nksip_router:incoming(SrvId, CallId, NkPort, Msg) of
                 ok -> 
                     do_parse(Rest, NkPort, State);
                 {error, Error} -> 

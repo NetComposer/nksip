@@ -27,7 +27,7 @@
 -define(RE_CALL_ID, "\r\n\s*(i|call\-id)\s*:\s*(.*?)\s*\r\n").
 -define(RE_CONTENT_LENGTH, "\r\n\s*(l|content-length)\s*:\s*(.*?)\s*\r\n").
 
--export([set_config/0, get_config/1, pkg_config/1]).
+-export([set_config/0, get_config/1, srv_config/1]).
 
 -record(nksip_config, {
     global_id :: binary(),
@@ -65,5 +65,5 @@ do_get_config(Key) ->
     element(Key, nklib_util:do_config_get(?MODULE)).
 
 
-pkg_config(PkgId) ->
-    nkserver:get_plugin_config(PkgId, nksip, all_config).
+srv_config(SrvId) ->
+    nkserver:get_plugin_config(SrvId, nksip, all_config).

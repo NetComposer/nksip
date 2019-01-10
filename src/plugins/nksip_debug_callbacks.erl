@@ -53,9 +53,9 @@ nksip_connection_sent(SipMsg, Packet) ->
     continue.
 
 nksip_connection_recv(NkPort, Packet) ->
-    #sipmsg{nkport=NkPort, call_id=CallId, pkg_id=PkgId} = NkPort,
+    #sipmsg{nkport=NkPort, call_id=CallId, srv_id=SrvId} = NkPort,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-    nksip_debug:insert(PkgId, CallId, {Transp, Ip, Port, Packet}),
+    nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
     continue.
 
 
@@ -63,6 +63,6 @@ nksip_connection_recv(NkPort, Packet) ->
 -spec nksip_debug(nkserver:id(), nksip:call_id(), term()) ->
     continue.
 
-nksip_debug(PkgId, CallId, Info) ->
-    nksip_debug:insert(PkgId, CallId, Info),
+nksip_debug(SrvId, CallId, Info) ->
+    nksip_debug:insert(SrvId, CallId, Info),
     continue.

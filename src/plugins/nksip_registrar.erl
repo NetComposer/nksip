@@ -48,19 +48,19 @@
 -spec find(nkserver:id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
-find(PkgId, {Scheme, User, Domain}) ->
-    find(PkgId, Scheme, User, Domain);
+find(SrvId, {Scheme, User, Domain}) ->
+    find(SrvId, Scheme, User, Domain);
 
-find(PkgId, Uri) ->
-    nksip_registrar_lib:find(PkgId, Uri).
+find(SrvId, Uri) ->
+    nksip_registrar_lib:find(SrvId, Uri).
 
 
 %% @doc Gets all current registered contacts for an AOR.
 -spec find(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
-find(PkgId, Scheme, User, Domain) ->
-    nksip_registrar_lib:find(PkgId, Scheme, User, Domain).
+find(SrvId, Scheme, User, Domain) ->
+    nksip_registrar_lib:find(SrvId, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
@@ -68,8 +68,8 @@ find(PkgId, Scheme, User, Domain) ->
 -spec qfind(nkserver:id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
-qfind(PkgId, {Scheme, User, Domain}) ->
-    qfind(PkgId, Scheme, User, Domain).
+qfind(SrvId, {Scheme, User, Domain}) ->
+    qfind(SrvId, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
@@ -77,21 +77,21 @@ qfind(PkgId, {Scheme, User, Domain}) ->
 -spec qfind(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
-qfind(PkgId, Scheme, User, Domain) ->
-    nksip_registrar_lib:qfind(PkgId, Scheme, User, Domain).
+qfind(SrvId, Scheme, User, Domain) ->
+    nksip_registrar_lib:qfind(SrvId, Scheme, User, Domain).
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
 -spec delete(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
-delete(PkgId, Scheme, User, Domain) ->
+delete(SrvId, Scheme, User, Domain) ->
     AOR = {
         nklib_parse:scheme(Scheme),
         nklib_util:to_binary(User),
         nklib_util:to_binary(Domain)
     },
-    nksip_registrar_lib:store_del(PkgId, AOR).
+    nksip_registrar_lib:store_del(SrvId, AOR).
 
 
 %% @doc Finds if a request has a <i>From</i> that has been already registered
@@ -105,11 +105,11 @@ is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
 
 is_registered(SipMsg) ->
     #sipmsg{
-        pkg_id = PkgId,
+        srv_id = SrvId,
         from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
         nkport=NkPort
     } = SipMsg,
-    case catch nksip_registrar_lib:store_get(PkgId, {Scheme, User, Domain}) of
+    case catch nksip_registrar_lib:store_get(SrvId, {Scheme, User, Domain}) of
         {ok, Regs} ->
             nksip_registrar_lib:is_registered(Regs, NkPort);
         _ ->
@@ -147,6 +147,6 @@ request(Req) ->
 -spec clear(nkserver:id()) ->
     ok.
 
-clear(PkgId) ->
-    nksip_registrar_lib:store_del_all(PkgId),
+clear(SrvId) ->
+    nksip_registrar_lib:store_del_all(SrvId),
     ok.

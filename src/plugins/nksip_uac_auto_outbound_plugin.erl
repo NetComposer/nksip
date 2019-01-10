@@ -22,7 +22,7 @@
 -module(nksip_uac_auto_outbound_plugin).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([plugin_deps/0, plugin_config/4, plugin_cache/4, plugin_stop/4]).
+-export([plugin_deps/0, plugin_config/3, plugin_cache/3, plugin_stop/3]).
 
 
 -include("nksip.hrl").
@@ -39,7 +39,7 @@ plugin_deps() ->
     [nksip_uac_auto_register, nksip_outbound].
 
 
-plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_config(_PkgId,  Config, #{class:=?PACKAGE_CLASS_SIP}) ->
     Syntax = #{
         sip_uac_auto_outbound_all_fail => {integer, 1, none},
         sip_uac_auto_outbound_any_ok => {integer, 1, none},
@@ -58,7 +58,7 @@ plugin_config(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     end.
 
 
-plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
+plugin_cache(_PkgId, Config, _Service) ->
     Cache = #nksip_uac_auto_outbound{
         all_fail =maps:get(sip_uac_auto_outbound_all_fail, Config, 30),
         any_ok = maps:get(sip_uac_auto_outbound_any_ok, Config, 90),
@@ -69,6 +69,6 @@ plugin_cache(_PkgId, ?PACKAGE_CLASS_SIP, Config, _Package) ->
     {ok, #{config=>Cache}}.
 
 
-plugin_stop(PkgId, ?PACKAGE_CLASS_SIP, _Config, _Package) ->
-    gen_server:cast(PkgId, nksip_uac_auto_outbound_terminate),
+plugin_stop(SrvId, _Config, _Service) ->
+    gen_server:cast(SrvId, nksip_uac_auto_outbound_terminate),
     ok.

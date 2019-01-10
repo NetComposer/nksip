@@ -50,18 +50,18 @@
 -spec get_handle(nksip:dialog()|nksip:request()|nksip:response()|nksip:handle()) ->
     nksip:handle().
 
-get_handle(#dialog{id=DialogId, pkg_id=PkgId, call_id=CallId}) ->
-    make_handle(PkgId, DialogId, CallId);
+get_handle(#dialog{id=DialogId, srv_id=SrvId, call_id=CallId}) ->
+    make_handle(SrvId, DialogId, CallId);
 
-get_handle(#sipmsg{dialog_id=DialogId, pkg_id=PkgId, call_id=CallId}) ->
-    make_handle(PkgId, DialogId, CallId);
+get_handle(#sipmsg{dialog_id=DialogId, srv_id=SrvId, call_id=CallId}) ->
+    make_handle(SrvId, DialogId, CallId);
 
 get_handle(<<"D_", _/binary>>=DialogId) ->
     DialogId;
 
 get_handle(<<"U_", _/binary>>=Id) ->
-    {PkgId, _, DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
-    make_handle(PkgId, DialogId, CallId);
+    {SrvId, _, DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
+    make_handle(SrvId, DialogId, CallId);
 
 get_handle(_O) ->
     lager:error("NKLOG INVALID HANDLE3: ~p", [_O]),
@@ -73,8 +73,8 @@ get_handle(_O) ->
 
 parse_handle(<<"D_", Rest/binary>>) ->
     case catch binary_to_term(base64:decode(Rest)) of
-        {PkgId, MsgId, CallId} ->
-            {PkgId, MsgId, CallId};
+        {SrvId, MsgId, CallId} ->
+            {SrvId, MsgId, CallId};
         _O ->
             lager:error("NKLOG INVALID HANDLE2: ~p ~p", [_O, Rest]),
             error(invalid_handle)
@@ -95,8 +95,8 @@ get_meta(Field, #dialog{invite=I}=D) ->
             get_handle(D);
         internal_id ->
             D#dialog.id;
-        pkg_id ->
-            D#dialog.pkg_id;
+        srv_id ->
+            D#dialog.srv_id;
         created ->
             D#dialog.created;
         updated ->
@@ -191,7 +191,7 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {PkgId, DialogId, CallId} = parse_handle(Handle),
+    {SrvId, DialogId, CallId} = parse_handle(Handle),
     Fun = fun(Dialog) ->
         case catch get_metas(Fields, Dialog) of
             {'EXIT', {{invalid_field, Field}, _}} -> 
@@ -200,7 +200,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {ok, Values}
         end
     end,
-    case nksip_call:apply_dialog(PkgId, CallId, DialogId, Fun) of
+    case nksip_call:apply_dialog(SrvId, CallId, DialogId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 
@@ -253,7 +253,7 @@ make_id(Class, FromTag, ToTag) ->
 
 
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
-remote_id(<<$D, _/binary>>=DialogId, PkgId) ->
+remote_id(<<$D, _/binary>>=DialogId, SrvId) ->
     {ok, Metas} = nksip_dialog:get_metas([internal_id, local_uri, remote_uri, call_id], DialogId),
     [
         {internal_id, BaseId},
@@ -269,13 +269,13 @@ remote_id(<<$D, _/binary>>=DialogId, PkgId) ->
         RemoteId ->
             RemoteId
     end,
-    make_handle(PkgId, Id, CallId).
+    make_handle(SrvId, Id, CallId).
 
 
 %% @private Hack to find de dialog at another app in the same machine
-change_app(Id, PkgId) ->
+change_app(Id, SrvId) ->
     {_, DialogId, CallId} = parse_handle(Id),
-    make_handle(PkgId, DialogId, CallId).
+    make_handle(SrvId, DialogId, CallId).
 
 
 %% @private
@@ -283,7 +283,7 @@ read_timer(Ref) when is_reference(Ref) -> (erlang:read_timer(Ref))/1000;
 read_timer(_) -> undefined.
 
 
-make_handle(PkgId, DialogId, CallId) ->
-    <<"D_", (base64:encode(term_to_binary({PkgId, DialogId, CallId})))/binary>>.
+make_handle(SrvId, DialogId, CallId) ->
+    <<"D_", (base64:encode(term_to_binary({SrvId, DialogId, CallId})))/binary>>.
 
 

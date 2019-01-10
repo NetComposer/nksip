@@ -37,8 +37,8 @@
 -spec get_gruu_pub(nkserver:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
-get_gruu_pub(PkgId) ->
-    case nksip_app:get({nksip_gruu_pub, PkgId}) of
+get_gruu_pub(SrvId) ->
+    case nksip_app:get({nksip_gruu_pub, SrvId}) of
         undefined ->
             undefined;
         Value ->
@@ -50,8 +50,8 @@ get_gruu_pub(PkgId) ->
 -spec get_gruu_temp(nkserver:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
-get_gruu_temp(PkgId) ->
-    case nksip_app:get({nksip_gruu_temp, PkgId}) of
+get_gruu_temp(SrvId) ->
+    case nksip_app:get({nksip_gruu_temp, SrvId}) of
         undefined ->
             undefined;
         Value ->
@@ -63,7 +63,7 @@ get_gruu_temp(PkgId) ->
 -spec registrar_find(nkserver:id(), nksip:uri()) ->
     [nksip:uri()].
 
-registrar_find(PkgId, Uri) ->
-    nksip_gruu_lib:find(PkgId, Uri).
+registrar_find(SrvId, Uri) ->
+    nksip_gruu_lib:find(SrvId, Uri).
 
     

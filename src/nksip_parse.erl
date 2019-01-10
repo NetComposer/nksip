@@ -214,8 +214,8 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
 %% @private 
 %% @end
 %%----------------------------------------------------------------
--spec packet( PkgId, CallId, NkPort, Packet) -> Result when
-        PkgId       :: nkserver:id(),
+-spec packet( SrvId, CallId, NkPort, Packet) -> Result when
+        SrvId       :: nkserver:id(),
         CallId      :: nksip:call_id(),
         NkPort      :: nkpacket:nkport(),
         Packet      :: binary(),
@@ -224,7 +224,7 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
             | {error, term()} 
             | {reply_error, term(), binary()}.
 
-packet(PkgId, CallId, NkPort, Packet) ->
+packet(SrvId, CallId, NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Packet) of
         {ok, Class, Headers, Body} ->
@@ -248,7 +248,7 @@ packet(PkgId, CallId, NkPort, Packet) ->
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    pkg_id = PkgId,
+                    srv_id = SrvId,
                     ruri = RUri2,
                     call_id = CallId,
                     body = Body,
@@ -281,8 +281,8 @@ packet(PkgId, CallId, NkPort, Packet) ->
 %% @private 
 %% @end
 %%----------------------------------------------------------------
--spec packet(PkgId, NkPort, Packet) -> Result when
-        PkgId       :: nkserver:id(),
+-spec packet(SrvId, NkPort, Packet) -> Result when
+        SrvId       :: nkserver:id(),
         NkPort      :: nkpacket:nkport(),
         Packet      :: binary(),
         Result      :: {ok, #sipmsg{}, Rest} 
@@ -291,7 +291,7 @@ packet(PkgId, CallId, NkPort, Packet) ->
             | {reply_error, term(), binary()},
         Rest        :: binary().
 
-packet(PkgId, #nkport{transp=Transp}=NkPort, Packet) ->
+packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Transp, Packet) of
         {ok, Class, Headers, Body, Rest} ->
@@ -319,7 +319,7 @@ packet(PkgId, #nkport{transp=Transp}=NkPort, Packet) ->
                         end
                 end,
                 Req0 = #sipmsg{
-                    pkg_id = PkgId,
+                    srv_id = SrvId,
                     id = nklib_util:uid(),
                     class = MsgClass,
                     ruri = RUri2,
@@ -363,8 +363,8 @@ packet(PkgId, #nkport{transp=Transp}=NkPort, Packet) ->
         HeaderList  :: [ nksip:header() ].
 
 parse_sipmsg(SipMsg, Headers) ->
-    #sipmsg{pkg_id=PkgId} = SipMsg,
-    {SipMsg2, Hds2} = try ?CALL_PKG(PkgId, nksip_preparse, [SipMsg, Headers]) of
+    #sipmsg{srv_id=SrvId} = SipMsg,
+    {SipMsg2, Hds2} = try ?CALL_SRV(SrvId, nksip_preparse, [SipMsg, Headers]) of
         {ok, ModSipMsg, ModHds} ->
             {ModSipMsg, ModHds}
     catch

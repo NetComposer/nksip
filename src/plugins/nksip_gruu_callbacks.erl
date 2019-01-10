@@ -36,8 +36,8 @@
 
 
 %% @private
-nksip_registrar_request_opts(#sipmsg{ pkg_id=PkgId, contacts=Contacts}=Req, Opts) ->
-    Config = nksip_config:pkg_config(PkgId),
+nksip_registrar_request_opts(#sipmsg{ srv_id=SrvId, contacts=Contacts}=Req, Opts) ->
+    Config = nksip_config:srv_config(SrvId),
     case
         lists:member(<<"gruu">>, Config#config.supported) andalso
         nksip_sipmsg:supported(<<"gruu">>, Req)

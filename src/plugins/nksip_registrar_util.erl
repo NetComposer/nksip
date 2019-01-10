@@ -57,16 +57,16 @@ force_domain(Req, Domain) ->
 
 get_all() ->
     [
-        {PkgId, AOR, nklib_store:get({nksip_registrar, PkgId, AOR}, [])}
-        || {PkgId, AOR} <- all()
+        {SrvId, AOR, nklib_store:get({nksip_registrar, SrvId, AOR}, [])}
+        || {SrvId, AOR} <- all()
     ].
 
 
 %% @private
 print_all() ->
     Now = nklib_util:timestamp(),
-    Print = fun({PkgId, {Scheme, User, Domain}, Regs}) ->
-        io:format("\n --- ~p --- ~p:~s@~s ---\n", [PkgId, Scheme, User, Domain]),
+    Print = fun({SrvId, {Scheme, User, Domain}, Regs}) ->
+        io:format("\n --- ~p --- ~p:~s@~s ---\n", [SrvId, Scheme, User, Domain]),
         lists:foreach(
             fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
                 io:format("    ~s, ~p, ~p\n", [nklib_unparse:uri(Contact), Expire-Now, Q])
@@ -82,8 +82,8 @@ print_all() ->
     integer().
 
 clear() ->
-    Fun = fun(PkgId, AOR, _Val, Acc) ->
-        nklib_store:del({nksip_registrar, PkgId, AOR}),
+    Fun = fun(SrvId, AOR, _Val, Acc) ->
+        nklib_store:del({nksip_registrar, SrvId, AOR}),
         Acc+1
     end,
     fold(Fun, 0).
@@ -91,15 +91,15 @@ clear() ->
 
 %% @private
 all() -> 
-    fold(fun(PkgId, AOR, _Value, Acc) -> [{PkgId, AOR}|Acc] end, []).
+    fold(fun(SrvId, AOR, _Value, Acc) -> [{SrvId, AOR}|Acc] end, []).
 
 
 %% @private
 fold(Fun, Acc0) when is_function(Fun, 4) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_registrar, PkgId, AOR} ->
-                Fun(PkgId, AOR, Value, Acc);
+            {nksip_registrar, SrvId, AOR} ->
+                Fun(SrvId, AOR, Value, Acc);
             _ ->
                 Acc
         end

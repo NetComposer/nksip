@@ -122,7 +122,7 @@ reply(Req, SipReply) ->
 -spec post(nksip:request(), nksip:sip_code(), nksip:optslist()) ->
     nksip:optslist().
 
-post(#sipmsg{ pkg_id=PkgId, class={req, Method}}=Req, Code, Opts) ->
+post(#sipmsg{ srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
     Opts1 = case Code>100 of
         true ->
             [timestamp|Opts];
@@ -177,7 +177,7 @@ post(#sipmsg{ pkg_id=PkgId, class={req, Method}}=Req, Code, Opts) ->
         true ->
             Expires = case nklib_util:get_value(expires, Opts6) of
                 undefined ->
-                    Config = nksip_config:pkg_config(PkgId),
+                    Config = nksip_config:srv_config(SrvId),
                     Config#config.event_expires;
                 Expires0 ->
                     Expires0
