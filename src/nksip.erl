@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,7 +29,7 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_link/2, stop/1, update/2]).
+-export([start_link/2, stop/1, update/2, get_sup_spec/2]).
 
 % -export([plugin_update_value/3]).
 
@@ -55,6 +55,51 @@
 
 %% Internal Name of each started Service
 -type id() :: nkserver:id().
+
+-type config() ::
+    #{
+        plugins => [atom()],
+        sip_listen => binary(),
+        sip_allow => binary(),
+        sip_supported => binary(),
+        sip_timer_t1 => integer(),
+        sip_timer_t2 => integer(),
+        sip_timer_t4 => integer(),
+        sip_timer_c => integer(),
+        sip_trans_timeout => integer(),
+        sip_dialog_timeout => integer(),
+        sip_event_expires => integer(),
+        sip_event_expires_offset => integer(),
+        sip_nonce_timeout => integer(),
+        sip_from => binary(),
+        sip_accept => binary(),
+        sip_events => binary(),
+        sip_route => binary(),
+        sip_no_100 => boolean(),
+        sip_max_calls => binary(),
+        sip_local_host => binary(),
+        sip_local_host6 => binary(),
+        sip_debug => [nkpacket|call|protocol],
+        sip_udp_max_size => integer(),
+
+        tls_verify => host | boolean(),
+        tls_certfile => string(),
+        tls_keyfile => string(),
+        tls_cacertfile => string(),
+        tls_password => string(),
+        tls_depth => 0..16,
+        tls_versions => [atom()],
+
+        idle_timeout => integer(),
+        sctp_out_streams => integer(),
+        sctp_in_streams => integer(),
+        tcp_max_connections => integer(),
+        tcp_listeners => integer(),
+
+        connect_timeout => integer(),
+        no_dns_cache => boolean()
+    }.
+
 
 %% External handle for a request, response, dialog or event
 %% It is a binary starting with:
@@ -163,7 +208,7 @@
 %% @doc Starts a new nksip service
 %% Module must implement nksip behaviour
 
--spec start_link(id(), map()) ->
+-spec start_link(id(), config()) ->
     {ok, pid()} | {error, term()}.
 
 start_link(Id, Config) ->
@@ -177,7 +222,19 @@ stop(Id) ->
     nkserver_srv_sup:stop(Id).
 
 
--spec update(id(), map()) ->
+%% @doc Retrieves a service as a supervisor child specification
+-spec get_sup_spec(id(), config()) ->
+    {ok, supervisor:child_spec()} | {error, term()}.
+
+get_sup_spec(Id, Config) ->
+    Config2 = nklib_util:to_map(Config),
+    Plugins = maps:get(plugins, Config, []),
+    Config3 = Config2#{plugins => [nksip|Plugins]},
+    nkserver:get_sup_spec(?PACKAGE_CLASS_SIP, Id, Config3).
+
+
+
+-spec update(id(), config()) ->
     ok | {error, term()}.
 
 update(Id, Config) ->
