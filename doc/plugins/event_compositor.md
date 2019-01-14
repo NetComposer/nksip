@@ -35,7 +35,7 @@ sip_event_compositor_default_expires|60 (secs)|Default expiration for stored eve
 ### find/3
 
 ```erlang
-find(nksip:srv_id()|term(), AOR::nksip:aor(), Tag::binary()) ->
+find(App::nksip:srv_id()|term(), AOR::nksip:aor(), Tag::binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 ```
 
@@ -54,7 +54,7 @@ For example, you could implement the following [sip_publish/2](../reference/call
 
 ```erlang
 sip_publish(Req, _Call) ->
-	case nksip_request:get_meta(domain, Req) of
+	case nksip_request:meta(domain, Req) of
 		{ok, <<"nksip">>} -> {reply, nksip_event_compositor:process(Req)};
 		_ -> {reply, forbidden}
 	end.
@@ -73,7 +73,7 @@ sip_publish(Req, _Call) ->
 ### clear/1
 
 ```erlang
-clear(nksip:srv_id()) ->
+clear(nksip:srv_name()|nksip:srv_id()) -> 
     ok | callback_error | service_not_found.
 ```
 
@@ -116,6 +116,67 @@ See the [default implementation](../../plugins/src/nksip_event_compositor_callba
 
 ## Examples
 
-See [t14_event.erl](../../test/tests/t14_event.erl) for examples
+```erlang
+-module(example).
+
+-include_lib("nksip/include/nksip.hrl").
+-include_lib("nksip/plugins/include/nksip_event_compositor.hrl").
+-compile([export_all]).
+
+start() ->
+    {ok, _} = nksip:start(client1, [
+        {sip_from, "sip:client1@nksip"},
+        {sip_local_host, "localhost"},
+        {sip_listen, "sip:all:5060, sips:all:5061"}
+    ]),
+    {ok, _} = nksip:start(server, [
+        {sip_from, "sip:server@nksip"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_no_100, true},
+        {sip_events, "nkpublish"}
+        {plugins, [nksip_event_compositor]},
+        {sip_listen, "sip:all:5070, sips:all:5071"}
+    ]).
+
+
+stop() ->
+    ok = nksip:stop(client1),
+    ok = nksip:stop(server).
+
+
+test() ->
+    {ok, 200, [{sip_etag, ETag1}, {expires, 5}]} = 
+        nksip_uac:publish(client1, "sip:user1@127.0.0.1:5070", 
+            [{event, "nkpublish"}, {expires, 5}, {body, <<"data1">>}]),
+
+    AOR = {sip, <<"user1">>, <<"127.0.0.1">>},
+    {ok, #reg_publish{data = <<"data1">>}} = nksip_event_compositor:find(server, AOR, ETag1),
+
+    % This ETag1 is not at the server
+    {ok, 412, []} = nksip_uac:publish(client1, "sip:user1@127.0.0.1:5070", 
+            [{event, "nkpublish"}, {sip_if_match, <<"other">>}]),
+
+    {ok, 200, [{sip_etag, ETag1}, {expires, 0}]} = 
+        nksip_uac:publish(client1, "sip:user1@127.0.0.1:5070", 
+            [{event, "nkpublish"}, {expires, 0}, {sip_if_match, ETag1}]),
+
+    not_found = nksip_event_compositor:find(server, AOR, ETag1),
+
+    {ok, 200, [{sip_etag, ETag2}, {expires, 60}]} = 
+        nksip_uac:publish(client1, "sip:user1@127.0.0.1:5070", 
+            [{event, "nkpublish"}, {expires, 60}, {body, <<"data2">>}]),
+
+    {ok, #reg_publish{data = <<"data2">>}} = nksip_event_compositor:find(server, AOR, ETag2),
+
+    {ok, 200, [{sip_etag, ETag2}, {expires, 1}]} = 
+        nksip_uac:publish(client1, "sip:user1@127.0.0.1:5070", 
+            [{event, "nkpublish"}, {expires, 1}, {sip_if_match, ETag2}, {body, <<"data3">>}]),
+
+    {ok, #reg_publish{data = <<"data3">>}} = nksip_event_compositor:find(server, AOR, ETag2),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (we need no callback module) %%%%%%%%%%%%%%%%%%%%%
+```
 
 

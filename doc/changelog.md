@@ -2,15 +2,10 @@
 
 ## Current (main branch)
 
-* Another really big refactorization
-* Everything updated to Erlang 21 and rebar3
-* Switched form NkSERVER to NkSERVER, as a (much simpler) core
-* Important changes in NkPACKET
-
 
 ## [0.5.0](https://github.com/kalta/nksip/releases/tag/v0.5.0)
 
-* Massive refactorization, removing 21 files and 2.500 changes in the code. All non-SIP functionality has been extracted into other projects (NkLIB, NkPACKET and NkSERVER).
+* Massive refactorization, removing 21 files and 2.500 changes in the code. All non-SIP functionality has been extracted into other projects (NkLIB, NkPACKET and NkSERVICE).
 * SipApps converted to Services.
 * New configuration system.
 * New plugin system.

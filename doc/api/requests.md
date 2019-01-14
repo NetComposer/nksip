@@ -16,11 +16,12 @@ Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a request's handle
 [srv_id/1](#srv_id1)|Gets then Service's _internal name_
+[srv_name/1](#srv_name1)|Gets the Service's _user name_
 [method/1](#method1)|Gets the method of the request
 [body/1](#body1)|Gets the body of the request
 [call_id/1](#call_id1)|Gets the Call-ID header of the request
-[get_meta/2](#get_meta2)|Gets specific metadata from the request
-[get_metas/2](#get_metas2)|Gets specific metadata from the request
+[meta/2](#meta2)|Gets specific metadata from the request
+[metas/2](#meta2)|Gets specific metadata from the request
 [header/2](#header2)|Gets the values for a header or headers in a request
 [reply/2](#reply2)|Sends a reply to a request using a handle
 [is_local_ruri/1](#is_local_ruri1)|Checks if this request would be sent to a local address in case of beeing proxied
@@ -42,6 +43,14 @@ nksip_request:srv_id(nksip:request()|nksip:handle()) ->
     {ok, nksip:srv_id()} | {error, term()}.
 ```
 Gets then Service's _internal name_.
+
+
+### srv_name/1
+```erlang
+nksip_request:srv_name(nksip:request()|nksip:handle()) -> 
+    {ok, nksip:srv_name()} | {error, term()}.
+```
+Gets the Service's _user name_
 
 
 ### method/1
@@ -68,9 +77,9 @@ nksip_request:call_id(nksip:request()|nksip:handle()) ->
 Gets the Call-ID header of the request.
 
 
-### get_meta/2
+### meta/2
 ```erlang
-nksip_request:get_meta(Meta::nksip_sipmsg:field(), nksip:request()|nksip:handle()) ->
+nksip_request:meta(Meta::nksip_sipmsg:field(), nksip:request()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets specific metadata from the request.
@@ -78,9 +87,9 @@ Gets specific metadata from the request.
 See [Metadata Fields](../reference/metadata.md) for a description of available fields.
 
 
-### get_metas/2
+### metas/2
 ```erlang
-nksip_request:get_metas(Meta::[nksip_sipmsg:field()], nksip:request()|nksip:handle()) ->
+nksip_request:meta(Meta::[nksip_sipmsg:field()], nksip:request()|nksip:handle()) ->
     {ok, [{nksip_sipmsg:field(), term()}]} | {error, term()}.
 ```
 Gets specific metadata from the request.

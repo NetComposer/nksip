@@ -1,6 +1,6 @@
 # Receiving Requests
 
-Once started a _Service_ with a _callback module_, it starts listening on a set of transports, ip addresses and ports, and can start receiving requests from other SIP endpoints. For each received request, NkSIP will call specific functions in your callback module. The full list of callback functions is described in [Callback Functions](../reference/callback_functions.md) and the default implementation of each one is in the [nksip_callbacks.erl](../../src/nksip_callbacks.erl) module.
+Once started a _Service_ with a name, a _callback module_ and a group of options, it starts listening on a set of transports, ip addresses and ports, and can start receiving requests from other SIP endpoints. For each received request, NkSIP will call specific functions in your callback module. The full list of callback functions is described in [Callback Functions](../reference/callback_functions.md) and the default implementation of each one is in the [nksip_callbacks.erl](../../src/nksip_callbacks.erl) module.
 
 All of the callback functions are optional, so you only have to implement the functions you need. For example, if you need to perform authentication, you should implement [sip_authorize/3](../reference/callback_functions.md#sip_authorize3). If you don't implement it, no authorization would be done.
 
@@ -38,6 +38,6 @@ Many of the functions in this group allow you to send a response to the incoming
 
 ## Backend
 
-NkSIP uses the NkSERVER (https://github.com/NetComposer/nkserver) framework to process services, and it offers some callbacks [on its own](https://github.com/NetComposer/nkserver/blob/master/src/nkserver_callbacks.erl).
+NkSIP uses the NkSERVICE (https://github.com/Nekso/nkservice) framework to process services, and it offers some callbacks [on its own](https://github.com/Nekso/nkservice/blob/master/src/nkservice_callbacks.erl).
 
 Under the hood, each started service starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the service. See [start a Service](start_a_service.md).

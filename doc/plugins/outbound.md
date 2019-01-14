@@ -41,4 +41,4 @@ None
 
 ## Examples
 
-See [t21_outbound.erl](../../test/tests/t21_outbound.erl) for examples
+See [outbound_test.erl](../../test/outbound_test.erl) for examples

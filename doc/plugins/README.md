@@ -12,4 +12,5 @@
 * [Auto Register](auto_register.md)
 * [Auto Outbound](auto_outbound.md)
 * [Trace](trace.md)
+* [Stats](stats.md)
 

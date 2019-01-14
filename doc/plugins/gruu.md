@@ -40,14 +40,14 @@ None
 ### get_gruu_pub/1
 
 ```erlang
-get_gruu_pub(nksip:srv_id()) ->
+get_gruu_pub(nksip:srv_name()|nksip:srv_id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 ```
 Gets the last detected public GRUU
 
 ### get_gruu_temp/1
 ```erlang
-get_gruu_temp(nksip:srv_id()) ->
+get_gruu_temp(nksip:srv_name()|nksip:srv_id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 ```
 
@@ -57,7 +57,7 @@ Gets the last detected temporary GRUU
 ### registrar_find/2
 
 ```
-registrar_find(nksip:srv_id(), nksip:uri()) ->
+registrar_find(nksip:srv_name()|nksip:srv_id(), nksip:uri()) ->
     [nksip:uri()].
 ```
 
@@ -73,4 +73,4 @@ None
 
 ## Examples
 
-See [t15_gruu.erl](../../test/tests/t15_gruu.erl) for examples
+See [gruu_test.erl](../../test/gruu_test.erl) for examples

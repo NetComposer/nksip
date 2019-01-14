@@ -86,7 +86,7 @@ If you want to be able to _CANCEL_ the request, you should use the `async` optio
 
 If a 491 response is received, it usually means that the remote party is starting another reINVITE transaction right now. You should call `nksip_response:wait_491/0` and try again.
 
-For successful (2xx) responses, the first _meta_ returned value is allways `{dialog, DialogHandle}`, even if the `get_meta` option is not used.
+For successful (2xx) responses, the first _meta_ returned value is allways `{dialog, DialogHandle}`, even if the `meta` option is not used.
 
 
 
@@ -195,7 +195,7 @@ Sends an _REFER_ for a remote party.
 
 Asks the remote party to start a new connection to the indicated uri in the mandatory `refer_to` parameter. If a 2xx response is received, the remote party has agreed and will start a new connection. A new subscription will be stablished, and you will start to receive NOTIFYs. Implement the callback function [sip_notify/2](../reference/callback_functions.md#sip_notify2) to receive them, filtering using the indicated `subscription`.
 
-In case of 2xx response, the first returned value is allways `{subscription, SubscriptionHandle}`, even if the `get_meta` option is not used.
+In case of 2xx response, the first returned value is allways `{subscription, SubscriptionHandle}`, even if the `meta` option is not used.
 
 If you activate the [nksip_refer plugin](../plugins/refer.md), NkSIP processes this information automatically.
 

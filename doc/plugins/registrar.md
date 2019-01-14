@@ -52,7 +52,7 @@ sip_registrar_max_time|86400 (24h)|Maximum registration expiration
 ### find/2
 
 ```erlang
-find(nksip:srv_id(), nksip:aor() | nksip:uri()) ->
+find(nksip:srv_name()|nksip:srv_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 ```
 
@@ -64,7 +64,7 @@ Finds the registered contacts for this Service and _AOR_ or _Uri_, for example
 ### find/4
 
 ```erlang
-find(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
+find(nksip:srv_name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 ```
 
@@ -74,7 +74,7 @@ Similar to `find/2`.
 ### qfind/2
 
 ```erlang
-qfind(nksip:srv_id(), AOR::nksip:aor()) ->
+qfind(nksip:srv_name()|nksip:srv_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 ```
 
@@ -102,7 +102,7 @@ Using this example, when a new request arrives at our proxy for domain 'nksip' a
 ### qfind/4
 
 ```erlang
-qfind(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
+qfind(nksip:srv_name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 ```
 
@@ -112,7 +112,7 @@ Similar to `qfind/2`
 ### delete/4
 
 ```erlang
-delete(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
+delete(nksip:srv_name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 ```
 
@@ -146,7 +146,7 @@ For example, you could implement the following [sip_register/2](../reference/cal
 
 ```erlang
 sip_register(Req, _Call) ->
-	case nksip_request:get_meta(domain, Req) of
+	case nksip_request:meta(domain, Req) of
 		{ok, <<"nksip">>} -> {reply, nksip_registrar:process(Req)};
 		_ -> {reply, forbidden}
 	end.
@@ -185,4 +185,68 @@ See the [default implementation](../../plugins/src/nksip_registrar_callbacks.erl
 
 ## Examples
 
-See [t08_register.erl](../../test/tests/t08_register.erl) for examples
+```erlang
+-module(example).
+-compile([export_all]).
+
+-include_lib("nksip/include/nksip.hrl").
+
+
+start() ->
+    {ok, _} = nksip:start(server, [
+        {sip_from, "sip:server@nksip"},
+        {sip_registrar_min_time, 60},
+        {plugins, [nksip_registrar]},
+        {sip_listen, "sip:all:5060, sips:all:5061"}
+    ]),
+    {ok, _} = nksip:start(client, ?MODULE, [], [
+        {sip_from, "sip:client@nksip"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_listen, "sip:all:5070, sips:all:5071"}
+    ]).
+
+stop() ->
+    ok = nksip:stop(server),
+    ok = nksip:stop(client).
+
+
+test1() ->
+    {ok, 200, []} = nksip_uac:register(client, "sip:127.0.0.1", [unregister_all]),
+    [] = nksip_registrar:find(server, sip, <<"client">>, <<"nksip">>),
+    
+    {ok, 200, []} = nksip_uac:register(client, "sip:127.0.0.1", [contact]),
+    [
+        #uri{
+            user = <<"client">>,
+            domain = <<"127.0.0.1">>,
+            port = 5070
+        }
+    ] = nksip_registrar:find(server, sip, "client", "nksip"),
+    {ok, 200, []} = nksip_uac:register(client, "sip:127.0.0.1", [unregister_all]),
+    [] = nksip_registrar:find(server, sip, <<"client">>, <<"nksip">>),
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+sip_route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:srv_name(Req) of
+        {ok, server} ->
+            Opts = [record_route, {insert, "x-nk-server", "server"}],
+            case lists:member(Domain, [<<"nksip">>, <<"127.0.0.1">>]) of
+                true when User =:= <<>> ->
+                    process;
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:find(server, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList, Opts}
+                    end;
+                _ ->
+                    {proxy, ruri, Opts}
+            end;
+        {ok, client} ->
+            process
+    end.
+```

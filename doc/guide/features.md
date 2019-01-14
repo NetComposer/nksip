@@ -1,7 +1,7 @@
 # Features
 
 ## NkSIP main features are:
-* Full support for all currently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as an UAC, an UAS or and Proxy.
+* Full support for all curently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as an UAC, an UAS or and Proxy.
 * Can be used to very easily develop any possible SIP application: endpoints, stateful proxies with serial and parallel forking, stateless proxies, B2BUAs, application servers, registrars, SBCs, load generators, etc. 
 * Transports UDP, TCP, TLS, SCTP, WS and WSS (websockets) are available, all of them capable of handling thousands of simultaneous sessions.
 * Full SIP Event support.

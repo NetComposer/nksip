@@ -19,9 +19,10 @@ Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a dialog's handle
 [srv_id/1](#srv_id1)|Gets then Service's _internal name_
+[srv_name/1](#srv_name1)|Gets the Service's _user name_
 [call_id/1](#call_id1)|Gets the Call-ID header of the dialog
-[get_meta/2](#get_meta2)|Gets specific metadata from the dialog
-[get_metas/2](#get_meta2)|Gets specific metadata from the dialog
+[meta/2](#meta2)|Gets specific metadata from the dialog
+[metas/2](#meta2)|Gets specific metadata from the dialog
 [get_dialog/2](#get_dialog2)|Gets a dialog object from a request and a call objects
 [get_all/0](#get_all0)|Get the handles of all started dialogs
 [get_all/2](#get_all2)|Gets all current started dialog handles belonging to App and having Call-ID
@@ -50,6 +51,14 @@ nksip_dialog:srv_id(nksip:dialog()|nksip:handle()) ->
 Gets then Service's _internal name_.
 
 
+### srv_name/1
+```erlang
+nksip_dialog:srv_name(nksip:dialog()|nksip:handle()) -> 
+    {ok, nksip:srv_name()}.
+```
+Gets the Service's _user name_
+
+
 ### call_id/1
 ```erlang
 nksip_dialog:call_id(nksip:dialog()|nksip:handle()) ->
@@ -58,9 +67,9 @@ nksip_dialog:call_id(nksip:dialog()|nksip:handle()) ->
 Gets the Call-ID header of the dialog.
 
 
-### get_meta/2
+### meta/2
 ```erlang
-nksip_dialog:get_meta(nksip_dialog:field(), nksip:dialog()|nksip:handle()) ->
+nksip_dialog:meta(nksip_dialog:field(), nksip:dialog()|nksip:handle()) -> 
     {ok, term()} | {error, term()}.
 ```
 Gets specific metadata from the dialog.
@@ -68,9 +77,9 @@ Gets specific metadata from the dialog.
 See [Metadata Fields](../reference/metadata.md) for a description of available fields.
 
 
-### get_metas/2
+### metas/2
 ```erlang
-nksip_dialog:get_metas([nksip_dialog:field()], nksip:dialog()|nksip:handle()) ->
+nksip_dialog:meta([nksip_dialog:field()], nksip:dialog()|nksip:handle()) -> 
     {ok, [{field(), term()}]} | {error, term()}.
 ```
 Gets specific metadata from the dialog.
@@ -96,7 +105,7 @@ Get the handles of all started dialogs.
 
 ### get_all/2
 ```erlang
-nksip_dialog:get_all(nksip:srv_id(), CallId::nksip:call_id()) ->
+nksip_dialog:get_all(App::nksip:srv_id(), CallId::nksip:call_id()) ->
     [nksip:handle()].
 ```
 Gets all current started dialog handles belonging to a Service and having a specific _Call-ID_.

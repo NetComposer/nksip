@@ -7,7 +7,7 @@ SIP is the standard protocol related to IP voice, video and remote sessions, sup
 
 NkSIP takes care of much of the SIP complexity, while allowing full access to requests and responses. 
 
-NkSIP allows you to run any number of **Services**. To start a service, you define a _name_, and, optionally, a set of _transports_ to start listening on and a **callback module**. Currently you must use [Erlang]("http://www.erlang.org") to develop NkSIP applications (in the near future, it will be possible to use other languages).
+NkSIP allows you to run any number of **Services**. To start a service, you define a _name_, and, optionally, a set of _transports_ to start listening on and a **callback module**. Currently you must use [Erlang]("http://www.erlang.org") to develop NkSIP applications (in the near future, it will be possible to use Javascript via node.js, see the [roadmap](../roadmap.md)). 
 
 Once started a service, you can start sending SIP requests, and when your application starts receiving requests, specific functions in the callback module will be called. Each defined callback function has a _sane_ default functionality, so you only have to implement the functions you need to customize. You don't have to deal with transports, retransmissions, authentications or dialog management. All of those aspects are managed by NkSIP in a standard way. In case you need to, you can implement the related callback functions.
 

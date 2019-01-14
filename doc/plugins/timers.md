@@ -74,4 +74,4 @@ None
 
 ## Examples
 
-See [t20_timers.erl](../../test/tests/t20_timers.erl) for examples
+See [timer_test.erl](../../test/timer_test.erl) for examples

@@ -24,11 +24,6 @@ ws_timeout|`integer()`|180000|Default WS timeout (msecs)
 connect_timeout|`integer()`|30000|Default connect timeout (msecs)
 sctp_out_streams|`integer()`|10|Default SCTP out streams
 sctp_in_streams|`integer()`|10|Default SCTP in streams
-main_ip|`string()|binary()|auto`|auto|Main IP to use
-main_ip6|`string()|binary()|auto`|auto|Main IPv6 to use
-ext_ip|`string()|binary()|auto`|auto|External IP to use
-ext_ip6|`string()|binary()|auto`|auto|External IPv6 to use
-tls_verify|`host|true|false`|false|Custom certificate file
 tls_certfile|`string()`|-|Custom certificate file
 tls_keyfile|`string()`|-|Custom key file
 tls_cacertfile|`string()`|-|Custom CA certificate file
@@ -37,12 +32,12 @@ tls_verify|`boolean()`|false|If we must check certificate
 tls_depth|`integer()`|0|TLS check depth
 
 
-### nkserver
+### nkservice
 
 Name|Type|Default|Comments
 ---|---|---|---
-logPath|`string`|"./log"|Directory for NkSERVER log files (you must configure lager also)
-saveDispatcherSource|`boolean()`|false|True to save generated dispatcher code
+log_path|`string`|"./log"|Directory for NkSERVICE files (you must configure lager also)
+log_level|`debug`&#124;`info`&#124;`notice`&#124;`warning`&#124;`error`|`notice`|Current global log level
 
 
 ### nksip
@@ -50,23 +45,8 @@ saveDispatcherSource|`boolean()`|false|True to save generated dispatcher code
 Name|Type|Default|Comments
 ---|---|---|---
 sync_call_time|`integer()`|30000|Timeout for internal synchronous calls
-max_calls|`integer()`|100000|Maximum number of simultaneous calls (for all services)
+global_max_calls|`integer()`|100000|Maximum number of simultaneous calls (for all services)
 msg_routers|`integer()`|16|Number of parallel SIP processors
-
-
-### lager
-
-See specific lager configuration
-
-
-## Service Configuration
-
-When starting each service, all sip_-class global configuration options can be used, and also:
-
-Name|Type|Default|Comments
----|---|---|---
-plugins|`atom`|[]|List of plugins to use
-sip_listen|`atom`|"sip:all"|List of transports to use.
 sip_allow|`string()`&#124;`binary()`|"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,UPDATE,SUBSCRIBE,NOTIFY,REFER,MESSAGE"|Default _Allow_ header
 sip_supported|`string()`&#124;`binary()`|"path"|Default _Supported_ header
 sip_timer_t1|`integer()`|500|Standar SIP T1 timer (msecs)
@@ -87,11 +67,25 @@ sip_max_calls|`integer()`|100000|Maximum number of simultaneous calls (for each 
 sip_local_host|auto&#124;`string()`&#124;`binary()`&#124;|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_. If set to `auto` NkSIP will use the IP of the transport selected in every case. If that transport is listening on all addresses NkSIP will try to find the best IP using the first valid IP among the network interfaces `ethX` and `enX`, or localhost if none is found
 sip_local_host6|auto&#124;`string()`&#124;`binary()`|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_ for IPv6 transports. See `local_host` option
 sip_udp_max_size|`integer()`|65507|Maximum UDP packet size. Bigger packets will be sent using TCP
-idle_timeout|`integer()`|(depends on transport)|Default connection idle timeout
-connect_timeout|(global)|Default outbound connection idle timeout
-sctp_out_streams|`integer()`|10|Default SCTP out streams
-sctp_in_streams|`integer()`|10|Default SCTP in streams
-tcp_listeners|`integer()`|10|Default number of TCP listeners
+
+### lager
+
+See specific lager configuration
+
+
+## Service Configuration
+
+When starting each service, all sip_-class global configuration options can be used, and also:
+
+Name|Type|Default|Comments
+---|---|---|---
+plugins|`atom`|[]|List of plugins to use
+sip_listen|`atom`|"sip:all"|List of transports to use.
+service_idle_timeout|`integer()`|(depends on transport)|Default connection idle timeout
+service_connect_timeout|(global)|Default outbound connection idle timeout
+service_sctp_out_streams|`integer()`|10|Default SCTP out streams
+service_sctp_in_streams|`integer()`|10|Default SCTP in streams
+tcp_listeners|`integer()`|10|Default number of TCP listenersº
 tls_certfile|`string()`|-|Custom certificate file
 tls_keyfile|`string()`|-|Custom key file
 tls_cacertfile|`string()`|-|Custom CA certificate file

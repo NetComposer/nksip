@@ -1,6 +1,6 @@
 # Callback Functions
 
-Each Service must may a _callback module_. The functions this callback module can implement are described here.
+Each Service must provide a _callback module_. The functions this callback module can implement are described here. 
 * See [Receiving Requests](../guide/receiving_requests.md) for an introduction. 
 * The full list of reply options is available [here](sending_options.md).
 * The default implementation of each callback can be reviewed in [nksip_callbacks.erl](../../src/nksip_callbacks.erl).
@@ -30,6 +30,18 @@ Callback|Reason
 [sip_message/2](#sip_message2)|Called to process a MESSAGE request
 [sip_dialog_update/3](#sip_dialog_update3)|Called when a dialog's state changes
 [sip_session_update/3](#session_update3)|Called when a SDP session is created or updated
+
+
+## Gen_server Callbacks
+
+Callback|Reason
+---|---
+[init/2](#init2)|Called when the Service is launched using `nksip:start/2`
+[terminate/2](#terminate2)|Called when the Service is stopped
+[handle_call/3](#handle_call3)|Called when a direct call to the Service process is made using `nksip:call/2` or `nksip:call/3`
+[handle_cast/2](#handle_cast2)|Called when a direct cast to the Service process is made using `nksip:cast/2`
+[handle_info/2](#handle_info2)|Called when a unknown message is received at the Service process
+[code_change/3](#code_change3)|See gen_server's documentation
 
 
 
@@ -145,7 +157,8 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
         _ when Domain =:= <<"127.0.0.1">> ->
             proxy;
         _ ->
-            case nksip_registrar:find(?MODULE, Scheme, User, Domain) of
+            {ok, App} = nksip_request:srv_name(Req),
+            case nksip_registrar:find(App, Scheme, User, Domain) of
                 [] -> 
                     {reply, temporarily_unavailable};
                 UriList -> 
@@ -181,7 +194,7 @@ If the you don't implement this function, and the [nksip_registrar](../plugins/r
 If this function is not defined, and the registrar plugin is not activated, a _405 Method not allowed_ would be replied. 
 
 ```erlang
-register(ReqId::nksip:handle(), Meta::get_meta(), From::from(), State::term()) ->
+register(ReqId::nksip:handle(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 register(Req, Call) ->
@@ -224,7 +237,7 @@ Example:
 sip_invite(Req, Call) ->
     {ok, ReqId} = nksip_request:get_handle(Req),
     HasSDP = case nksip_dialog:get_dialog(Req, Call) of
-        {ok, Dialog} -> {true, nksip_dialog:get_meta(invite_local_sdp, Dialog)};
+        {ok, Dialog} -> {true, nksip_dialog:meta(invite_local_sdp, Dialog)};
         {error, _} -> false
     end,
     proc_lib:spawn(
@@ -319,7 +332,7 @@ If you reply a 2xx response like `ok` or `accepted`, a dialog and a subscription
 Example:
 ```erlang
 subscribe(Req, Call) ->
-    case nksip_request:get_meta(event, Req) of
+    case nksip_request:meta(event, Req) of
         {ok, {<<"my_event">>, _}} -> {reply, {ok, [{expires, 10}]}};
         _ -> {reply, forbidden}
     end.
@@ -368,7 +381,7 @@ If you reply a 2xx response like `ok`  or `accepted`, a dialog and a subscriptio
 This would be a typical implementation:
 ```erlang
 refer(Req, Call) ->
-    case nksip_request:get_meta(refer_to, Req) of
+    case nksip_request:meta(refer_to, Req) of
         {ok, Uri} ->
             {ok, SubsId} = nksip_subscription:get_handle(Req), 
             {ok, AppId} = nksip_request:srv_id(Req),

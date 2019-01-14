@@ -10,11 +10,11 @@ If you want to embed NkSIP in your own Erlang application, and you are using _re
 
 ```erlang
 {deps, [
-  {nksip, {git, "git://github.com/kalta/nksip", {branch, "master"}}}
+  {nksip, ".*", {git, "git://github.com/kalta/nksip", {branch, "master"}}}
 ]}.
 ```
  
-You can then start NkSIP starting all dependencies (see [nksip.app.src](../../src/nksip.app.src)) and finally start `nksip` Erlang application.
+Then you will have to setup in your erlang environment any [configuration parameter](../reference/configuration.md) you want to change from NkSIP's defaults (usually in your `app.config` file), for `nksip` but also some dependant applications like `nkservice`, `nkpacket` or `lager`. You can then start NkSIP starting all dependencies (see [nksip.app.src](../../src/nksip.app.src)) and finally start `nksip` Erlang application.
 
 
 
@@ -22,7 +22,7 @@ You can then start NkSIP starting all dependencies (see [nksip.app.src](../../sr
 
 You can start NkSIP stand alone in the following way. First you will need to download and compile it:
 ```
-> git clone https://github.com/NetComposer/nksip
+> git clone https://github.com/kalta/nksip
 > cd nksip
 > make
 ```
@@ -34,4 +34,5 @@ Then you can start a Erlang shell that automatically starts NkSIP and its depend
 > make shell
 ```
 
-NkSIP will use the environment from file [shell.config](../../config/shell.config).
+NkSIP will use the environment from file `app.config` and the Erlang virtual machine parameters from file `vm.args`, both on the `priv` directory. Update any [configuration parameter](../reference/configuration.md) you want to change from NkSIP's defaults in the `app.config` file before starting.
+

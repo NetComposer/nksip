@@ -1,5 +1,5 @@
 # Metadata Fields
-NkSIP allows the retrieval of specific information from requests, responses, dialogs and subscriptions.
+NkSIP allows the retrieval of specific information from requests, reponses, dialogs and subscriptions.
 The available options are defined here for:
 
 * [Requests and Responses](#requests-and-responses-metadata) (See [requests](../api/requests.md) and  [responses](../api/responses.md) APIs).
@@ -11,12 +11,13 @@ Keep in mind that activated plugins can install aditional metadata fields. See t
 
 
 ## Request and Responses Metadata
-Accesible when calling [nksip_request:get_meta/2](../api/requests.md#meta2), [nksip_response:get_meta/2](../api/responses.md#meta2) and when using the option `get_meta` in the [requests sending functions](../reference/sending_options.md).
+Accesible when calling [nksip_request:meta/2](../api/requests.md#meta2), [nksip_response:meta/2](../api/responses.md#meta2) and when using the option `meta` in the [requests sending functions](../reference/sending_options.md).
 
 Name|Type|Description
 ---|---|---
 handle|`nksip:handle()`|Request or response's handle
 srv_id|`nksip:srv_id()`|Internal Service name this request or response belongs to
+srv_name|`term()`|User Service name this request or response belongs to
 dialog_handle|`nksip:handle()`|Dialog's handle of this request or response
 subscription_handle|`nksip_id()`|Subscription's handle of this request or response
 proto|`nksip:protocol()`|Transport protocol
@@ -66,12 +67,13 @@ Besides this values, you can use any `string()` or `binary()` to the get that he
 
 
 ## Dialogs Metadata
-Available when calling [nksip_dialog:get_meta/2](../api/dialogs.md#meta2).
+Available when calling [nksip_dialog:meta/2](../api/dialogs.md#meta2).
 
 Name|Type|Description
 ---|---|---
 handle|`nksip:handle()`|Dialog's handle
 srv_id|`nksip:srv_id()`|Internal Service name this dialog belongs to
+srv_name|`term()`|User Service name this dialog belongs to
 created|`nksip_lib:timestamp()`|Creation date
 updated|`nksip_lib:timestamp()`|Last update
 local_seq|`integer()`|Local CSeq number
@@ -100,7 +102,7 @@ to_tag|`binary()`|To tag
 
 
 ## Subscriptions Metadata
-Available when calling [nksip_subscriptions:get_meta/2](../api/subscriptions.md#meta2).
+Available when calling [nksip_subscriptions:meta/2](../api/subscriptions.md#meta2).
 All dialog options are available for subscriptions, and also:
 
 Name|Type|Description

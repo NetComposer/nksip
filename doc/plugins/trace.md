@@ -33,48 +33,78 @@ None
 
 Option|Default|Description
 ---|---|---
-sip_trace|false|Configures tracing for this Service (see bellow)
-sip_trace_file|-|File path to trace to
-sip_trace_ips|-|Ips to focus on
+sip_trace|-|Configures tracing for this Service (see bellow)
 
-Ips can be an IP (like `"10.0.0.1"`), list of IPs (like `["10.0.0.1", "10.0.0.2"]`) or a regular expression or list of regular expressions (like `["10.0.0.1", "^11.*"]`)
+You can use the following options for `nksip_trace`:
+* `{sip_trace, console}`: Tracing for all IPs will be sent to the console
+* `{sip_trace, File::string()}`: Tracing will be sent to this file
+* `{sip_trace, {console, IpSpec::list()}}`: Trace to console, but only for this IPs (see bellow)
+* `{sip_trace, {File::string(), IpSpec::list()}}`: Trace to file, but only for this IPs (see bellow)
+
+IpSpec can be an IP (like `"10.0.0.1"`), list of IPs (like `["10.0.0.1", "10.0.0.2"]`) or a regular expression or list of regular expressions (like `["10.0.0.1", "^11.*"]`)
 
 Tracing will be much faster if you don't use IP filtering.
 
 
 ## API functions
 
+### get_all/0
+```erlang
+get_all() ->
+    [{App::nksip:srv_name(), File::console|binary(), IpList::all|[binary()]}].
+```
+
+Get all Services currently tracing messages.
+
+
+### start/0
+```erlang
+start() -> 
+    [{nksip:srv_name(), ok|{error, term()}}].
+```
+
+Equivalent to `start(AppId, console, all)` for all started Services.
+
 
 ### start/1
 ```erlang
-start(nksip:srv_id()) ->
+start(App::nksip:srv_id()|nksip:srv_name()) -> 
     ok | {error, term()}.
 ```
 
-Equivalent to `start(SrvId, console, all)`.
+Equivalent to `start(AppId, console, all)` for a started Service.
 
 
 ### start/2
 ```erlang
-start(nksip:srv_id(), File::file()) ->
+start(App::nksip:srv_id()|nksip:srv_name(), File::file()) -> 
     ok | {error, term()}.
 ```
 
-Equivalent to `start(SrvId, File, all)` for a started Service.
+Equivalent to `start(AppId, File, all)` for a started Service.
 
 
 ### start/3
 ```erlang
-start(nksip:srv_id(), file(), ip_list()) ->
+start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()) ->
     ok | {error, term()}.
 ```
 
-Configures a Service to start tracing SIP messages.
+Configures a Service to start tracing SIP messages. Under the hood, it calls `nksip:update/2` to modify the Service configuration and include the corresponding `nksip_trace` option.
+
+
+### stop/0
+```erlang
+stop() -> 
+    ok.
+```
+
+Stop all tracing processes, closing all open files.
 
 
 ### stop/1
 ```erlang
-stop(nksip:srv_id()) ->
+stop(App::nksip:srv_id()|nksip:srv_name()) ->
     ok | {error, term()}.
 ```
 
@@ -97,4 +127,27 @@ print(Tag::string()|binary(), Msg::nksip:request()|nksip:response()) ->
 ```
 
 Pretty-print a `nksip:request()` or `nksip:response()` with a Tag.
+
+
+## Examples
+
+```erlang
+nksip_trace:start("my_app", "/tmp/1.trace", ["10.0.0.1", "^11.*"]).
+```
+
+or using the Service configuration file:
+
+```erlang
+nksip:start("my_app", nksip_callbacks, [], [
+				{plugins, [nksip_trace]},
+				{sip_trace, {"/tmp/1.trace", ["10.0.0.1", "^11.*"]}}]).
+```
+
+removing the trace:
+
+```erlang
+nksip:update("my_app", [{plugins, []}]).
+```
+
+
 
