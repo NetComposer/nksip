@@ -34,10 +34,8 @@
 * ~~Bug corrections~~.
 
 
-## v0.6 (development branch)
-* R19 / rebar3 support
-* Extract SDP into another project
-
+## v0.6
+* ~~R21 / rebar3 support~~
 
 ## No date
 
