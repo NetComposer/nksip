@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,13 +24,15 @@
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
 -export([find/2, find/4, qfind/4, is_registered/2, request/1]).
 -export([get_info/4, make_contact/1]).
 -export([store_get/2, store_del/2, store_del_all/1]).
+-export_type([index/0]).
+-include_lib("nkserver/include/nkserver.hrl").
 
 -define(AES_IV, <<"12345678abcdefgh">>).
 
@@ -56,9 +58,8 @@
 %% Internal
 %% ===================================================================
 
-
 %% @private
--spec find(nksip:srv_id(), nksip:uri()) ->
+-spec find(nkserver:id(), nksip:uri()) ->
     [nksip:uri()].
 
 find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=_Opts}) ->
@@ -66,7 +67,7 @@ find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=_Opts}) ->
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
 find(SrvId, Scheme, User, Domain) ->
@@ -75,7 +76,7 @@ find(SrvId, Scheme, User, Domain) ->
 
 
 %% @private
--spec qfind(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
 qfind(SrvId, Scheme, User, Domain) ->
@@ -103,14 +104,16 @@ qfind_iter([], Acc) ->
 
 
 %% @private Gets all current stored info for an AOR.
--spec get_info(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
+-spec get_info(nkserver:id(), nksip:scheme(), binary(), binary()) ->
     [#reg_contact{}].
 
 get_info(SrvId, Scheme, User, Domain) ->
     AOR = {Scheme, nklib_util:to_binary(User), nklib_util:to_binary(Domain)},
     case catch store_get(SrvId, AOR) of
-        {ok, RegContacts} -> RegContacts;
-        _ -> []
+        {ok, RegContacts} ->
+            RegContacts;
+        _ ->
+            []
     end.
 
 
@@ -135,10 +138,12 @@ is_registered([
                 #reg_contact{contact=Contact}|R], 
                 #nkport{transp=Transp, remote_ip=Ip, remote_port=Port}=NkPort) ->
     case nksip_parse:transport(Contact) of
-        {Transp, Domain, Port} -> 
+        {Transp, Domain, Port} ->
             case nklib_util:to_ip(Domain) of
-                {ok, Ip} -> true;
-                _ -> is_registered(R, NkPort)
+                {ok, Ip} ->
+                    true;
+                _ ->
+                    is_registered(R, NkPort)
             end;
         _ ->
             is_registered(R, NkPort)
@@ -149,18 +154,19 @@ is_registered([
 -spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(#sipmsg{srv_id=SrvId, to={To, _}}=Req) ->
+request(#sipmsg{ srv_id=SrvId, to={To, _}}=Req) ->
     try
-        {continue, [Req1, Opts]} = SrvId:nks_sip_registrar_request_opts(Req, []),
+        {continue, [Req1, Opts]} =  ?CALL_SRV(SrvId, nksip_registrar_request_opts, [Req, []]),
         process(Req1, Opts),
         {ok, Regs} = store_get(SrvId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         Reply = {ok, [{contact, Contacts1}, date, allow, supported]},
-        {continue, [Reply1, _, _]} = 
-            SrvId:nks_sip_registrar_request_reply(Reply, Regs, Opts),
+        {continue, [Reply1, _, _]} =
+             ?CALL_SRV(SrvId, nksip_registrar_request_reply, [Reply, Regs, Opts]),
         Reply1
     catch
-        throw:Throw -> Throw
+        throw:Throw ->
+            Throw
     end.
 
 
@@ -169,15 +175,23 @@ request(#sipmsg{srv_id=SrvId, to={To, _}}=Req) ->
     ok.
 
 process(Req, Opts) ->
-    #sipmsg{srv_id=SrvId, to={#uri{scheme=Scheme}, _}, contacts=Contacts} = Req,
+    #sipmsg{
+        srv_id = SrvId,
+        to = {#uri{scheme=Scheme}, _},
+        contacts = Contacts
+    } = Req,
     if
-        Scheme==sip; Scheme==sips -> ok;
-        true -> throw(unsupported_uri_scheme)
+        Scheme==sip; Scheme==sips ->
+            ok;
+        true ->
+            throw(unsupported_uri_scheme)
     end,
-    Times = SrvId:config_nksip_registrar(),
-    Default = case nksip_sipmsg:meta(expires, Req) of
-        D0 when is_integer(D0), D0>=0 -> D0;
-        _ -> Times#nksip_registrar_time.default
+    Times = nkserver:get_plugin_config(SrvId, nksip_registrar, times),
+    Default = case nksip_sipmsg:get_meta(expires, Req) of
+        D0 when is_integer(D0), D0>=0 ->
+            D0;
+        _ ->
+            Times#nksip_registrar_time.default
     end,
     TimeLong = nklib_util:l_timestamp(),
     Times1 = Times#nksip_registrar_time{
@@ -186,9 +200,12 @@ process(Req, Opts) ->
         time_long = TimeLong
     },
     case Contacts of
-        [] -> ok;
-        [#uri{domain=(<<"*">>)}] when Default==0 -> del_all(Req);
-        _ -> update(Req, Times1, Opts)
+        [] ->
+            ok;
+        [#uri{domain=(<<"*">>)}] when Default==0 ->
+            del_all(Req);
+        _ ->
+            update(Req, Times1, Opts)
     end.
 
 
@@ -198,11 +215,13 @@ process(Req, Opts) ->
     ok.
 
 update(Req, Times, Opts) ->
-    #sipmsg{srv_id=SrvId, to={To, _}, contacts=Contacts} = Req,
+    #sipmsg{ srv_id=SrvId, to={To, _}, contacts=Contacts} = Req,
     #nksip_registrar_time{time=Now} = Times,
     Path = case nksip_sipmsg:header(<<"path">>, Req, uris) of
-        error -> throw({invalid_request, "Invalid Path"});
-        Path0 -> Path0
+        error ->
+            throw({invalid_request, "Invalid Path"});
+        Path0 ->
+            Path0
     end,
     AOR = aor(To),
     {ok, Regs} = store_get(SrvId, AOR),
@@ -213,18 +232,23 @@ update(Req, Times, Opts) ->
     ],
     RegContacts = update_regcontacts(Contacts, Req, Times, Path, Opts, RegContacts0),
     case RegContacts of
-        [] -> 
+        [] ->
             case store_del(SrvId, AOR) of
-                ok -> ok;
-                not_found -> ok;
-                _ -> throw({internal_error, "Error calling registrar 'del' callback"})
+                ok ->
+                    ok;
+                not_found ->
+                    ok;
+                _ ->
+                    throw({internal_error, "Error calling registrar 'del' callback"})
             end;
-        _ -> 
+        _ ->
             GlobalExpire = lists:max([Exp-Now||#reg_contact{expire=Exp} <- RegContacts]),
             % Set a minimum expiration check of 5 secs
             case store_put(SrvId, AOR, RegContacts, max(GlobalExpire, 5)) of
-                ok -> ok;
-                _ -> throw({internal_error, "Error calling registrar 'put' callback"})
+                ok ->
+                    ok;
+                _ ->
+                    throw({internal_error, "Error calling registrar 'put' callback"})
             end
     end,
     ok.
@@ -237,15 +261,19 @@ update(Req, Times, Opts) ->
 
 update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=ExtOpts} = Contact,
-    #sipmsg{srv_id=SrvId, to={To, _}, call_id=CallId, 
+    #sipmsg{srv_id=SrvId, to={To, _}, call_id=CallId,
             cseq={CSeq, _}, nkport=NkPort} = Req,
     case Domain of
-        <<"*">> -> throw(invalid_request);
-        _ -> ok
+        <<"*">> ->
+            throw(invalid_request);
+        _ ->
+            ok
     end,
     case aor(To) of
-        {Scheme, User, Domain} -> throw({forbidden, "Invalid Contact"});
-        _ -> ok
+        {Scheme, User, Domain} ->
+            throw({forbidden, "Invalid Contact"});
+        _ ->
+            ok
     end,
     #nksip_registrar_time{
         min = Min,
@@ -259,36 +287,44 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
             Default;
         Exp1List ->
             case catch list_to_integer(Exp1List) of
-                ExpInt when is_integer(ExpInt) -> ExpInt;
-                _ -> Default
+                ExpInt when is_integer(ExpInt) ->
+                    ExpInt;
+                _ ->
+                    Default
             end
     end,
     Expires = if
-        UriExpires==0 -> 0;
-        UriExpires>0, UriExpires<3600, UriExpires<Min -> throw({interval_too_brief, Min});
-        UriExpires>Max -> Max;
-        true -> UriExpires
+        UriExpires==0 ->
+            0;
+        UriExpires>0, UriExpires<3600, UriExpires<Min ->
+            throw({interval_too_brief, Min});
+        UriExpires>Max ->
+            Max;
+        true ->
+            UriExpires
     end,
     Q = case nklib_util:get_list(<<"q">>, ExtOpts) of
-        [] -> 
+        [] ->
             1.0;
         Q0 ->
             case catch list_to_float(Q0) of
-                Q1 when is_float(Q1), Q1 > 0 -> 
+                Q1 when is_float(Q1), Q1 > 0 ->
                     Q1;
-                _ -> 
+                _ ->
                     case catch list_to_integer(Q0) of
-                        Q2 when is_integer(Q2), Q2 > 0 -> Q2 * 1.0;
-                        _ -> 1.0
+                        Q2 when is_integer(Q2), Q2 > 0 ->
+                            Q2 * 1.0;
+                        _ ->
+                            1.0
                     end
             end
     end,
     ExpireBin = list_to_binary(integer_to_list(Expires)),
     ExtOpts1 = nklib_util:store_value(<<"expires">>, ExpireBin, ExtOpts),
-    Index = case SrvId:nks_sip_registrar_get_index(Contact, Opts) of
-        {ok, Index0} -> 
+    Index = case  ?CALL_SRV(SrvId, nksip_registrar_get_index, [Contact, Opts]) of
+        {ok, Index0} ->
             Index0;
-        {continue, [_, _]} -> 
+        {continue, [_, _]} ->
             {Transp, Domain, Port} = nksip_parse:transport(Contact),
             {Scheme, Transp, User, Domain, Port}
     end,
@@ -298,7 +334,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
             {undefined, Acc};
         false ->
             {#reg_contact{}, Acc};
-        {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
+        {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq ->
             throw({invalid_request, "Rejected Old CSeq"});
         {value, _, Acc0} when Expires==0 ->
             {undefined, Acc0};
@@ -321,7 +357,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
                 path = Path
             },
             {continue, [RegContact1, _, _, _]} = 
-                SrvId:nks_sip_registrar_update_regcontact(RegContact, Base, Req, Opts),
+                 ?CALL_SRV(SrvId, nksip_registrar_update_regcontact, [RegContact, Base, Req, Opts]),
             [RegContact1|Acc1]
     end,
     update_regcontacts(Rest, Req, Times, Path, Opts, Acc2);
@@ -351,41 +387,47 @@ make_contact(#reg_contact{contact=Contact, path=Path}) ->
     ok | not_found.
 
 del_all(Req) ->
-    #sipmsg{srv_id=SrvId, to={To, _}, call_id=CallId, cseq={CSeq, _}} = Req,
+    #sipmsg{ srv_id=SrvId, to={To, _}, call_id=CallId, cseq={CSeq, _}} = Req,
     AOR = aor(To),
     {ok, RegContacts} = store_get(SrvId, AOR),
     lists:foreach(
         fun(#reg_contact{call_id=CCallId, cseq=CCSeq}) ->
             if
-                CallId /= CCallId -> ok;
-                CSeq > CCSeq -> ok;
-                true -> throw({invalid_request, "Rejected Old CSeq"})
+                CallId /= CCallId ->
+                    ok;
+                CSeq > CCSeq ->
+                    ok;
+                true ->
+                    throw({invalid_request, "Rejected Old CSeq"})
             end
         end,
         RegContacts),
     case callback(SrvId, {del, AOR}) of
-        ok -> ok;
-        not_found -> not_found;
-        _ -> throw({internal_error, "Error calling registrar 'del' callback"})
+        ok ->
+            ok;
+        not_found ->
+            not_found;
+        _ ->
+            throw({internal_error, "Error calling registrar 'del' callback"})
     end.
 
 
 %% @private
-store_get(SrvId, AOR) -> 
+store_get(SrvId, AOR) ->
     case callback(SrvId, {get, AOR}) of
         List when is_list(List) ->
             lists:foreach(
                 fun(Term) ->
                     case Term of
-                        #reg_contact{} -> 
+                        #reg_contact{} ->
                             ok;
-                        _ -> 
+                        _ ->
                             Msg = "Invalid return in registrar 'get' callback",
                             throw({internal_error, Msg})
                     end
                 end, List),
             {ok, List};
-        _ -> 
+        _ ->
             throw({internal_error, "Error calling registrar 'get' callback"})
     end.
 
@@ -398,24 +440,30 @@ store_put(SrvId, AOR, RegContacts, Time) ->
 %% @private
 store_del(SrvId, AOR) ->
     case callback(SrvId, {del, AOR}) of
-        ok -> ok;
-        not_found -> not_found;
-        _ -> callback_error
+        ok ->
+            ok;
+        not_found ->
+            not_found;
+        _ ->
+            callback_error
     end.
 
 
 %% @private
 store_del_all(SrvId) ->
-    callback(SrvId, del_all).
+    callback(SrvId, del_all),
+    ok.
 
 
 %% @private 
--spec callback(nksip:srv_id(), term()) ->
+-spec callback(nkserver:id(), term()) ->
     term() | error.
 
-callback(SrvId, Op) -> 
-    case SrvId:nks_sip_call(sip_registrar_store, [Op, SrvId], SrvId) of
-        {ok, Reply} -> Reply;
-        _ -> error
+callback(SrvId, Op) ->
+    case nksip_util:user_callback(SrvId, sip_registrar_store, [SrvId, Op]) of
+        {ok, Reply} ->
+            Reply;
+        _ ->
+            error
     end.
 

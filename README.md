@@ -51,17 +51,14 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 [ 3. API Guide](doc/README.md#3-api)<br/>
 [ 4. Standard Plugins](doc/README.md#4-standard-plugins)<br/>
 [ 5. Cookbook](doc/README.md#5-cookbook)<br/>
-[ 6. Sample Applications](doc/README.md#6-sample-applications)<br/>
-[ 7. Advanced Concepts](doc/README.md#7-advanced-concepts)<br/>
-[ 8. Roadmap](doc/roadmap.md)<br/>
-[ 9. Changelog](doc/changelog.md)<br/>
-[10. Presentations](doc/presentations)<br/>
-
+[ 6. Advanced Concepts](doc/README.md#7-advanced-concepts)<br/>
+[ 7. Roadmap](doc/roadmap.md)<br/>
+[ 8. Changelog](doc/changelog.md)<br/>
 
 
 # Quick Start
 
-NkSIP has been tested on OSX and Linux, using Erlang 17
+NkSIP has been tested on OSX and Linux, using Erlang 21. It should work from Erlang 17, but it tested only on 21.
 
 ```
 > git clone https://github.com/kalta/nksip
@@ -78,18 +75,9 @@ Now you can start a simple Service using the included [default callback module](
 2> nksip_uac:options(test1, "sip:sip2sip.info", []).
 {ok,200,[]}
 ```
- 
-From this point you can read the [tutorial](doc/guide/tutorial.md) or start hacking with the included [nksip_pbx](doc/samples/pbx.md) application:
-```erlang
-> make pbx
-1> nksip_pbx:start().
-```
 
-You could also perform a heavy-load test using the included application [nksip_loadtest](doc/samples/loadtest.md):
-```erlang
-> make loadtest
-1> nksip_loadtest:full().
-```
+
+You can check now the tutorial and sample applications on [nksip_samples](https://github.com/NetComposer/nksip_samples).
 
 # Contributing
 

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,49 +22,12 @@
 -module(nksip_event_compositor_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 -include("nksip_event_compositor.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
 -export([sip_event_compositor_store/2]).
 -export([sip_publish/2]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_event_compositor_default_expires => {integer, 1, none}
-    }.
-
-
-plugin_config(Config, _Service) ->
-    Expires = maps:get(sip_event_compositor_default_expires, Config, 60),
-    Allow1 = maps:get(sip_allow, Config, nksip_syntax:default_allow()),
-    Allow2 = nklib_util:store_value(<<"PUBLISH">>, Allow1),
-    Config2 = Config#{sip_allow=>Allow2},
-    {ok, Config2, Expires}.
-
-
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
-    Allow1 = maps:get(sip_allow, Config, []),
-    Allow2 = Allow1 -- [<<"PUBLISH">>],
-    {ok, Config#{sip_allow=>Allow2}}.
-
 
 
 %% ===================================================================
@@ -78,7 +41,7 @@ plugin_stop(Config, #{name:=Name}) ->
     [RegPublish] | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,
-        SrvId :: nksip:srv_id(),
+        SrvId :: nkserver:id(),
         AOR :: nksip:aor(),
         Tag :: binary(),
         RegPublish :: nksip_event_compositor:reg_publish(),
@@ -95,7 +58,7 @@ sip_event_compositor_store(Op, SrvId) ->
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
-                    {nksip_event_compositor, SrvId, AOR, Tag} -> 
+                    {nksip_event_compositor, SrvId, AOR, Tag} ->
                         nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag});
                     _ -> 
                         Acc

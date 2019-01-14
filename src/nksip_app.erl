@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -33,8 +33,6 @@
 -compile({no_auto_import, [get/1, put/2]}).
 
 -define(APP, nksip).
--define(RE_CALL_ID, "\r\n\s*(i|call\-id)\s*:\s*(.*?)\s*\r\n").
--define(RE_CONTENT_LENGTH, "\r\n\s*(l|content-length)\s*:\s*(.*?)\s*\r\n").
 -define(MINUS_CSEQ, 46111468).  % Generate lower values to debug
 
 
@@ -64,29 +62,22 @@ start(_Type, _Args) ->
         _ ->
             ok
     end,
-    AppSyntax = nksip_syntax:app_syntax(),
-    ServiceSyntax = nksip_syntax:syntax(),
-    Syntax = maps:merge(AppSyntax, ServiceSyntax),
-    % Defaults = maps:merge(nksip_syntax:app_defaults(), nksip_syntax:defaults()),
-    Defaults = nksip_syntax:app_defaults(),
-    case nklib_config:load_env(?APP, Syntax, Defaults) of
-        {ok, Parsed} ->
-            put(global_id, nklib_util:luid()),
-            {ok, ReCallId} = re:compile(?RE_CALL_ID, [caseless]),
-            put(re_call_id, ReCallId),
-            {ok, ReCL} = re:compile(?RE_CONTENT_LENGTH, [caseless]),
-            put(re_content_length, ReCL),
-            ServiceKeys = maps:keys(ServiceSyntax),
-            ServiceDefaults = nklib_util:extract(Parsed, ServiceKeys),
-            put(sip_defaults, ServiceDefaults),
-            CacheKeys = [
-                global_id, re_call_id, re_content_length, sip_defaults 
-                | maps:keys(nksip_syntax:app_syntax())],
-            DataPath = nkservice_app:get(log_path),
-            nklib_config:make_cache(CacheKeys, ?APP, none, 
-                                    nksip_config_cache, DataPath),
+    Syntax = #{
+        sync_call_time => nat_integer,
+        max_calls => {integer, 1, 1000000},
+        msg_routers => {integer, 1, 127},
+        '__defaults' => #{
+            sync_call_time => 5000, %30000,            % MSecs
+            max_calls => 100000,                % Each Call-ID counts as a call
+            msg_routers => 16                   % Number of parallel msg routers
+        }
+    },
+    case nklib_config:load_env(?APP, Syntax) of
+        {ok, _Parsed} ->
+            nksip_config:set_config(),
             ok = nkpacket:register_protocol(sip, nksip_protocol),
             ok = nkpacket:register_protocol(sips, nksip_protocol),
+            ok = nkserver_util:register_package_class(<<"Sip">>, nksip),
             {ok, Pid} = nksip_sup:start_link(),
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
             {ok, Vsn} = application:get_key(nksip, vsn),

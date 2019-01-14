@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,9 +24,8 @@
 
 -export([store_get/3, store_put/5, store_del/3, store_del_all/1]).
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_event_compositor.hrl").
-
 
 
 %% ===================================================================
@@ -35,55 +34,61 @@
 
 
 %% @private
--spec store_get(nksip:srv_id(), nksip:aor(), binary()) ->
+-spec store_get(nkserver:id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 store_get(SrvId, AOR, Tag) ->
     case callback(SrvId, {get, AOR, Tag}) of
-        {ok, #reg_publish{} = Reg} -> {ok, Reg};
-        {ok, not_found} -> not_found;
-        {ok, Res} -> {error, {invalid_callback_response, Res}};
-        error -> {error, invalid_callback}
+        {ok, #reg_publish{} = Reg} ->
+            {ok, Reg};
+        {ok, not_found} ->
+            not_found;
+        {ok, Res} ->
+            {error, {invalid_callback_response, Res}};
+        error ->
+            {error, invalid_callback}
     end.
 
 
 %% @private
--spec store_put(nksip:srv_id(), nksip:aor(), integer(), integer(),
+-spec store_put(nkserver:id(), nksip:aor(), integer(), integer(),
                 #reg_publish{}|nksip:body()) ->
     nksip:sipreply().
 
 store_put(SrvId, AOR, Tag, Expires, Reg) ->
     Reg1 = case is_record(Reg, reg_publish) of
-        true -> Reg;
-        false -> #reg_publish{data=Reg}
+        true ->
+            Reg;
+        false ->
+            #reg_publish{data=Reg}
     end,
     Now = nklib_util:timestamp(),
     Reg2 = Reg1#reg_publish{expires=Now+Expires},
     case callback(SrvId, {put, AOR, Tag, Reg2, Expires}) of
-        {ok, ok} -> 
+        {ok, ok} ->
             reply(Tag, Expires);
-        {ok, Resp} -> 
-            ?warning(SrvId, <<>>, "invalid callback response: ~p", [Resp]),
+        {ok, Resp} ->
+            ?SIP_LOG(warning, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
-        error -> 
-            ?warning(SrvId, <<>>, "invalid callback response", []),
+        error ->
+            ?SIP_LOG(warning, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
 
 %% @private
--spec store_del(nksip:srv_id(), nksip:aor(), binary()) ->
+-spec store_del(nkserver:id(), nksip:aor(), binary()) ->
     nksip:sipreply().
 
 store_del(SrvId, AOR, Tag) ->
     case callback(SrvId, {del, AOR, Tag}) of
-        {ok, ok} -> 
+        {ok, ok} ->
             reply(Tag, 0);
-        {ok, Resp} -> 
-            ?warning(SrvId, <<>>, "invalid callback response: ~p", [Resp]),
+        {ok, Resp} ->
+            ?SIP_LOG(warning, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
-        error -> 
-            ?warning(SrvId, <<>>, "invalid callback response", []),
+        error ->
+            ?SIP_LOG(warning, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
@@ -91,14 +96,17 @@ store_del(SrvId, AOR, Tag) ->
 
 
 %% @private
--spec store_del_all(nksip:srv_id()) ->
+-spec store_del_all(nkserver:id()) ->
     ok | {error, term()}.
 
 store_del_all(SrvId) ->
     case callback(SrvId, del_all) of
-        {ok, ok} -> ok;
-        {ok, _Resp} -> {error, invalid_callback}; 
-        error -> {error, invalid_callback}
+        {ok, ok} ->
+            ok;
+        {ok, _Resp} ->
+            {error, invalid_callback};
+        error ->
+            {error, invalid_callback}
     end.
 
 
@@ -108,11 +116,11 @@ reply(Tag, Expires) ->
 
 
 %% @private 
--spec callback(nksip:srv_id(), term()) ->
+-spec callback(nkserver:id(), term()) ->
     term() | error.
 
-callback(SrvId, Op) -> 
-    SrvId:nks_sip_call(sip_event_compositor_store, [Op, SrvId], SrvId).
+callback(SrvId, Op) ->
+    nksip_util:user_callback(SrvId, sip_event_compositor_store, [Op, SrvId]).
 
 
 

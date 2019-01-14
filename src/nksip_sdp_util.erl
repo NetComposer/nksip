@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -263,8 +263,10 @@ remove_codec(Media, Name, CodecMap) ->
                 fun({_Fmt, FName1, _Data}) ->
                     FName2 = nklib_util:to_upper(FName1),
                     case binary:match(FName2, Name2) of
-                        {0, _} -> false;
-                        _ -> true
+                        {0, _} ->
+                            false;
+                        _ ->
+                            true
                     end
                 end,
                 List),
@@ -287,8 +289,10 @@ filter_codec(Media, Name, CodecMap) ->
                 fun({_Fmt, FName1, _Data}) ->
                     FName2 = nklib_util:to_upper(FName1),
                     case binary:match(FName2, Name2) of
-                        {0, _} -> true;
-                        _ -> false
+                        {0, _} ->
+                            true;
+                        _ ->
+                            false
                     end
                 end,
                 List),
@@ -348,7 +352,7 @@ sdp2_test() ->
 
 
 
-sdp1() -> 
+sdp1() ->
 <<"v=0
 o=- 3680359967 3680359967 IN IP4 0.0.0.0
 s=Kurento Media Server

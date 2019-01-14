@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 -include("nksip_registrar.hrl").
 
 -export([force_domain/2]).
@@ -53,7 +53,7 @@ force_domain(Req, Domain) ->
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nksip:srv_id(), nksip:aor(), [#reg_contact{}]}].
+    [{nkserver:id(), nksip:aor(), [#reg_contact{}]}].
 
 get_all() ->
     [
@@ -66,7 +66,7 @@ get_all() ->
 print_all() ->
     Now = nklib_util:timestamp(),
     Print = fun({SrvId, {Scheme, User, Domain}, Regs}) ->
-        io:format("\n --- ~p --- ~p:~s@~s ---\n", [SrvId:name(), Scheme, User, Domain]),
+        io:format("\n --- ~p --- ~p:~s@~s ---\n", [SrvId, Scheme, User, Domain]),
         lists:foreach(
             fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
                 io:format("    ~s, ~p, ~p\n", [nklib_unparse:uri(Contact), Expire-Now, Q])
@@ -98,8 +98,10 @@ all() ->
 fold(Fun, Acc0) when is_function(Fun, 4) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_registrar, SrvId, AOR} -> Fun(SrvId, AOR, Value, Acc);
-            _ -> Acc
+            {nksip_registrar, SrvId, AOR} ->
+                Fun(SrvId, AOR, Value, Acc);
+            _ ->
+                Acc
         end
     end,
     nklib_store:fold(FoldFun, Acc0).

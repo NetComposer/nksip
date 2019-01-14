@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,7 +22,7 @@
 -module(nksip_subscription_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, parse_handle/1, meta/2, metas/2]).
+-export([get_handle/1, parse_handle/1, get_meta/2, get_metas/2]).
 -export([remote_meta/2, remote_metas/2]).
 -export([make_id/1, find/2, state/1, remote_id/2]).
 
@@ -52,35 +52,40 @@
 
 get_handle({user_subs, #subscription{id=SubsId}, 
                #dialog{srv_id=SrvId, id=DialogId, call_id=CallId}}) ->
-    Srv = atom_to_binary(SrvId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
+    make_handle(SrvId, SubsId, DialogId, CallId);
+
 get_handle(#sipmsg{srv_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
-    Srv = atom_to_binary(SrvId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
+    make_handle(SrvId, SubsId, DialogId, CallId);
+
 get_handle(<<"U_", _/binary>>=Id) ->
     Id;
+
 get_handle(_) ->
     error(invalid_subscription).
 
 
 %% @private
 -spec parse_handle(nksip:handle()) ->
-    {nksip:srv_id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
+    {nkserver:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
 
-parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, Srv:7/binary, 
-         $_, CallId/binary>>) ->
-    SrvId = binary_to_existing_atom(Srv, latin1),
-    {SrvId, SubsId, DialogId, CallId};
+parse_handle(<<"U_", Rest/binary>>) ->
+    case catch binary_to_term(base64:decode(Rest)) of
+        {SrvId, SubsId, DialogId, CallId} ->
+            {SrvId, SubsId, DialogId, CallId};
+        _ ->
+            error(invalid_handle)
+    end;
+
 parse_handle(_) ->
     error(invalid_handle).
 
 
 %% @doc
--spec meta(nksip_subscription:field(), nksip:subscription()) -> 
+-spec get_meta(nksip_subscription:field(), nksip:subscription()) ->
     term().
 
-meta(Field, {user_subs, U, D}) ->
+get_meta(Field, {user_subs, U, D}) ->
     case Field of
         id ->
             get_handle({user_subs, U, D});
@@ -101,15 +106,15 @@ meta(Field, {user_subs, U, D}) ->
         expires ->
             undefined;
        _ ->
-            nksip_dialog:meta(Field, D)
+            nksip_dialog:get_meta(Field, D)
     end.
 
 
--spec metas([nksip_subscription:field()], nksip:subscription()) -> 
+-spec get_metas([nksip_subscription:field()], nksip:subscription()) ->
     [{nksip_subscription:field(), term()}].
 
-metas(Fields, {user_subs, U, D}) when is_list(Fields) ->
-    [{Field, meta(Field, {user_subs, U, D})} || Field <- Fields].
+get_metas(Fields, {user_subs, U, D}) when is_list(Fields) ->
+    [{Field, get_meta(Field, {user_subs, U, D})} || Field <- Fields].
 
 
 %% @doc Extracts remote meta
@@ -118,8 +123,10 @@ metas(Fields, {user_subs, U, D}) when is_list(Fields) ->
 
 remote_meta(Field, Handle) ->
     case remote_metas([Field], Handle) of
-        {ok, [{_, Value}]} -> {ok, Value};
-        {error, Error} -> {error, Error}
+        {ok, [{_, Value}]} ->
+            {ok, Value};
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -132,7 +139,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
     Fun = fun(Dialog) ->
         case find(SubsId, Dialog) of
             #subscription{} = U -> 
-                case catch metas(Fields, {user_subs, U, Dialog}) of
+                case catch get_metas(Fields, {user_subs, U, Dialog}) of
                     {'EXIT', {{invalid_field, Field}, _}} -> 
                         {error, {invalid_field, Field}};
                     Values -> 
@@ -207,12 +214,14 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 %% @private Hack to find the UAS subscription from the UAC and the opposite way
 remote_id(Handle, Srv) ->
-    {_SrvId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
+    {_PkgId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
     {ok, DialogHandle} = nksip_dialog:get_handle(Handle),
     RemoteId = nksip_dialog_lib:remote_id(DialogHandle, Srv),
-    {SrvId1, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
-    Srv1 = atom_to_binary(SrvId1, latin1),
-    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
+    {SrvId, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
+    make_handle(SrvId, SubsId, RemDialogId, CallId).
+
+
+%%    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
 
 
 %% @private
@@ -221,48 +230,66 @@ remote_id(Handle, Srv) ->
 
 state(#sipmsg{}=SipMsg) ->
     try
-        case nksip_sipmsg:header(<<"subscription-state">>, SipMsg, tokens) of
-            [{Name, Opts}] -> ok;
-            _ -> Name = Opts = throw(invalid)
+        {Name, Opts} = case nksip_sipmsg:header(<<"subscription-state">>, SipMsg, tokens) of
+            [{Name0, Opts0}] ->
+                {Name0, Opts0};
+            _ ->
+                throw(invalid)
         end,
         case Name of
             <<"active">> -> 
                 case nklib_util:get_integer(<<"expires">>, Opts, -1) of
-                    -1 -> Expires = undefined;
-                    Expires when is_integer(Expires), Expires>=0 -> ok;
-                    _ -> Expires = throw(invalid)
+                    -1 ->
+                        Expires = undefined;
+                    Expires when is_integer(Expires), Expires>=0 ->
+                        ok;
+                    _ ->
+                        Expires = throw(invalid)
                 end,
                  {active, Expires};
             <<"pending">> -> 
                 case nklib_util:get_integer(<<"expires">>, Opts, -1) of
-                    -1 -> Expires = undefined;
-                    Expires when is_integer(Expires), Expires>=0 -> ok;
-                    _ -> Expires = throw(invalid)
+                    -1 ->
+                        Expires = undefined;
+                    Expires when is_integer(Expires), Expires>=0 ->
+                        ok;
+                    _ ->
+                        Expires = throw(invalid)
                 end,
                 {pending, Expires};
             <<"terminated">> ->
-                case nklib_util:get_integer(<<"retry-after">>, Opts, -1) of
-                    -1 -> Retry = undefined;
-                    Retry when is_integer(Retry), Retry>=0 -> ok;
-                    _ -> Retry = throw(invalid)
+                Retry = case nklib_util:get_integer(<<"retry-after">>, Opts, -1) of
+                    -1 ->
+                        undefined;
+                    Retry0 when is_integer(Retry0), Retry0>=0 ->
+                        Retry0;
+                    _ ->
+                        throw(invalid)
                 end,
                 case nklib_util:get_value(<<"reason">>, Opts) of
                     undefined -> 
                         {terminated, undefined, undefined};
                     Reason0 ->
                         case catch binary_to_existing_atom(Reason0, latin1) of
-                            {'EXIT', _} -> {terminated, undefined, undefined};
-                            probation -> {terminated, probation, Retry};
-                            giveup -> {terminated, giveup, Retry};
-                            Reason -> {terminated, Reason, undefined}
+                            {'EXIT', _} ->
+                                {terminated, undefined, undefined};
+                            probation ->
+                                {terminated, probation, Retry};
+                            giveup ->
+                                {terminated, giveup, Retry};
+                            Reason ->
+                                {terminated, Reason, undefined}
                         end
                 end;
             _ ->
                 throw(invalid)
         end
     catch
-        throw:invalid -> invalid
+        throw:invalid ->
+            invalid
     end.
 
 
 
+make_handle(SrvId, SubsId, DialogId, CallId) ->
+    <<"U_", (base64:encode(term_to_binary({SrvId, SubsId, DialogId, CallId})))/binary>>.

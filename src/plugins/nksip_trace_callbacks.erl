@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,46 +22,9 @@
 -module(nksip_trace_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
--export([nks_sip_connection_sent/2, nks_sip_connection_recv/2]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_debug => boolean
-    }.
-
-
-plugin_config(Config, #{id:=Id}) ->
-    Trace = maps:get(sip_trace, Config, {console, all}),
-    case nksip_trace:get_config(Id, Trace) of
-    	{ok, Cache} -> {ok, Config, Cache};
-    	{error, Error} -> {error, Error}
-    end.
-   	
-
-
-plugin_start(Config, #{id:=Id, name:=Name, config_nksip_trace:={File, _}}) ->
-	ok = nksip_trace:open_file(Id, File),
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-	{ok, Config}.
-
-
-plugin_stop(Config, #{id:=Id, name:=Name}) ->
-    catch nksip_trace:close_file(Id),
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
-    {ok, Config}.
+-export([nksip_connection_sent/2, nksip_connection_recv/2]).
 
 
 
@@ -71,20 +34,20 @@ plugin_stop(Config, #{id:=Id, name:=Name}) ->
 
 
 %% @doc Called when a new message has been sent
--spec nks_sip_connection_sent(nksip:request()|nksip:response(), binary()) ->
+-spec nksip_connection_sent(nksip:request()|nksip:response(), binary()) ->
     continue.
 
-nks_sip_connection_sent(SipMsg, Packet) ->
+nksip_connection_sent(SipMsg, Packet) ->
     #sipmsg{srv_id=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
     nksip_trace:sipmsg(SrvId, CallId, <<"TO">>, NkPort, Packet),
     continue.
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nksip:request()|nksip:response(), binary()) ->
+-spec nksip_connection_recv(nksip:request()|nksip:response(), binary()) ->
     continue.
 
-nks_sip_connection_recv(SipMsg, Packet) ->
+nksip_connection_recv(SipMsg, Packet) ->
     #sipmsg{srv_id=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
     nksip_trace:sipmsg(SrvId, CallId, <<"FROM">>, NkPort, Packet),
     continue.

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,7 +28,7 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
-
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Private
@@ -55,7 +55,8 @@ process(#trans{method=Method, request=Req}=UAS, Call) ->
 check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require} = Req,
     #call{srv_id=SrvId} = Call,
-    Supported = ?GET_CONFIG(SrvId, supported),
+    Config = nksip_config:srv_config(SrvId),
+    Supported = Config#config.supported,
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] ->
             check_event(Method, Req, UAS, Call);
@@ -73,7 +74,8 @@ check_supported(Method, Req, UAS, Call) ->
 check_event(Method, Req, UAS, Call) when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
     #sipmsg{event=Event} = Req,
     #call{srv_id=SrvId} = Call,
-    SupEvents = ?GET_CONFIG(SrvId, events),
+    Config = nksip_config:srv_config(SrvId),
+    SupEvents = Config#config.events,
     case Event of
         {Type, _} ->
             case lists:member(Type, [<<"refer">>|SupEvents]) of
@@ -111,7 +113,7 @@ check_notify(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 check_missing_dialog('ACK', #sipmsg{to={_, <<>>}}, UAS, Call) ->
-    ?call_notice("received out-of-dialog ACK", []),
+    ?CALL_LOG(notice, "received out-of-dialog ACK", [], Call),
     update(UAS#trans{status=finished}, Call);
     
 check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
@@ -120,7 +122,7 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
     nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
 check_missing_dialog(Method, _Req, UAS, #call{srv_id=SrvId}=Call) ->
-    case SrvId:nks_sip_uas_process(UAS, Call) of
+    case  ?CALL_SRV(SrvId, nksip_uas_process, [UAS, Call]) of
         {continue, [UAS1, Call1]} ->
             dialog(Method, UAS1#trans.request, UAS1, Call1);
         {ok, Call1} ->
@@ -136,7 +138,7 @@ check_missing_dialog(Method, _Req, UAS, #call{srv_id=SrvId}=Call) ->
 dialog(Method, Req, UAS, Call) ->
     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
     #sipmsg{to={_, ToTag}} = Req,
-    #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
+    #trans{opts=Opts, stateless=Stateless} = UAS,
     case Stateless orelse ToTag == <<>> of
         true ->
             method(Method, Req, UAS, Call);
@@ -144,9 +146,9 @@ dialog(Method, Req, UAS, Call) ->
             case nksip_call_uas_dialog:request(Req, Call) of
                 {ok, Call1} ->
                     method(Method, Req, UAS, Call1);
-                {error, Error} when Method=='ACK' -> 
-                    ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
-                                 [Id, Error]),
+                {error, _Error} when Method=='ACK' ->
+                    ?CALL_LOG(notice, "UAS ~p 'ACK' dialog request error: ~p",
+                                 [UAS#trans.id, _Error], Call),
                     UAS2 = UAS#trans{status=finished},
                     update(UAS2, Call);
                 {error, Error} ->
@@ -164,7 +166,7 @@ dialog(Method, Req, UAS, Call) ->
 
 method(Method, Req, UAS, Call) ->
     #call{srv_id=SrvId} = Call,
-    case SrvId:nks_sip_uas_method(Method, Req, UAS, Call) of
+    case  ?CALL_SRV(SrvId, nksip_uas_method, [Method, Req, UAS, Call]) of
         {continue, [Method1, Req1, UAS1, Call1]} ->
             case do_method(Method1, Req1, UAS1, Call1) of
                 {noreply, UAS2, Call2} ->
@@ -183,37 +185,53 @@ method(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 call_user_sip_method(#trans{method='ACK', request=Req}, #call{srv_id=SrvId}=Call) ->
-    case catch SrvId:sip_ack(Req, Call) of
-        ok -> ok;
-        Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
+    case ?CALL_SRV(SrvId, sip_ack, [Req, Call]) of
+        ok ->
+            ok;
+        _Error ->
+            ?CALL_LOG(error, "Error calling callback ack/1: ~p", [_Error], Call)
     end,
     Call;
 
 call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv_id=SrvId}=Call) ->
     #sipmsg{to={_, ToTag}} = Req,
     Fun = case Method of
-        'INVITE' when ToTag == <<>> -> sip_invite;
-        'INVITE' -> sip_reinvite;
-        'UPDATE' -> sip_update;
-        'BYE' -> sip_bye;
-        'OPTIONS' -> sip_options;
-        'REGISTER' -> sip_register;
-        'PRACK' -> sip_prack;
-        'INFO' -> sip_info;
-        'MESSAGE' -> sip_message;
-        'SUBSCRIBE' when ToTag == <<>> -> sip_subscribe;
-        'SUBSCRIBE' -> sip_resubscribe;
-        'NOTIFY' -> sip_notify;
-        'REFER' -> sip_refer;
-        'PUBLISH' -> sip_publish
+        'INVITE' when ToTag == <<>> ->
+            sip_invite;
+        'INVITE' ->
+            sip_reinvite;
+        'UPDATE' ->
+            sip_update;
+        'BYE' ->
+            sip_bye;
+        'OPTIONS' ->
+            sip_options;
+        'REGISTER' ->
+            sip_register;
+        'PRACK' ->
+            sip_prack;
+        'INFO' ->
+            sip_info;
+        'MESSAGE' ->
+            sip_message;
+        'SUBSCRIBE' when ToTag == <<>> ->
+            sip_subscribe;
+        'SUBSCRIBE' ->
+            sip_resubscribe;
+        'NOTIFY' ->
+            sip_notify;
+        'REFER' ->
+            sip_refer;
+        'PUBLISH' ->
+            sip_publish
     end,
-    case catch SrvId:Fun(Req, Call) of
+    case catch ?CALL_SRV(SrvId, Fun, [Req, Call]) of
         {reply, Reply} -> 
             nksip_call_uas:do_reply(Reply, UAS, Call);
         noreply -> 
             Call;
-        Error -> 
-            ?call_error("Error calling callback ~p/2: ~p", [Fun, Error]),
+        _Error ->
+            ?CALL_LOG(error, "Error calling callback ~p/2: ~p", [Fun, _Error], Call),
             Reply = {internal_error, "Service Error"},
             nksip_call_uas:do_reply(Reply, UAS, Call)
     end.
@@ -230,7 +248,7 @@ call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv_id=SrvId}
 %     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
 %     #sipmsg{to={_, ToTag}} = Req,
 %     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
-%     #call{srv_id=SrvId} = Call,
+%     #call{package=SrvId} = Call,
 %     try
 %         case Stateless orelse ToTag == <<>> of
 %             true ->
@@ -262,8 +280,8 @@ call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv_id=SrvId}
 %                                 Call3
 %                         end;
 %                     {error, Error} when Method=='ACK' -> 
-%                         ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
-%                                      [Id, Error]),
+%                         ?CALL_LOG(notice, "UAS ~p 'ACK' dialog request error: ~p",
+%                                      [Id, Error], Call),
 %                         UAS2 = UAS#trans{status=finished},
 %                         update(UAS2, Call);
 %                     {error, Error} ->
@@ -339,6 +357,7 @@ do_method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
 do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
-do_method(_Method, #sipmsg{srv_id=SrvId}, _UAS, _Call) ->
-    {reply, {method_not_allowed, ?GET_CONFIG(SrvId, allow)}}.
+do_method(_Method, #sipmsg{ srv_id=SrvId}, _UAS, _Call) ->
+    Config = nksip_config:srv_config(SrvId),
+    {reply, {method_not_allowed, Config#config.allow}}.
 

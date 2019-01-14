@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -92,12 +92,12 @@
 
 reply(Req, {Code, Opts}) 
         when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
-    ?call_debug("user reply to ~p: {~p, ~p}", [element(2, Req#sipmsg.class), Code, Opts]),
+    ?CALL_DEBUG("user reply to ~p: {~p, ~p}", [element(2, Req#sipmsg.class), Code, Opts]),
     case nksip_call_uas_make:make(Req, Code, Opts) of
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
         {error, Error} ->
-            ?call_error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
+            ?CALL_LOG(error, "Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
             nksip_call_uas_make:make(Req, 500, [])
     end;
     
@@ -106,7 +106,7 @@ reply(Req, SipReply) ->
         {Code, Opts0} ->
             Opts = post(Req, Code, Opts0);
         error -> 
-            ?call_warning("Invalid sipreply ~p", [SipReply]),
+            ?CALL_LOG(warning, "Invalid sipreply ~p", [SipReply]),
             {Code, Opts} = {500, [{reason_phrase, <<"Invalid Service Response">>}]}
     end,
     reply(Req, {Code, Opts}).
@@ -122,18 +122,22 @@ reply(Req, SipReply) ->
 -spec post(nksip:request(), nksip:sip_code(), nksip:optslist()) ->
     nksip:optslist().
 
-post(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
+post(#sipmsg{ srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
     Opts1 = case Code>100 of
-        true -> [timestamp|Opts];
-        false -> Opts
+        true ->
+            [timestamp|Opts];
+        false ->
+            Opts
     end,
     Opts2 = case 
         Code>100 andalso 
         (Method=='INVITE' orelse Method=='UPDATE' orelse Method=='SUBSCRIBE'
             orelse Method=='REFER')
     of
-        true -> [allow, supported | Opts1];
-        false -> Opts1
+        true ->
+            [allow, supported | Opts1];
+        false ->
+            Opts1
     end,
     Opts3 = case
         Code>100 andalso Code<300 andalso (Method=='INVITE' orelse Method=='NOTIFY')
@@ -151,8 +155,10 @@ post(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
         not lists:member(contact, Opts) andalso
         not lists:keymember(contact, 1, Opts)
     of
-        true -> [contact|Opts3];
-        false -> Opts3
+        true ->
+            [contact|Opts3];
+        false ->
+            Opts3
     end,
     Opts5 = case Code>=200 andalso Code<300 andalso Method=='REGISTER' of
         true -> 
@@ -162,14 +168,19 @@ post(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
             Opts4
     end,
     Opts6 = case Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='PUBLISH' of
-        true -> [{event, Req#sipmsg.event}|Opts5];
-        false -> Opts5
+        true ->
+            [{event, Req#sipmsg.event}|Opts5];
+        false ->
+            Opts5
     end,
     Opts7 = case Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' of
         true ->
             Expires = case nklib_util:get_value(expires, Opts6) of
-                undefined -> ?GET_CONFIG(SrvId, event_expires);
-                Expires0 -> Expires0
+                undefined ->
+                    Config = nksip_config:srv_config(SrvId),
+                    Config#config.event_expires;
+                Expires0 ->
+                    Expires0
             end,
             Expires1 = min(Req#sipmsg.expires, Expires),
             [{expires, Expires1} | nklib_util:delete(Opts6, expires)];
@@ -210,18 +221,24 @@ parse(Term) ->
             {202, []};
         {redirect, Contacts} ->
             case nklib_parse:uris(Contacts) of
-                error -> error;
-                PContacts -> {300, [{contact, PContacts}]}
+                error ->
+                    error;
+                PContacts ->
+                    {300, [{contact, PContacts}]}
             end;
         {redirect_permanent, Contact} ->
             case nklib_parse:uris(Contact) of
-                [PContact] -> {301, [{contact, PContact}]};
-                _ -> error
+                [PContact] ->
+                    {301, [{contact, PContact}]};
+                _ ->
+                    error
             end;
         {redirect_temporary, Contact} ->
             case nklib_parse:uris(Contact) of
-                [PContact] -> {302, [{contact, PContact}]};
-                _ -> error
+                [PContact] ->
+                    {302, [{contact, PContact}]};
+                _ ->
+                    error
             end;
         invalid_request ->
             {400, [date]};

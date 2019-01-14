@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -81,7 +81,7 @@ start_link() ->
         %     [?MODULE]}
      ] 
      ++
-     [get_call_routers(N) || N <- lists:seq(0, nksip_config_cache:msg_routers()-1)],
+     [get_call_routers(N) || N <- lists:seq(0, nksip_config:get_config(msg_routers)-1)],
   supervisor:start_link({local, ?MODULE}, ?MODULE, {{one_for_one, 10, 60}, ChildsSpec}).
 
 % %% @private

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -38,4 +38,9 @@
     default :: pos_integer(),
     time :: pos_integer(),
     time_long :: pos_integer()
+}).
+
+
+-record(nksip_registrar_config, {
+    times :: #nksip_registrar_time{}
 }).

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -33,28 +33,28 @@
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nkservice:name()|nksip:srv_id(), term(), nksip:user_uri(),
+-spec start_register(nkserver:id(), term(), nksip:user_uri(),
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
+start_register(SrvId, RegId, Uri, Opts) when is_list(Opts) ->
     Opts1 = [{user, [nksip_uac_auto_outbound]}|Opts],
-    nksip_uac_auto_register:start_register(Srv, RegId, Uri, Opts1).
+    nksip_uac_auto_register:start_register(SrvId, RegId, Uri, Opts1).
 
 
-%% @doc Stops a previously started registration serie.
--spec stop_register(nkservice:name()|nksip:srv_id(), term()) -> 
+%% @doc Stops a previously started registration series.
+-spec stop_register(nkserver:id(), term()) ->
     ok | not_found.
 
-stop_register(Srv, RegId) ->
-    nksip_uac_auto_register:stop_register(Srv, RegId).
+stop_register(SrvId, RegId) ->
+    nksip_uac_auto_register:stop_register(SrvId, RegId).
     
 
 %% @doc Get current registration status.
--spec get_registers(nkservice:name()|nksip:srv_id()) -> 
+-spec get_registers(nkserver:id()) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(Srv) ->
-    nkservice:call(Srv, nksip_uac_auto_outbound_get_regs).
+get_registers(SrvId) ->
+     nkserver_srv:call(SrvId, nksip_uac_auto_outbound_get_regs).
 
     

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,7 +24,7 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, srv_id/1, srv_name/1, call_id/1, meta/2, metas/2]).
+-export([get_handle/1, srv_id/1, call_id/1, get_meta/2, get_metas/2]).
 -export([get_all/0, get_all/2]).
 -export_type([field/0, status/0, subscription_state/0, terminated_reason/0]).
 
@@ -60,22 +60,24 @@
 %% ===================================================================
 
 
-%% @doc Get the subscripion a request, response or id
+%% @doc Get the subscription a request, response or id
 -spec get_handle(nksip:subscription()|nksip:request()|nksip:response()|nksip:handle()) ->
     {ok, nksip:handle()} | {error, term()}.
 
 get_handle(<<Class, $_, _/binary>>=Handle) when Class==$R; Class==$S ->
     case nksip_sipmsg:remote_meta(subscription_handle, Handle) of
-        {ok, SubsHandle} -> {ok, SubsHandle};
-        {error, _} -> {error, invalid_subscription}
+        {ok, SubsHandle} ->
+            {ok, SubsHandle};
+        {error, _} ->
+            {error, invalid_subscription}
     end;
 get_handle(Term) ->
     {ok, nksip_subscription_lib:get_handle(Term)}.
 
 
-%% @doc Gets thel SrvId of a dialog
+%% @doc Gets the SrvId of a dialog
 -spec srv_id(nksip:subscription()|nksip:handle()) ->
-    {ok, nksip:srv_id()}.
+    {ok, nkserver:id()}.
 
 srv_id({user_subs, _, #dialog{srv_id=SrvId}}) ->
     {ok, SrvId};
@@ -84,54 +86,50 @@ srv_id(Handle) ->
     {ok, SrvId}.
 
 
-%% @doc Gets app's name
--spec srv_name(nksip:dialog()|nksip:handle()) -> 
-    {ok, nkservice:name()} | {error, term()}.
 
-srv_name(Term) -> 
-    {ok, SrvId} = srv_id(Term),
-    {ok, SrvId:name()}.
-
-
-%% @doc Gets thel Call-ID of the subscription
+%% @doc Gets the Call-ID of the subscription
 -spec call_id(nksip:subscription()|nksip:handle()) ->
     {ok, nksip:call_id()}.
 
 call_id({user_subs, _, #dialog{call_id=CallId}}) ->
     {ok, CallId};
 call_id(Id) ->
-    {_SrvId, _SubsId, _DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
+    {_PkgId, _SubsId, _DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
     {ok, CallId}. 
 
 
 
 %% @doc Get a specific metadata
--spec meta(field(), nksip:subscription()|nksip:handle()) ->
+-spec get_meta(field(), nksip:subscription()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 
-meta(Field, {user_subs, _, _}=Subs) -> 
-    {ok, nksip_subscription_lib:meta(Field, Subs)};
-meta(Field, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+get_meta(Field, {user_subs, _, _}=Subs) ->
+    {ok, nksip_subscription_lib:get_meta(Field, Subs)};
+get_meta(Field, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
     case get_handle(MsgHandle) of
-        {ok, SubsHandle} -> meta(Field, SubsHandle);
-        {error, Error} -> {error, Error}
+        {ok, SubsHandle} ->
+            get_meta(Field, SubsHandle);
+        {error, Error} ->
+            {error, Error}
     end;
-meta(Field, Handle) ->
+get_meta(Field, Handle) ->
     nksip_subscription_lib:remote_meta(Field, Handle).
 
 
 %% @doc Get a group of specific metadata
--spec metas([field()], nksip:subscription()|nksip:handle()) ->
+-spec get_metas([field()], nksip:subscription()|nksip:handle()) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
-metas(Fields, {user_subs, _, _}=Subs) when is_list(Fields) ->
-    {ok, nksip_subscription_lib:metas(Fields, Subs)};
-metas(Fields, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+get_metas(Fields, {user_subs, _, _}=Subs) when is_list(Fields) ->
+    {ok, nksip_subscription_lib:get_metas(Fields, Subs)};
+get_metas(Fields, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
     case get_handle(MsgHandle) of
-        {ok, SubsHandle} -> metas(Fields, SubsHandle);
-        {error, Error} -> {error, Error}
+        {ok, SubsHandle} ->
+            get_metas(Fields, SubsHandle);
+        {error, Error} ->
+            {error, Error}
     end;
-metas(Fields, Handle) when is_list(Fields) ->
+get_metas(Fields, Handle) when is_list(Fields) ->
     nksip_subscription_lib:remote_metas(Fields, Handle).
 
 
@@ -152,23 +150,27 @@ metas(Fields, Handle) when is_list(Fields) ->
 
 get_all() ->
     lists:flatten([
-        case nksip_dialog:meta(subscriptions, Id) of
-            {ok, Ids} -> Ids;
-            _ -> []
+        case nksip_dialog:get_meta(subscriptions, Id) of
+            {ok, Ids} ->
+                Ids;
+            _ ->
+                []
         end
         || Id <- nksip_dialog:get_all()
     ]).
 
 
 %% @doc Finds all existing subscriptions having a `Call-ID'.
--spec get_all(nksip:srv_id(), nksip:call_id()) ->
+-spec get_all(nkserver:id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(SrvId, CallId) ->
     lists:flatten([
-        case nksip_dialog:meta(subscriptions, Id) of
-            {ok, Ids} -> Ids;
-            _ -> []
+        case nksip_dialog:get_meta(subscriptions, Id) of
+            {ok, Ids} ->
+                Ids;
+            _ ->
+                []
         end
         || Id <- nksip_dialog:get_all(SrvId, CallId)
     ]).

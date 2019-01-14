@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,43 +22,9 @@
 -module(nksip_stats_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
--export([plugin_deps/0, plugin_start/2, plugin_stop/2]).
--export([nks_sip_transport_uas_sent/1]).
-
-
-
-% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(Config, #{name:=Name}) ->
-    case whereis(nksip_debug_srv) of
-        undefined ->
-            Child = {
-                nksip_debug_srv,
-                {nksip_debug_srv, start_link, []},
-                permanent,
-                5000,
-                worker,
-                [nksip_debug_srv]
-            },
-            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
-        _ ->
-            ok
-    end,
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
-    {ok, Config}.
+-export([nksip_transport_uas_sent/1]).
 
 
 
@@ -67,10 +33,10 @@ plugin_stop(Config, #{name:=Name}) ->
 %% ===================================================================
 
 %% @doc Called when the transport has just sent a response
--spec nks_sip_transport_uas_sent(nksip:response()) ->
+-spec nksip_transport_uas_sent(nksip:response()) ->
     continue.
 
-nks_sip_transport_uas_sent(#sipmsg{start=Start}) ->
+nksip_transport_uas_sent(#sipmsg{start=Start}) ->
     Elapsed = nklib_util:l_timestamp()-Start,
     nksip_stats:response_time(Elapsed),
     continue.

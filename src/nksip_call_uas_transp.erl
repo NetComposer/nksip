@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,7 +28,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
-
+-include_lib("nkserver/include/nkserver.hrl").
 
 %% ===================================================================
 %% Public
@@ -41,7 +41,7 @@
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
-        srv_id = SrvId, 
+        srv_id = SrvId,
         call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
@@ -54,11 +54,11 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     TranspSpec = case RTransp of
         udp ->
             case nklib_util:get_binary(<<"maddr">>, ViaOpts) of
-                <<>> when ViaRPort -> 
-                    [{nksip_protocol, udp, RIp, RPort}];
-                <<>> -> 
-                    [{nksip_protocol, udp, RIp, ViaPort}];
-                MAddr -> 
+                <<>> when ViaRPort ->
+                    [#nkconn{protocol=nksip_protocol, transp=udp, ip=RIp, port=RPort}];
+                <<>> ->
+                    [#nkconn{protocol=nksip_protocol, transp=udp, ip=RIp, port=ViaPort}];
+                MAddr ->
                     [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
         _ ->
@@ -70,12 +70,13 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
             ]
     end,
     RouteBranch = nklib_util:get_binary(<<"branch">>, ViaOpts),
-    GlobalId = nksip_config_cache:global_id(),
+    GlobalId = nksip_config:get_config(global_id),
     RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, SrvId, RouteBranch}))/binary>>,
-    PreFun = make_pre_fun(RouteHash, Opts),
-    SrvId:nks_sip_debug(SrvId, CallId, {send_response, Method, Code}),
-    Return = nksip_util:send(SrvId, TranspSpec, Resp, PreFun, Opts),
-    SrvId:nks_sip_transport_uas_sent(Resp),
+    ?CALL_SRV(SrvId, nksip_debug, [SrvId, CallId, {send_response, Method, Code}]),
+    Msg = make_msg_fun(RouteHash, Resp, Opts),
+    ?CALL_DEBUG("UAS sending to ~p", [TranspSpec]),
+    Return = nksip_util:send(SrvId, TranspSpec, Msg, Opts),
+    ?CALL_SRV(SrvId, nksip_transport_uas_sent, [Resp]),
     Return.
 
 
@@ -84,13 +85,14 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     {ok, nksip:response()} | {error, term()}.
 
 resend_response(#sipmsg{class={resp, Code, _}, nkport=#nkport{}=NkPort}=Resp, Opts) ->
-    #sipmsg{srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
-    Return = nksip_util:send(SrvId, [NkPort], Resp, none, Opts),
-    SrvId:nks_sip_debug(SrvId, CallId, {sent_response, Method, Code}),
+    #sipmsg{ srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
+    Msg = fun(FunNkPort) -> Resp#sipmsg{nkport=FunNkPort} end,
+    Return = nksip_util:send(SrvId, [NkPort], Msg, Opts),
+     ?CALL_SRV(SrvId, nksip_debug, [SrvId, CallId, {sent_response, Method, Code}]),
     Return;
 
 resend_response(Resp, Opts) ->
-    ?call_info("Called resend_response/2 without transport", []),
+    ?CALL_LOG(info, "Called resend_response/2 without transport", []),
     send_response(Resp, Opts).
 
 
@@ -100,11 +102,11 @@ resend_response(Resp, Opts) ->
 %% ===================================================================
 
 %% @private
--spec make_pre_fun(binary(), nksip:optslist()) ->
+-spec make_msg_fun(binary(), nksip:response(), nksip:optslist()) ->
     function().
 
-make_pre_fun(RouteHash, Opts) ->
-    fun(Resp, NkPort) ->
+make_msg_fun(RouteHash, Resp, Opts) ->
+    fun(NkPort) ->
         #sipmsg{
             srv_id = SrvId,
             to = {To, _},
@@ -118,14 +120,16 @@ make_pre_fun(RouteHash, Opts) ->
             listen_port = ListenPort
         } = NkPort,
         ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
-        % ?call_debug("UAS listenhost is ~s", [ListenHost]),
+        ?CALL_DEBUG("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Transp==tls andalso lists:member(secure, Opts) of
-            true -> sips;
-            _ -> sip
+            true ->
+                sips;
+            _ ->
+                sip
         end,
         Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
             true ->
-                [nksip_util:make_route(Scheme, Transp, ListenHost, 
+                [nksip_util:make_route(Scheme, Transp, ListenHost,
                                             ListenPort, To#uri.user, [])];
             false ->
                 Contacts
@@ -144,8 +148,10 @@ make_pre_fun(RouteHash, Opts) ->
         Headers1 = nksip_headers:update(Headers, [
                                         {multi, <<"record-route">>, Routes}]),
         Body1 = case Body of
-            #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
-            _ -> Body
+            #sdp{} = SDP ->
+                nksip_sdp:update_ip(SDP, ListenHost);
+            _ ->
+                Body
         end,
         % ViaOpts1 = lists:keydelete(<<"nksip_transport">>, 1, ViaOpts), 
         Resp#sipmsg{
