@@ -37,8 +37,7 @@ nksip_uac_auto_register_timer|5 (secs)|Interval to check for new expired timers
 ### start_register/4 
 
 ```erlang
-start_register(App::nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), 
-               Opts::nksip:optslist()) -> 
+start_register(nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), list()) ->
     {ok, boolean()} | {error, term()}.
 ```
 
@@ -50,7 +49,7 @@ Opts are passed to the REGISTER sending functions. You can use the `expires` opt
 ### stop_register/2
 
 ```erlang
-stop_register(App::nksip:srv_name()|nksip:srv_id(), Id::term()) -> 
+stop_register(nksip:srv_id(), Id::term()) ->
     ok | not_found.
 ```
 
@@ -60,7 +59,7 @@ Stops a previously started registration serie.
 ### get_registers/1
 
 ```erlang
-get_registers(App::nksip:srv_name()|nksip:srv_id()) -> 
+get_registers(nksip:srv_id()) ->
     [{Id::term(), OK::boolean(), Time::non_neg_integer()}].
 ```
 Get current registration status, including if last registration was successful and time remaining to next one.
@@ -69,8 +68,7 @@ Get current registration status, including if last registration was successful a
 ### start_ping/4
 
 ```erlang
-start_ping(App::nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), 
-		   Opts::nksip:optslist()) -> 
+start_ping(nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), list()) ->
     {ok, boolean()} | {error, term()}.
 ```
 
@@ -83,7 +81,7 @@ You can use the `expires` option to change the default re-options time from the 
 ### stop_ping/2
 
 ```erlang
-stop_ping(App::nksip:srv_name()|nksip:srv_id(), Id::term()) ->
+stop_ping(nksip:srv_id(), Id::term()) ->
     ok | not_found.
 ```
 
@@ -93,7 +91,7 @@ Stops a previously started ping serie.
 ### get_pings/1
 
 ```erlang
-get_pings(App::nksip:srv_name()|nksip:srv_id()) -> 
+get_pings(nksip:srv_id()) ->
     [{Id::term(), OK::boolean(), Time::non_neg_integer()}].
 ```
 
@@ -110,8 +108,7 @@ You can implement any of these callback functions in your Service callback modul
 ### sip_uac_auto_register_updated_register/3
 
 ```erlang
-sip_uac_auto_register_updated_register(Id::term(), OK::boolean(), 
-                                             AppId::nksip:srv_id()) ->
+sip_uac_auto_register_updated_register(Id::term(), OK::boolean(), nksip:srv_id()) ->
     ok.
 ```
 
@@ -126,66 +123,8 @@ sip_uac_auto_register_updated_ping(Id::term(), OK::boolean(),
     ok.
 ```
 
-If implemented, it will called each time a ping serie changes its state.
-
+If implemented, it will called each time a ping series changes its state.
 
 ## Examples
 
-```erlang
--module(sample).
--include_lib("nksip/include/nksip.hrl").
--compile([export_all]).
-
-start() ->
-    {ok, _} = nksip:start(server, [
-        {sip_registrar_min_time, 1},
-        {sip_uac_auto_register_timer, 1},
-        {plugins, [nksip_registrar]},
-        {sip_listen, "sip:all:5080"}
-    ]),
-    {ok, _} = nksip:start(client, [
-        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client@nksip>"},
-        {sip_uac_auto_register_timer, 1},
-        {sip_listen, "sip:all:5070, sips:all:5071"},
-        {plugins, [nksip_uac_auto_register]}
-    ]).
-            
-
-stop() ->
-    ok = nksip:stop(server1),
-    ok = nksip:stop(client),
-
-
-test() ->
-    {ok, true} = nksip_uac_auto_register:start_ping(client, ping1, 
-                                "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 5}]),
-    {ok, true} = nksip_uac_auto_register:start_register(client, reg1, 
-                                "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 1}]),
-
-    [{ping1, true, _}] = nksip_uac_auto_register:get_pings(client),
-    [{reg1, true, _}] = nksip_uac_auto_register:get_registers(client),
-    ok = nksip_uac_auto_register:stop_ping(client, ping1),
-    ok = nksip_uac_auto_register:stop_register(client, reg1),
-    [] = nksip_uac_auto_register:get_pings(client),
-    [] = nksip_uac_auto_register:get_registers(client),
-    ok.
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
-
-
-sip_uac_auto_register_updated_ping(PingId, OK, _AppId) ->
-    io:format("PING ~p new status: ~p", [PingId, Ok]),
-    ok.
-
-sip_uac_auto_register_updated_register(RegId, OK, AppId=State) ->
-    io:format("REG ~p new status: ~p", [RegId, Ok]),
-    ok.
-```
-
-
-
-
-
-
+See [t04_uas.erl](../../test/tests/t04_uas.erl) for examples

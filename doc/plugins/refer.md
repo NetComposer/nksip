@@ -76,4 +76,4 @@ Called when a REFER event is received.
 
 ## Examples
 
-See [refer_test.erl](../../test/refer_test.erl) for examples
+See [t19_refer.erl](../../test/tests/t19_refer.erl) for examples

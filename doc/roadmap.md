@@ -27,7 +27,7 @@
 ## v0.5 
 
 * ~~Test in R17~~
-* ~~Extraction of non-SIP functionality into a new Erlang project, NkCore~~ (they have been extracted into three projects: [NkLIB](https://github.com/Nekso/nklib), [NkPACKET](https://github.com/Nekso/nkpacket) and [NkSERVICE](https://github.com/Nekso/nkservice).
+* ~~Extraction of non-SIP functionality into a new Erlang project, NkCore~~ (they have been extracted into three projects: [NkLIB](https://github.com/NetComposer/nklib), [NkPACKET](https://github.com/NetComposer/nkpacket) and [NkSERVER](https://github.com/NetComposer/nkserver).
 * ~~Maps everywhere~~
 * ~~Extended SDP utilities~~
 * ~~Plugins reorganization~~
@@ -35,8 +35,7 @@
 
 
 ## v0.6 (development branch)
-* R19 / rebar3 support
-* Extract SDP into another project
+* ~~R21 / rebar3 support~~
 
 
 ## No date
@@ -57,12 +56,6 @@
 * [RFC4488](http://tools.ietf.org/html/rfc4488): REFER without subscription
 * [RFC4538](http://tools.ietf.org/html/rfc4538): Dialog authorization
 
-
-# Other features
-
-The future distributed and highly available features of NkSIP will be developed in a new, much more ambitious project, [NetComposer.io](http://www.slideshare.net/carlosjgf/net-composer-v2).
-
-Please contact carlosj.gf@gmail.com for details.
 
 
 

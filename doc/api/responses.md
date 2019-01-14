@@ -16,12 +16,11 @@ Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a response's handle
 [srv_id/1](#srv_id1)|Gets then Service's _internal name_
-[srv_name/1](#srv_name1)|Gets the Service's _user name_
 [code/1](#method1)|Gets the SIP code of the response
 [body/1](#body1)|Gets the body of the response
 [call_id/1](#call_id1)|Gets the Call-ID header of the response
-[meta/2](#meta2)|Gets specific metadata from the response
-[metas/2](#meta2)|Gets specific metadata from the response
+[get_meta/2](#get_meta2)|Gets specific metadata from the response
+[get_metas/2](#get_metas2)|Gets specific metadata from the response
 [header/2](#header2)|Gets the values for a header or headers in a response
 [wait_491/0](#wait_4910)|Sleeps a random time between 2.1 and 4 secs
 
@@ -42,14 +41,6 @@ nksip_response:srv_id(nksip:response()|nksip:handle()) ->
     {ok, nksip:srv_id()} | {error, term()}.
 ```
 Gets then Service's _internal name_.
-
-
-### srv_name/1
-```erlang
-nksip_response:srv_name(nksip:response()|nksip:handle()) -> 
-    {ok, nksip:srv_name()}  | {error, term()}.
-```
-Gets the Service's _user name_
 
 
 ### code/1
@@ -76,9 +67,9 @@ nksip_response:call_id(nksip:response()|nksip:handle()) ->
 Gets the Call-ID header of the response.
 
 
-### meta/2
+### get_meta/2
 ```erlang
-nksip_response:meta(Meta::nksip_sipmsg:field(), nksip:response()|nksip:handle()) ->
+nksip_response:get_meta(Meta::nksip_sipmsg:field(), nksip:response()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets specific metadata from the response.
@@ -86,9 +77,9 @@ Gets specific metadata from the response.
 See [Metadata Fields](../reference/metadata.md) for a description of available fields.
 
 
-### metas/2
+### get_metas/2
 ```erlang
-nksip_response:meta(Meta::[nksip_sipmsg:field()], nksip:response()|nksip:handle()) ->
+nksip_response:get_metas(Meta::[nksip_sipmsg:field()], nksip:response()|nksip:handle()) ->
     {ok, [{nksip_sipmsg:field(), term()}]} | {error, term()}.
 ```
 Gets specific metadata from the response.

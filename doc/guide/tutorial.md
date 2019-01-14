@@ -63,11 +63,11 @@ Let's try now to send an _OPTIONS_ from client2 to client1 and from client1 to t
 ```erlang
 5> nksip_uac:options(client2, "sip:127.0.0.1:5070", []).
 {ok,200,[]}
-6> nksip_uac:options(client1, "sip:127.0.0.1", [{meta,[reason_phrase]}]).
+6> nksip_uac:options(client1, "sip:127.0.0.1", [{get_meta,[reason_phrase]}]).
 {ok,407,[{reason_phrase, <<"Proxy Authentication Required">>}]}
 ```
 
-Oops, the server didn't accept the request (we have used the `meta` option to 
+Oops, the server didn't accept the request (we have used the `get_meta` option to
 order NkSIP to return the reason phrase). 
 
 In the client callback module there is no authentication related callback function implemented, so every request is accepted. But server callback module is different:
@@ -129,11 +129,11 @@ use `tls` transport. Note we must use `<` and `>` if including `uri` parameters 
 
 Both requests receive a 407 response, but the nksip_uac_auto_auth plugin takes the included password and generates a new request with the correct headers, that are accepted at the server.
 
-Let's register now both clients with the server. We use the option `contact` to tell NkSIP to include a valid _Contact_ header in the request, and the `meta` option to get the _Contact_ header from the response, to be sure the server has stored the contact:
+Let's register now both clients with the server. We use the option `contact` to tell NkSIP to include a valid _Contact_ header in the request, and the `get_meta` option to get the _Contact_ header from the response, to be sure the server has stored the contact:
 
 ```erlang
 9> nksip_uac:register(client1, "sip:127.0.0.1", 
-                      [{sip_pass, "1234"}, contact, {meta, [<<"contact">>]}]).
+                      [{sip_pass, "1234"}, contact, {get_meta, [<<"contact">>]}]).
 {ok,200,[{<<"contact">>, [<<"<sip:client1@localhost:5070>...">>]}]}
 10> nksip_uac:register(client2, "sips:127.0.0.1", [{sip_pass, "1234"}, contact]).
 {ok,200,[]}
@@ -142,7 +142,7 @@ Let's register now both clients with the server. We use the option `contact` to 
 We can check this second registration has worked. If we send a _REGISTER_ request with no _Contact_ header, the server will include one for each stored registration. This time, lets get all the header from the response using `all_headers` as field specification:
 
 ```erlang
-11> nksip_uac:register(client2, "sips:127.0.0.1", [{sip_pass, "1234"}, {meta, [all_headers]}]).
+11> nksip_uac:register(client2, "sips:127.0.0.1", [{sip_pass, "1234"}, {get_meta, [all_headers]}]).
 {ok,200,[{all_headers, [{<<"call-id">>, ...}]}]}
 ```
 
@@ -163,7 +163,7 @@ The first request is not authorized. The reason is that we are using a `sips` ur
 {ok,407,[]}
 15> nksip_uac:options(client1, "sips:client2@nksip", 
                           [{route, "<sip:127.0.0.1;lr>"}, {sip_pass, "1234"},
-                           {meta, [<<"x-nk-id">>]}]).
+                           {get_meta, [<<"x-nk-id">>]}]).
 {ok,200,[{<<"x-nk-id">>, [<<"client2">>]}]}
 ```
 In the second case we want to get the _X-Nk-Id header from the response (in NkSIP, all headers must be spelled lowercase).
@@ -222,7 +222,7 @@ ok
 
 The call is accepted and we have started a _dialog_:
 ```erlang
-19> nksip_dialog:meta(invite_status, DlgId).
+19> nksip_dialog:get_meta(invite_status, DlgId).
 {ok, confirmed}
 ```
 

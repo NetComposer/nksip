@@ -16,10 +16,9 @@ Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a subscription's handle
 [srv_id/1](#srv_id1)|Gets then Service's _internal name_
-[srv_name/1](#srv_name1)|Gets the Service's _user name_
 [call_id/1](#call_id1)|Gets the Call-ID header of the subscription
-[meta/2](#meta2)|Gets specific metadata from the subscription
-[metas/2](#meta2)|Gets specific metadata from the subscription
+[get_meta/2](#get_meta2)|Gets specific metadata from the subscription
+[get_metas/2](#get_metas2)|Gets specific metadata from the subscription
 [get_subscription/2](#get_subscription2)|Gets a subscription object from a request and a call objects
 [get_all/0](#get_all0)|Get the handles of all started subscription
 [get_all/2](#get_all2)Gets all current started subscription handles belonging to App and having Call-ID
@@ -42,14 +41,6 @@ nksip_subscription:srv_id(nksip:subscription()|nksip:handle()) ->
 Gets then Service's _internal name_.
 
 
-### srv_name/1
-```erlang
-nksip_subscription:srv_name(nksip:subscription()|nksip:handle()) -> 
-    {ok, nksip:srv_name()}.
-```
-Gets the Service's _user name_
-
-
 ### call_id/1
 ```erlang
 nksip_subscription:call_id(nksip:subscription()|nksip:handle()) ->
@@ -58,9 +49,9 @@ nksip_subscription:call_id(nksip:subscription()|nksip:handle()) ->
 Gets the Call-ID header of the subscription.
 
 
-### meta/2
+### get_meta/2
 ```erlang
-nksip_subscription:meta(nksip_subscription:field(), nksip:subscription()|nksip:handle()) -> 
+nksip_subscription:get_meta(nksip_subscription:field(), nksip:subscription()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets specific metadata from the subscription.
@@ -68,9 +59,9 @@ Gets specific metadata from the subscription.
 See [Metadata Fields](../reference/metadata.md) for a description of available fields.
 
 
-### metas/2
+### get_metas/2
 ```erlang
-nksip_subscription:metas([nksip_subscription:field()], nksip:subscription()|nksip:handle()) -> 
+nksip_subscription:get_metas([nksip_subscription:field()], nksip:subscription()|nksip:handle()) ->
     {ok, [{field(), term()}]} | {error, term()}.
 ```
 Gets specific metadata from the subscription.
@@ -96,7 +87,7 @@ Get the handles of all started subscriptions handles.
 
 ### get_all/2
 ```erlang
-nksip_subscription:get_all(App::nksip:srv_id(), CallId::nksip:call_id()) ->
+nksip_subscription:get_all(nksip:srv_id(), CallId::nksip:call_id()) ->
     [nksip:handle()].
 ```
 Gets all current started subscription handles belonging to a SippApp and having a specific _Call-ID._

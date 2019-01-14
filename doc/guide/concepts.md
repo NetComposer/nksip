@@ -24,9 +24,7 @@ Each _service_ starts listening on one or more sets of transport, ip address and
 
 When starting a service, you can optionally supply a **callback Erlang module** for it. There is a number of [callback functions this module can implement](../reference/callback_functions.md). Each of them has an default behaviour, so all of them are optional. If you don't plan to receive SIP requests (only sending them) you don't need to provide any callback module.
 
-You start a service calling [`nksip:start/2`](../../src/nksip.erl). Any erlang term can be used as a name, but NkSIP will generate an atom as _internal name_ for the service. In most API calls you can use any of them. 
-
-Under the hood, the service is a standard _gen_server_ erlang process, and you can use it with standard functions like `gen_server:call/3`, etc. The internal name is also the registered name for this process.
+You start a service calling [`nksip:start/3`](../../src/nksip.erl) or [`nksip:get_sup_spec/3`](../../src/nksip.erl) to get a supervisor specification to include in your application's supervisor tree.
 
 
 ## Requests and responses
@@ -88,7 +86,7 @@ You can send a new subscription requirement to a server sending a [subscribe req
 
 If you are defining a server, you indicate in the [service's config](../reference/configuration.md) the event packages you support, and NkSIP will call your callback [sip_subscribe/2](../reference/callback_functions.md#sip_subscribe2) when a new valid SUBSCRIBE arrives. If you accept it, you [should call inmeditaly nksip_uac:notify/2](../reference/sending_functions.md#notify) to send a NOTIFY, and after that, any time you want to. You can also terminate the subscription at any moment.
 
-NkSIP will auto expire the subscriptions after the time proposed in the _Expires_ header (or config parameter `nksip_expires` if not present), and adding the offet time defined in config parameter `nksip_expires_offset`).
+NkSIP will auto expire the subscriptions after the time proposed in the _Expires_ header (or config parameter `sip_expires` if not present), and adding the offset time defined in config parameter `sip_expires_offset`).
 
 
 ## Uris
