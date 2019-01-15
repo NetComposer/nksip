@@ -75,10 +75,11 @@ start(SrvId, File, IpList) ->
     Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
     Spec = Config#{
         plugins => Plugins2,
-        nksip_trace => true,
-        nksip_trace_file => File,
-        nksip_trace_ips => IpList
+        sip_trace => true,
+        sip_trace_file => File,
+        sip_trace_ips => IpList
     },
+    lager:error("NKLOG SPEC ~p", [Spec]),
     nkserver:replace(SrvId, Spec).
 
 
@@ -91,7 +92,7 @@ stop(SrvId) ->
     Config = nkserver:get_config(SrvId),
     Plugins1 = nkserver:get_plugins(SrvId),
     Plugins2 = Plugins1 -- [nksip_trace],
-    Config2 = maps:without([nksip_trace, nksip_trace_file, nksip_trace_ips], Config),
+    Config2 = maps:without([sip_trace, sip_trace_file, sip_trace_ips], Config),
     Spec = Config2#{plugins => Plugins2},
     nkserver:replace(SrvId, Spec).
 
