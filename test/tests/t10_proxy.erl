@@ -124,7 +124,7 @@ invalid() ->
     C1 = proxy_test_client1,
     C2 = proxy_test_client2,
     S1 = proxy_test_server1,
-    #{test_type:=Test} = ?CALL_SRV(S1, config, []),
+    #{test_type:=Test} = nkserver:get_config(S1),
 
     % Request arrives at proxy_test_server1; it has no user, and domain belongs to it,
     % so it orders to process it (statelessly or statefully depending on Test)
@@ -181,7 +181,7 @@ invalid() ->
 opts() ->
     C1 = proxy_test_client1,
     C2 = proxy_test_client2,
-    #{test_type:=Test} = ?CALL_SRV(C1, config, []),
+    #{test_type:=Test} = nkserver:get_config(C1),
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
     

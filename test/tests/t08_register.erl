@@ -122,7 +122,7 @@ register1() ->
         ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, DefB}]
     }] = 
         nksip_registrar:find(register_test_server1, sip, <<"register_test_client1">>, <<"nksip">>),
-    UUID = nkserver:uuid(register_test_client1),
+    UUID = nkserver:get_uuid(register_test_client1),
     C1_UUID = <<$", UUID/binary, $">>,
     MakeContact = fun(Exp) ->
         list_to_binary([
@@ -227,7 +227,7 @@ register2() ->
     {ok, 200, []} = nksip_uac:register(register_test_client1, "sip:127.0.0.1",
                     [{contact, "tel:123456"}, {expires, 300}]),
 
-    UUID1 = nkserver:uuid(register_test_client1),
+    UUID1 = nkserver:get_uuid(register_test_client1),
     QUUID1 = <<$", UUID1/binary, $">>,
 
     % Now we register a different AOR (with sips)

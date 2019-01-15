@@ -166,7 +166,7 @@ flow() ->
     } = PContact,
     QInstanceC1 = nklib_util:get_value(<<"+sip.instance">>, EOpts1),
 
-    InstanceC1 = nkserver:uuid(outbound_test_ua1),
+    InstanceC1 = nkserver:get_uuid(outbound_test_ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
     [#reg_contact{
@@ -266,7 +266,7 @@ register() ->
             {<<"+sip.instance">>, QInstanceC1},
             {<<"expires">>,<<"3600">>}]
     } = Contact1,
-    InstanceC1 = nkserver:uuid(outbound_test_ua1),
+    InstanceC1 = nkserver:get_uuid(outbound_test_ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
     QInstanceC1_id = nklib_util:hash(QInstanceC1),
@@ -321,7 +321,7 @@ register() ->
             {<<"+sip.instance">>, QInstanceC2},
             {<<"expires">>,<<"3600">>}]
     } = Contact3,
-    InstanceC2 = nkserver:uuid(outbound_test_ua2),
+    InstanceC2 = nkserver:get_uuid(outbound_test_ua2),
     true = <<$", InstanceC2/binary, $">> == QInstanceC2,
     true = InstanceC1 /= InstanceC2,
 

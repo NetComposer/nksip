@@ -70,16 +70,16 @@ start(SrvId, File) ->
     ok | {error, term()}.
 
 start(SrvId, File, IpList) ->
-    Config1 = ?CALL_SRV(SrvId, config, []),
-    Plugins1 = maps:get(plugins, Config1),
+    Config = nkserver:get_config(SrvId),
+    Plugins1 = nkserver:get_plugins(SrvId),
     Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
-    Config2 = Config1#{
-        plugins:=Plugins2,
+    Spec = Config#{
+        plugins => Plugins2,
         nksip_trace => true,
         nksip_trace_file => File,
         nksip_trace_ips => IpList
     },
-    nkserver:replace(SrvId, Config2).
+    nkserver:replace(SrvId, Spec).
 
 
 
@@ -88,12 +88,12 @@ start(SrvId, File, IpList) ->
     ok | {error, term()}.
 
 stop(SrvId) ->
-    Config1 = ?CALL_SRV(SrvId, config, []),
-    Plugins1 = maps:get(plugins, Config1),
+    Config = nkserver:get_config(SrvId),
+    Plugins1 = nkserver:get_plugins(SrvId),
     Plugins2 = Plugins1 -- [nksip_trace],
-    Config2 = Config1#{plugins:=Plugins2},
-    Config3 = maps:without([nksip_trace, nksip_trace_file, nksip_trace_ips], Config2),
-    nkserver:replace(SrvId, Config3).
+    Config2 = maps:without([nksip_trace, nksip_trace_file, nksip_trace_ips], Config),
+    Spec = Config2#{plugins => Plugins2},
+    nkserver:replace(SrvId, Spec).
 
 
 

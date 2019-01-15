@@ -280,7 +280,7 @@ add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
             Contact = nksip_util:make_route(Scheme, Transp, ListenHost,
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
-            UUID = ?CALL_SRV(SrvId, uuid, []),
+            UUID = nkserver:get_uuid(SrvId),
             CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
             [make_contact(Req, Contact#uri{ext_opts=CExtOpts1}, Opts)];
         false ->

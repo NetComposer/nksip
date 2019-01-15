@@ -41,7 +41,7 @@
     ok | {error, term()}.
 
 start(SrvId) ->
-    Plugins1 = ?CALL_SRV(SrvId, plugins, []),
+    Plugins1 = nkserver:get_plugins(SrvId),
     Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
     case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>true}) of
         ok ->
@@ -56,7 +56,7 @@ start(SrvId) ->
     ok | {error, term()}.
 
 stop(SrvId) ->
-    Plugins1 = ?CALL_SRV(SrvId, plugins, []),
+    Plugins1 = nkserver:get_plugins(SrvId),
     Plugins2 = Plugins1 -- [nksip_debug],
     case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>false}) of
         ok ->
