@@ -79,7 +79,6 @@ start(SrvId, File, IpList) ->
         sip_trace_file => File,
         sip_trace_ips => IpList
     },
-    lager:error("NKLOG SPEC ~p", [Spec]),
     nkserver:replace(SrvId, Spec).
 
 
