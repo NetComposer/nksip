@@ -30,7 +30,7 @@
 -export([srv_id/1, call_id/1]).
 -export([send/2, send/5, send_dialog/5, send_cancel/4]).
 -export([send_reply/4]).
--export([get_all/0, get_info/0, clear_all/0]).
+-export([get_info/0, clear_all/0]).
 -export([get_all_dialogs/0, get_all_dialogs/2, apply_dialog/4, stop_dialog/3]).
 -export([get_authorized_list/3, clear_authorized_list/3]).
 -export([get_all_transactions/0, get_all_transactions/2, apply_transaction/4]).
@@ -129,23 +129,13 @@ send_reply(SrvId, CallId, ReqId, SipReply) ->
     nksip_router:send_work(SrvId, CallId, {send_reply, ReqId, SipReply}).
 
 
-%% @private Get all started calls (dangerous in production with many calls)
--spec get_all() ->
-    [{nkserver:id(), nksip:call_id(), pid()}].
-
-get_all() ->
-    [
-        {SrvId, CallId, Pid} ||
-        {{CallId, SrvId}, Pid} <- nklib_proc:values(nksip_call_srv)
-    ].
-
 %% @private Get information about all started calls (dangerous in production with many calls)
 -spec get_info() ->
     [term()].
 
 get_info() ->
     lists:sort(lists:flatten([nksip_router:send_work(SrvId, CallId, info)
-        || {SrvId, CallId, _} <- get_all()])).
+        || {SrvId, CallId, _} <- nksip_call_srv:get_all()])).
 
 
 %% @private Deletes all started calls
@@ -156,7 +146,7 @@ clear_all() ->
     lists:foldl(
         fun({_, _, Pid}, Acc) -> nksip_call_srv:stop(Pid), Acc+1 end,
         0,
-        get_all()).
+        nksip_call_srv:get_all()).
 
 
 %% @private Gets all started dialog handles (dangerous in production with many calls)
@@ -172,7 +162,7 @@ get_all_dialogs() ->
                 []
         end
         || 
-        {SrvId, CallId, _} <- get_all()
+        {SrvId, CallId, _} <- nksip_call_srv:get_all()
     ]).
 
 
@@ -230,7 +220,7 @@ get_all_transactions() ->
                 {error, _} ->
                     []
             end
-            || {SrvId, CallId, _} <- get_all()
+            || {SrvId, CallId, _} <- nksip_call_srv:get_all()
         ]).
 
 

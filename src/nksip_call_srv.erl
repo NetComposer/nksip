@@ -28,7 +28,7 @@
 -export([start/2, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
          code_change/3]).
--export([get_data/1, find_call/2]).
+-export([get_data/1, find_call/2, get_all/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -90,13 +90,21 @@ find_call(SrvId, CallId) ->
     end.
 
 
-%%find_call(SrvId, CallId) ->
-%%    case ets:lookup(nksip_ets, {SrvId, CallId}) of
-%%        [{_, Pid}] when is_pid(Pid) ->
-%%            Pid;
-%%        _ ->
-%%            undefined
-%%    end.
+%% @private Get all started calls (dangerous in production with many calls)
+-spec get_all() ->
+    [{nkserver:id(), nksip:call_id(), pid()}].
+
+get_all() ->
+    Fun = fun
+        ({?MODULE, SrvId, CallId}, [{val, _, Pid}], Acc) ->
+            [{SrvId, CallId, Pid}|Acc];
+        (_Name, _Values, Acc) ->
+            Acc
+    end,
+    nklib_proc:fold_names(Fun, []).
+
+
+
 
 
 %% ===================================================================
