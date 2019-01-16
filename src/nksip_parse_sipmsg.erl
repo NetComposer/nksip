@@ -130,6 +130,9 @@ first(Bin) ->
         {Uri, <<"SIP/2.0\r\n", Rest2/binary>>} ->
             RUri = <<$<, (list_to_binary(Uri))/binary, $>>>,
             {req, nksip_parse:method(Method), RUri, Rest2};
+        {Uri, <<"SIP/2.0\n", Rest3/binary>>} ->
+            RUri = <<$<, (list_to_binary(Uri))/binary, $>>>,
+            {req, nksip_parse:method(Method), RUri, Rest3};
         _ ->
             throw({line, ?LINE})
     end.
@@ -141,6 +144,8 @@ headers(<<>>, _Acc) ->
 
 headers(<<"\r\n", Body/binary>>, Acc) ->
     {lists:reverse(Acc), Body};
+headers(<<"\n", Body/binary>>, Acc) ->
+    headers(<<$\r, $\n, Body/binary>>, Acc);
 
 headers(Bin, Acc) ->
     {Name, Value, Rest} = name(Bin, []),
@@ -157,6 +162,7 @@ headers(Bin, Acc) ->
 name(<<$\s, Rest/binary>>, Acc) -> colon(remove_ws(Rest), lists:reverse(Acc));
 name(<<$\t, Rest/binary>>, Acc) -> colon(remove_ws(Rest), lists:reverse(Acc));
 name(<<$\r, $\n, _/binary>>, _Acc) -> throw({line, ?LINE});
+name(<<$\n, Rest/binary>>, Acc) -> name(<<$\r, $\n, Rest/binary>>, Acc);
 name(<<$:, Rest/binary>>, Acc) -> value(remove_ws(Rest), lists:reverse(Acc), []);
 name(<<Ch, Rest/binary>>, Acc) when Ch>=$A, Ch=<$Z -> name(Rest, [Ch+32|Acc]);
 name(<<Ch, Rest/binary>>, Acc) -> name(Rest, [Ch|Acc]);
@@ -172,6 +178,7 @@ colon(_, _N) -> throw({line, ?LINE}).
 value(<<$\r, $\n, $\s, Rest/binary>>, N, Acc) -> value(remove_ws(Rest), N, [$\s|Acc]);
 value(<<$\r, $\n, $\t, Rest/binary>>, N, Acc) -> value(remove_ws(Rest), N, [$\s|Acc]);
 value(<<$\r, $\n, Rest/binary>>, N, Acc) -> {N, lists:reverse(Acc), Rest};
+value(<<$\n, Rest/binary>>, N, Acc) -> value(<<$\r, $\n, Rest/binary>>, N, Acc);
 value(<<Ch, Rest/binary>>, N, Acc) -> value(Rest, N, [Ch|Acc]);
 value(<<>>, _N, _Acc) -> throw({line, ?LINE}).
 
@@ -185,6 +192,7 @@ until_sp(<<Ch, Rest/binary>>, Acc) -> until_sp(Rest, [Ch|Acc]).
 
 %% @private
 until_rn(<<$\r, $\n, Rest/binary>>, Acc) -> {lists:reverse(Acc), Rest};
+until_rn(<<$\n, Rest/binary>>, Acc) -> until_rn(<<$\r, $\n, Rest/binary>>, Acc);
 until_rn(<<>>, _Acc) -> throw({line, ?LINE});
 until_rn(<<Ch, Rest/binary>>, Acc) -> until_rn(Rest, [Ch|Acc]).
 
