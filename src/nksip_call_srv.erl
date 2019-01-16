@@ -90,6 +90,14 @@ find_call(SrvId, CallId) ->
     end.
 
 
+%%find_call(SrvId, CallId) ->
+%%    case ets:lookup(nksip_ets, {SrvId, CallId}) of
+%%        [{_, Pid}] when is_pid(Pid) ->
+%%            Pid;
+%%        _ ->
+%%            undefined
+%%    end.
+
 
 %% ===================================================================
 %% gen_server
@@ -101,9 +109,8 @@ find_call(SrvId, CallId) ->
     {ok, call()}.
 
 init([SrvId, CallId]) ->
-    nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
-    nklib_proc:put(?MODULE, {CallId, SrvId}),
     true = nklib_proc:reg({?MODULE, SrvId, CallId}),
+    nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
     Id = erlang:phash2(make_ref()) * 1000,
     #config{debug=DebugList, times=Times} = nksip_config:srv_config(SrvId),
     #call_times{trans=TransTime} = Times,
@@ -194,7 +201,8 @@ code_change(_OldVsn, Call, _Extra) ->
 -spec terminate(term(), call()) ->
     ok.
 
-terminate(_Reason, #call{}=Call) ->
+terminate(_Reason, #call{srv_id=_SrvId, call_id =_CallId}=Call) ->
+    %ets:delete(nksip_ets, {SrvId, CallId}),
     ?CALL_DEBUG("stopped", [], Call).
 
 

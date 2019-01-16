@@ -39,6 +39,7 @@ start_link() ->
 
 %% @private
 init(ChildSpecs) ->
+    %ets:new(nksip_ets, [named_table, public]),
     {ok, ChildSpecs}.
 
 
