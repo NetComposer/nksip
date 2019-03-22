@@ -27,6 +27,8 @@
 -export([get_connected/2, get_connected/5, is_local/2, send/4]).
 -export([print_all/0, user_callback/3]).
 
+-dialyzer(no_missing_calls).
+
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include_lib("nkserver/include/nkserver.hrl").
@@ -166,8 +168,8 @@ is_local(SrvId, #via{}=Via) ->
 
 %% @private
 -spec send(nkserver:id(), [nkpacket:send_spec()],
-           nksip:request()|nksip:response()|function(),
-           [nksip_uac:req_option()]) ->
+           function()|nksip:request()|nksip:response(),
+           list()) ->
     {ok, #sipmsg{}} | {error, term()}.
 
 send(SrvId, Spec, Msg, Opts) when is_list(Spec) ->

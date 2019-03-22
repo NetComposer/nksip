@@ -20,24 +20,24 @@
 
 
 -record(reg_contact, {
-    index :: nksip_registrar_lib:index(),
-    contact :: nksip:uri(), 
-    updated :: nklib_util:l_timestamp(),
-    expire :: nklib_util:timestamp(),
-    q :: float(),  
-    call_id :: nksip:call_id(),
-    cseq :: nksip:cseq(),
-    nkport :: nkpacket:nkport(),
-    path = [] :: [nksip:uri()],
-    meta = [] :: nksip:optslist()  
+    index :: nksip_registrar_lib:index() | undefined,
+    contact :: nksip:uri() | undefined,
+    updated :: nklib_util:l_timestamp() | undefined,
+    expire :: nklib_util:timestamp() | undefined,
+    q :: float() | undefined,
+    call_id :: nksip:call_id() | undefined,
+    cseq :: nksip:cseq() | undefined,
+    nkport :: nkpacket:nkport() | undefined,
+    path = [] :: [nksip:uri()] | undefined,
+    meta = [] :: nksip:optslist() | undefined
 }).
 
 -record(nksip_registrar_time, {
     min :: pos_integer(),
     max :: pos_integer(),
     default :: pos_integer(),
-    time :: pos_integer(),
-    time_long :: pos_integer()
+    time :: pos_integer() | undefined,
+    time_long :: pos_integer() | undefined
 }).
 
 

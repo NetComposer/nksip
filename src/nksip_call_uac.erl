@@ -26,6 +26,7 @@
 -export([is_stateless/1, response/2]).
 -export_type([status/0, uac_from/0]).
 -import(nksip_call_lib, [update/2]).
+-dialyzer(no_missing_calls).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").

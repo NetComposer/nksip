@@ -125,8 +125,8 @@ srv_handle_info(_Msg, _Service, _State) ->
 
 
 %% @doc Called when the plugin is shutdown
--spec srv_terminate(nkserver:id(), nkserver:service(), map()) ->
-    {ok, map()}.
+-spec srv_terminate(atom(), term(), map()) ->
+    {continue, [term()]}.
 
 srv_terminate(Reason, Service, State) ->
     State2 = case State of

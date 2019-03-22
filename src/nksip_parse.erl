@@ -161,7 +161,7 @@ vias(Term) ->
         UriOrVia    :: nksip:uri()
             | other_test 
             | nksip:via(),
-        Transport   :: nkpacket:transport(), 
+        Transport   :: nkpacket:transport() | binary(), 
         Host        :: binary(),
         Port        :: inet:port_number().
 

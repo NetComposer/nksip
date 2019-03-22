@@ -58,7 +58,7 @@
 
 -type config() ::
     #{
-        plugins => [atom()],
+        plugins => [any()],
         sip_listen => binary(),
         sip_allow => binary(),
         sip_supported => binary(),
@@ -224,7 +224,7 @@ stop(Id) ->
 
 %% @doc Retrieves a service as a supervisor child specification
 -spec get_sup_spec(id(), config()) ->
-    {ok, supervisor:child_spec()} | {error, term()}.
+    supervisor:child_spec().
 
 get_sup_spec(Id, Config) ->
     Config2 = nklib_util:to_map(Config),

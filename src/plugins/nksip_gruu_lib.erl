@@ -28,6 +28,7 @@
 -include("nksip_registrar.hrl").
 
 -export([find/2, update_gruu/1, check_gr/2, update_regcontact/4]).
+-dialyzer(no_missing_calls).
 
 -define(AES_IV, <<"12345678abcdefgh">>).
 

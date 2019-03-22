@@ -278,9 +278,6 @@ do_route(process_stateless, UAS, Call) ->
 do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
     #trans{id=Id, opts=Opts, method=Method} = UAS,
     case nksip_call_proxy:route(UriList, ProxyOpts, UAS, Call) of
-        noreply ->
-            UAS1 = UAS#trans{status=finished},
-            update(UAS1, Call);
         {fork, _, _, _} when Method=='CANCEL' ->
             nksip_call_uas:do_reply(no_transaction, UAS, Call);
         {fork, UAS1, UriSet, ProxyOpts1} ->

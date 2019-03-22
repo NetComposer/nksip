@@ -26,6 +26,7 @@
 
 % -export([start_sipapp/2, stop_sipapp/1]).
 -export([init/1, start_link/0]).
+-dialyzer(no_missing_calls).
 
 -include("nksip.hrl").
 

@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_request/3, resend_request/2, add_headers/6]).
+-dialyzer(no_missing_calls).
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
@@ -128,7 +129,7 @@ send_request(Req, Call, Opts) ->
 -spec resend_request(nksip:request(), nksip:optslist()) ->
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{ srv_id=SrvId, nkport=NkPort}=Req, Opts) ->
+resend_request(#sipmsg{ srv_id=SrvId, nkport=NkPort}=Req, Opts) when NkPort =/= undefined ->
     Msg = fun(NkPort2) -> Req#sipmsg{nkport=NkPort2} end,
     nksip_util:send(SrvId, [NkPort], Msg, Opts).
         

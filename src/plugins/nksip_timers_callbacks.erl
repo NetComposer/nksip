@@ -200,7 +200,8 @@ nksip_uac_response(Req, Resp, UAC, Call) ->
 %% @doc Called when preparing a UAS dialog response
 -spec nksip_uas_dialog_response(nksip:request(), nksip:response(),
                                nksip:optslist(), nksip:call()) ->
-    {ok, nksip:response(), nksip:optslist()} | continue.
+    {ok, nksip:response(), nksip:optslist()} |
+    {continue, [nksip:request() | nksip:response() | nksip:optslist() | nksip:call()]}.
 
 nksip_uas_dialog_response(Req, Resp, Opts, Call) ->
     Resp1 = case Req of

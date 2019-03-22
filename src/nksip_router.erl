@@ -30,6 +30,8 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
 
+-dialyzer(no_missing_calls).
+
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -50,7 +52,7 @@ send_work(SrvId, CallId, Work) ->
 
 %% @doc Called when a new request or response has been received.
 -spec incoming(nkserver:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
-    ok | {error, too_many_calls | looped_process | {exit, term()}}.
+    any() | {error, too_many_calls | looped_process | {exit, term()}}.
 
 incoming(SrvId, CallId, NkPort, Msg) ->
     Work = {incoming, NkPort, Msg},
@@ -58,7 +60,7 @@ incoming(SrvId, CallId, NkPort, Msg) ->
 
 
 %% @doc Sends a synchronous piece of {@link nksip_call_worker:work()} to a call.
--spec send_work(nkserver:id(), nksip:call_id(), nksip_call_worker:work(), pid()) ->
+-spec send_work(nkserver:id(), nksip:call_id(), nksip_call_worker:work(), pid() | none) ->
     any() | {error, too_many_calls | looped_process | {exit, term()}}.
 
 send_work(SrvId, CallId, Work, Caller) ->
@@ -232,8 +234,8 @@ worker_name(CallId) ->
 
 
 %% @private
--spec send_work_sync(nkserver:id(), nksip:call_id(), nksip_call_worker:work(),
-                     pid() | none, {pid(), term()}, #state{}) ->
+-spec send_work_sync(nksip:srv_id(), nksip:call_id(), nksip_call_worker:work(), 
+                     pid() | none, {pid(), term()} | none, #state{}) ->
     {ok, #state{}} | {error, looped_process | service_not_found | too_many_calls}.
 
 send_work_sync(SrvId, CallId, Work, Caller, From, State) ->
