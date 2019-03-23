@@ -98,7 +98,10 @@ send_request(Req, Call, Opts) ->
         #nkport{}=Flow ->
             [Flow|Destinations1];
         undefined ->
-            Destinations1
+            case nklib_util:get_value(outbound_proxy, Opts) of
+                undefined -> Destinations1;
+                OutboundProxy -> [OutboundProxy]
+            end
     end,
 %%    io:format("URI ~p\n", [{UriScheme, UriTransp, UriDomain, UriPort}]),
 %%    io:format("DESTS ~p\n", [Dests]),
