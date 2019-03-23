@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,6 +25,7 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 
 %% ===================================================================
@@ -50,8 +51,10 @@ make(Req, Code, Opts) ->
         to_tag_candidate = NewToTag
     } = Req, 
     NewToTag1 = case NewToTag of
-        <<>> -> nklib_util:hash(make_ref());
-        _ -> NewToTag
+        <<>> ->
+            nklib_util:hash(make_ref());
+        _ ->
+            NewToTag
     end,
     case Code of
         100 -> 
@@ -96,8 +99,10 @@ make(Req, Code, Opts) ->
                         [secure|Opts];
                     [] ->
                         case Contacts of
-                            [#uri{scheme=sips}|_] -> [secure|Opts];
-                            _ -> Opts
+                            [#uri{scheme=sips}|_] ->
+                                [secure|Opts];
+                            _ ->
+                                Opts
                         end;
                     _ ->
                         Opts
@@ -107,7 +112,8 @@ make(Req, Code, Opts) ->
         {Resp3, Opts3} = parse_opts(Opts2, Req, Resp2, Code, []),
         {ok, Resp3, Opts3}
     catch
-        throw:Throw -> {error, Throw}
+        throw:Throw ->
+            {error, Throw}
     end.
 
 
@@ -128,7 +134,8 @@ parse_opts([], _Req, Resp, _Code, Opts) ->
 
 
 parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
-    #sipmsg{srv_id=SrvId} = Req,
+    #sipmsg{ srv_id=SrvId} = Req,
+    Config = nksip_config:srv_config(SrvId),
     Op = case Term of
     
         ignore ->
@@ -163,18 +170,25 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         % Special parameters
         timestamp ->
             case nksip_sipmsg:header(<<"timestamp">>, Req, integers) of
-                [Time] -> {replace, <<"timestamp">>, Time};
-                _ -> ignore
+                [Time] ->
+                    {replace, <<"timestamp">>, Time};
+                _ ->
+                    ignore
             end;
         {body, Body} ->
             case lists:keymember(content_type, 1, Rest) of
                 false ->
                     ContentType = case Resp#sipmsg.content_type of
-                        undefined when is_binary(Body) -> undefined;
-                        undefined when is_list(Body), is_integer(hd(Body)) -> undefined;
-                        undefined when is_record(Body, sdp) -> <<"application/sdp">>;
-                        undefined -> <<"application/nksip.ebf.base64">>;
-                        CT0 -> CT0
+                        undefined when is_binary(Body) ->
+                            undefined;
+                        undefined when is_list(Body), is_integer(hd(Body)) ->
+                            undefined;
+                        undefined when is_record(Body, sdp) ->
+                            <<"application/sdp">>;
+                        undefined ->
+                            <<"application/nksip.ebf.base64">>;
+                        CT0 ->
+                            CT0
                     end,
                     {update, Resp#sipmsg{body=Body, content_type=ContentType}, Opts};
                 true ->
@@ -215,13 +229,12 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            Supported = ?GET_CONFIG(SrvId, supported),
-            {replace, <<"supported">>, Supported};
+            {replace, <<"supported">>, Config#config.supported};
         allow ->        
-            {replace, <<"allow">>, ?GET_CONFIG(SrvId, allow)};
+            {replace, <<"allow">>, Config#config.allow};
         accept ->
             #sipmsg{class={req, Method}} = Req,
-            Accept = case ?GET_CONFIG(SrvId, accept) of
+            Accept = case Config#config.accept of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
@@ -234,9 +247,11 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case ?GET_CONFIG(SrvId, events) of
-                [] -> ignore;
-                Events -> {replace, <<"allow-event">>, Events}
+            case Config#config.events of
+                [] ->
+                    ignore;
+                Events ->
+                    {replace, <<"allow-event">>, Events}
             end;
 
         % Authentication generation
@@ -263,8 +278,10 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         {service_route, Routes} when Code>=200, Code<300, 
                                      element(2, Req#sipmsg.class)=='REGISTER' ->
             case nklib_parse:uris(Routes) of
-                error -> throw({invalid_config, service_route});
-                Uris -> {replace, <<"service-route">>, Uris}
+                error ->
+                    throw({invalid_config, service_route});
+                Uris ->
+                    {replace, <<"service-route">>, Uris}
             end;
         {service_route, _} ->
             ignore;
@@ -281,7 +298,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
-            PResp = nksip_parse_header:parse(PName, AddValue, Resp, post),
+            PResp = nksip_parse_header:parse(PName, AddValue, Resp, add),
             parse_opts(Rest, Req, PResp, Code, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
@@ -289,7 +306,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             parse_opts(Rest, Req, PResp, Code, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
-            PResp = nksip_parse_header:parse(PName, InsValue, Resp, pre),
+            PResp = nksip_parse_header:parse(PName, InsValue, Resp, insert),
             parse_opts(Rest, Req, PResp, Code, Opts);
         {update, UpdResp, UpdOpts} -> 
             parse_opts(Rest, Req, UpdResp, Code, UpdOpts);
@@ -301,12 +318,13 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             parse_opts(Rest, Req, Resp, Code, Opts)
     end.
 
+
 %% @private
 -spec parse_plugin_opts(nksip:request(), nksip:response(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
 parse_plugin_opts(#sipmsg{srv_id=SrvId}=Req, Resp, Opts) ->
-    case SrvId:nks_sip_parse_uas_opt(Req, Resp, Opts) of
+    case  ?CALL_SRV(SrvId, nksip_parse_uas_opt, [Req, Resp, Opts]) of
         {continue, [_, Resp1, Opts1]} ->
             {Resp1, Opts1};
         {error, Error} ->

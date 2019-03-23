@@ -4,7 +4,6 @@
 * [Introduction](guide/introduction.md)
 * [Features](guide/features.md)
 * [Concepts](guide/concepts.md)
-* [Tutorial](guide/tutorial.md)
 * [Starting NkSIP](guide/start_nksip.md)
 * [Starting a Service](guide/start_a_service.md)
 * [Sending Requests](guide/sending_requests.md)
@@ -65,19 +64,13 @@
 	* IPv6
 	* Websockets
 
-## [6. Sample Applications](samples/README.md)
-* [PBX](samples/pbx.md)
-* [LoadTest](samples/loadtest.md)
-
-## [7. Advanced Concepts](advanced/README.md)
+## [6. Advanced Concepts](advanced/README.md)
 * Resolver
 * [Runtime configuration](advanced/runtime_configuration.md)
 * [Plugin architecture](advanced/plugin_architecture.md)
 * [How to write a plugin](advanced/write_a_plugin.md)
 * [Plugin callback reference](advanced/plugin_callbacks.md)
 
-## [8. Roadmap](roadmap.md)
+## [7. Roadmap](roadmap.md)
 
-## [9. Changelog](changelog.md)
-
-## [10. Presentations](presentations)
+## [8. Changelog](changelog.md)

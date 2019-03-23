@@ -1,6 +1,6 @@
 {application, nksip, [
     {description, "NkSIP Framework"},
-    {vsn, "0.5.0"},
+    {vsn, "0.6.0"},
     {modules, []},
     {registered, []},
     {mod, {nksip_app, []}},
@@ -8,11 +8,10 @@
         kernel,
         stdlib,
         crypto,
-        sasl,
         ssl,
         lager,
         nkpacket,
-        nkservice
+        nkserver
     ]},
     {env, [
     ]}

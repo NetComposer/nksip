@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,8 +22,9 @@
 -module(nksip_refer).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
 
 -export([process/2]).
 
@@ -40,9 +41,9 @@
 process(Req, #call{srv_id=SrvId, call_id=CallId}=Call) ->
     case nksip_sipmsg:header(<<"refer-to">>, Req, uris) of
         [ReferTo] -> 
-            case catch SrvId:sip_refer(ReferTo, Req, Call) of
+            case catch ?CALL_SRV(SrvId, sip_refer, [ReferTo, Req, Call]) of
                 true ->
-                    {ok, SubsId} = nksip_subscription:get_handle(Req), 
+                    {ok, SubsId} = nksip_subscription:get_handle(Req),
                     InvCallId = <<"nksip_refer_", CallId/binary>>,
                     Opts = [async, auto_2xx_ack, {call_id, InvCallId}, 
                            {refer_subscription_id, SubsId}],
@@ -50,8 +51,8 @@ process(Req, #call{srv_id=SrvId, call_id=CallId}=Call) ->
                     ok;
                 false ->
                     forbidden;
-                {'EXIT', Error} ->
-                    ?call_error("Error calling callback sip_refer/3: ~p", [Error]),
+                {'EXIT', _Error} ->
+                    ?CALL_LOG(error, "Error calling callback sip_refer/3: ~p", [_Error], Call),
                     {internal_error, "Service Error"}
             end;
         _ ->

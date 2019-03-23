@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,7 +24,7 @@
 
 -include("nksip_event_compositor.hrl").
 
--compile([export_all]).
+%-compile([export_all]).
 -export([get_all/0, clear/0, print_all/0]).
 
 
@@ -35,7 +35,7 @@
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nksip:srv_id(), nksip:aor(), binary(), #reg_publish{}}].
+    [{nkserver:id(), nksip:aor(), binary(), #reg_publish{}}].
 
 get_all() ->
     [
@@ -50,7 +50,7 @@ print_all() ->
     Print = fun({SrvId, {Scheme, User, Domain}, Tag, Reg}) ->
         #reg_publish{expires=Expire, data=Data} = Reg,
         io:format("\n --- ~p --- ~p:~s@~s, ~s (~p) ---\n", 
-                  [SrvId:name(), Scheme, User, Domain, Tag, Expire-Now]),
+                  [SrvId, Scheme, User, Domain, Tag, Expire-Now]),
         io:format("~p\n", [Data])
     end,
     lists:foreach(Print, get_all()),
@@ -59,7 +59,7 @@ print_all() ->
 
 %% @private Clear all stored records for all Services, only with buil-in database
 %% Returns the number of deleted items.
--spec clear() -> 
+-spec clear() ->
     integer().
 
 clear() ->
@@ -79,7 +79,7 @@ all() ->
 fold(Fun, Acc0) when is_function(Fun, 5) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_event_compositor, SrvId, AOR, Tag} -> 
+            {nksip_event_compositor, SrvId, AOR, Tag} ->
                 Fun(SrvId, AOR, Tag, Value, Acc);
             _ -> 
                 Acc

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -34,6 +34,8 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
+
 
 -export([method/1, aors/1, ruris/1, vias/1]).
 -export([uri_method/2]).
@@ -114,10 +116,12 @@ aors(Term) ->
         Results     :: [ nksip:uri() ] 
             | error.
                 
-ruris(RUris) -> 
+ruris(RUris) ->
     case nklib_parse:uris(RUris) of
-        error -> error;
-        Uris -> parse_ruris(Uris, [])
+        error ->
+            error;
+        Uris ->
+            parse_ruris(Uris, [])
     end.
           
 
@@ -134,10 +138,14 @@ ruris(RUris) ->
         Result  :: [nksip:via()] 
             | error.
 
-vias([]) -> [];
-vias([First|_]=String) when is_integer(First) -> vias([String]);    % It's a string
-vias(List) when is_list(List) -> parse_vias(List, []);
-vias(Term) -> vias([Term]).
+vias([]) ->
+    [];
+vias([First|_]=String) when is_integer(First) ->
+    vias([String]);    % It's a string
+vias(List) when is_list(List) ->
+    parse_vias(List, []);
+vias(Term) ->
+    vias([Term]).
 
 
 %% ===================================================================
@@ -159,30 +167,39 @@ vias(Term) -> vias([Term]).
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
     Transp1 = case nklib_util:get_value(<<"transport">>, Opts) of
-        Atom when is_atom(Atom) -> 
+        Atom when is_atom(Atom) ->
             Atom;
         Other ->
             LcTransp = string:to_lower(nklib_util:to_list(Other)),
             case catch list_to_existing_atom(LcTransp) of
-                {'EXIT', _} -> nklib_util:to_binary(Other);
-                Atom -> Atom
+                {'EXIT', _} ->
+                    nklib_util:to_binary(Other);
+                Atom ->
+                    Atom
             end
     end,
     Transp2 = case Transp1 of
-        undefined when Scheme==sips -> tls;
-        undefined -> udp;
-        Other2 -> Other2
+        undefined when Scheme==sips ->
+            tls;
+        undefined ->
+            udp;
+        Other2 ->
+            Other2
     end,
     Port1 = case Port > 0 of
-        true -> Port;
-        _ -> nksip_protocol:default_port(Transp2)
+        true ->
+            Port;
+        _ ->
+            nksip_protocol:default_port(Transp2)
     end,
     {Transp2, Host, Port1};
 
 transport(#via{transp=Transp, domain=Host, port=Port}) ->
     Port1 = case Port > 0 of
-        true -> Port;
-        _ -> nksip_protocol:default_port(Transp)
+        true ->
+            Port;
+        _ ->
+            nksip_protocol:default_port(Transp)
     end,
     {Transp, Host, Port1}.
 
@@ -197,9 +214,9 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
 %% @private 
 %% @end
 %%----------------------------------------------------------------
--spec packet( SrvId, CallId, NkPort, Packet) -> Result when 
-        SrvId       :: nksip:srv_id(), 
-        CallId      :: nksip:call_id(), 
+-spec packet( SrvId, CallId, NkPort, Packet) -> Result when
+        SrvId       :: nkserver:id(),
+        CallId      :: nksip:call_id(),
         NkPort      :: nkpacket:nkport(),
         Packet      :: binary(),
         Result      :: {ok, #sipmsg{}} 
@@ -212,30 +229,27 @@ packet(SrvId, CallId, NkPort, Packet) ->
     case nksip_parse_sipmsg:parse(Packet) of
         {ok, Class, Headers, Body} ->
             try 
-                MsgClass = case Class of
+                {MsgClass, RUri2} = case Class of
                     {req, Method, RUri} ->
                         case nklib_parse:uris(RUri) of
-                            [RUri1] -> 
-                                [RUri1];
-                            _ -> RUri1 = 
+                            [RUri1] ->
+                                {{req, Method}, RUri1};
+                            _ ->
                                 throw({invalid, <<"Request-URI">>})
-                        end,
-                        {req, Method};
+                        end;
                     {resp, Code, Reason} ->
                         case catch list_to_integer(Code) of
-                            Code1 when is_integer(Code1), Code1>=100, Code1<700 -> 
-                                ok;
-                            _ -> 
-                                Code1 = throw({invalid, <<"Code">>})
-                        end,
-                        RUri1 = undefined,
-                        {resp, Code1, Reason}
+                            Code1 when is_integer(Code1), Code1>=100, Code1<700 ->
+                                {{resp, Code1, Reason}, undefined};
+                            _ ->
+                                throw({invalid, <<"Code">>})
+                        end
                 end,
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
                     srv_id = SrvId,
-                    ruri = RUri1,
+                    ruri = RUri2,
                     call_id = CallId,
                     body = Body,
                     nkport = NkPort,
@@ -267,8 +281,8 @@ packet(SrvId, CallId, NkPort, Packet) ->
 %% @private 
 %% @end
 %%----------------------------------------------------------------
--spec packet(SrvId, NkPort, Packet) -> Result when   
-        SrvId       :: nksip:srv_id(), 
+-spec packet(SrvId, NkPort, Packet) -> Result when
+        SrvId       :: nkserver:id(),
         NkPort      :: nkpacket:nkport(),
         Packet      :: binary(),
         Result      :: {ok, #sipmsg{}, Rest} 
@@ -283,29 +297,32 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
         {ok, Class, Headers, Body, Rest} ->
             try 
                 CallId = case nklib_util:get_value(<<"call-id">>, Headers) of
-                    CallId0 when byte_size(CallId0) > 0 -> CallId0;
-                    _ -> throw({invalid, <<"Call-ID">>})
+                    CallId0 when byte_size(CallId0) > 0 ->
+                        CallId0;
+                    _ ->
+                        throw({invalid, <<"Call-ID">>})
                 end,
-                MsgClass = case Class of
+                {MsgClass, RUri2} = case Class of
                     {req, Method, RUri} ->
                         case nklib_parse:uris(RUri) of
-                            [RUri1] -> [RUri1];
-                            _ -> RUri1 = throw({invalid, <<"Request-URI">>})
-                        end,
-                        {req, Method};
+                            [RUri1] ->
+                                {{req, Method}, RUri1};
+                            _ ->
+                                throw({invalid, <<"Request-URI">>})
+                        end;
                     {resp, Code, Reason} ->
                         case catch list_to_integer(Code) of
-                            Code1 when is_integer(Code1), Code1>=100, Code1<700 -> ok;
-                            _ -> Code1 = throw({invalid, <<"Code">>})
-                        end,
-                        RUri1 = undefined,
-                        {resp, Code1, Reason}
+                            Code1 when is_integer(Code1), Code1>=100, Code1<700 ->
+                                {{resp, Code1, Reason}, undefined};
+                            _ ->
+                                throw({invalid, <<"Code">>})
+                        end
                 end,
                 Req0 = #sipmsg{
+                    srv_id = SrvId,
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    srv_id = SrvId,
-                    ruri = RUri1,
+                    ruri = RUri2,
                     call_id = CallId,
                     body = Body,
                     nkport = NkPort,
@@ -347,35 +364,47 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
 
 parse_sipmsg(SipMsg, Headers) ->
     #sipmsg{srv_id=SrvId} = SipMsg,
-    {SipMsg2, Hds2} = try SrvId:nks_preparse(SipMsg, Headers) of
-        {ok, ModSipMsg, ModHds} -> {ModSipMsg, ModHds}
+    {SipMsg2, Hds2} = try ?CALL_SRV(SrvId, nksip_preparse, [SipMsg, Headers]) of
+        {ok, ModSipMsg, ModHds} ->
+            {ModSipMsg, ModHds}
     catch
-        _:_ -> {SipMsg, Headers}    % Some tests skip srv_id
+        _:_ ->
+            {SipMsg, Headers}
     end,
     From = case nklib_parse:uris(proplists:get_all_values(<<"from">>, Hds2)) of
-        [From0] -> From0;
-        _ -> throw({invalid, <<"From">>})
+        [From0] ->
+            From0;
+        _ ->
+            throw({invalid, <<"From">>})
     end,
     FromTag = nklib_util:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
     To = case nklib_parse:uris(proplists:get_all_values(<<"to">>, Hds2)) of
-        [To0] -> To0;
-        _ -> throw({invalid, <<"To">>})
+        [To0] ->
+            To0;
+        _ ->
+            throw({invalid, <<"To">>})
     end,
     ToTag = nklib_util:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
     Vias = case vias(proplists:get_all_values(<<"via">>, Hds2)) of
-        [] -> throw({invalid, <<"via">>});
-        error -> throw({invalid, <<"Via">>});
-        Vias0 -> Vias0
+        [] ->
+            throw({invalid, <<"via">>});
+        error ->
+            throw({invalid, <<"Via">>});
+        Vias0 ->
+            Vias0
     end,
     CSeq = case proplists:get_all_values(<<"cseq">>, Hds2) of
-        [CSeq0] -> 
+        [CSeq0] ->
             case nklib_util:words(CSeq0) of
-                [CSeqNum, CSeqMethod] -> 
+                [CSeqNum, CSeqMethod] ->
                     CSeqMethod1 = nksip_parse:method(CSeqMethod),
                     case SipMsg2#sipmsg.class of
-                        {req, CSeqMethod1} -> ok;
-                        {req, _} -> throw({invalid, <<"CSeq">>});
-                        {resp, _, _} -> ok
+                        {req, CSeqMethod1} ->
+                            ok;
+                        {req, _} ->
+                            throw({invalid, <<"CSeq">>});
+                        {resp, _, _} ->
+                            ok
                     end,
                     case nklib_util:to_integer(CSeqNum) of
                         CSeqInt 
@@ -387,52 +416,71 @@ parse_sipmsg(SipMsg, Headers) ->
                 _ ->
                     throw({invalid, <<"CSeq">>})
             end;
-        _ -> 
+        _ ->
             throw({invalid, <<"CSeq">>})
     end,
     Forwards = case nklib_parse:integers(proplists:get_all_values(<<"max-forwards">>, Hds2)) of
-        [] -> 70;
-        [Forwards0] when Forwards0>=0, Forwards0<300 -> Forwards0;
-        _ -> throw({invalid, <<"Max-Forwards">>})
+        [] ->
+            70;
+        [Forwards0] when Forwards0>=0, Forwards0<300 ->
+            Forwards0;
+        _ ->
+            throw({invalid, <<"Max-Forwards">>})
     end,
     Routes = case nklib_parse:uris(proplists:get_all_values(<<"route">>, Hds2)) of
-        error -> throw({invalid, <<"Route">>});
-        Routes0 -> Routes0
+        error ->
+            throw({invalid, <<"Route">>});
+        Routes0 ->
+            Routes0
     end,
     Contacts = case nklib_parse:uris(proplists:get_all_values(<<"contact">>, Hds2)) of
-        error -> 
+        error ->
             lager:warning("C: ~p", [Hds2]),
             throw({invalid, <<"Contact">>});
-        Contacts0 -> Contacts0
+        Contacts0 ->
+            Contacts0
     end,
     Expires = case nklib_parse:integers(proplists:get_all_values(<<"expires">>, Hds2)) of
-        [] -> undefined;
-        [Expires0] when Expires0>=0 -> Expires0;
-        _ -> throw({invalid, <<"Expires">>})
+        [] ->
+            undefined;
+        [Expires0] when Expires0>=0 ->
+            Expires0;
+        _ ->
+            throw({invalid, <<"Expires">>})
     end,
     ContentType = case nklib_parse:tokens(proplists:get_all_values(<<"content-type">>, Hds2)) of
-        [] -> undefined;
-        [ContentType0] -> ContentType0;
-        _ -> throw({invalid, <<"Content-Type">>})
+        [] ->
+            undefined;
+        [ContentType0] ->
+            ContentType0;
+        _ ->
+            throw({invalid, <<"Content-Type">>})
     end,
     Require = case nklib_parse:tokens(proplists:get_all_values(<<"require">>, Hds2)) of
-        error -> throw({invalid, <<"Require">>});
-        Require0 -> [N || {N, _} <- Require0]
+        error ->
+            throw({invalid, <<"Require">>});
+        Require0 ->
+            [N || {N, _} <- Require0]
     end,
     Supported = case nklib_parse:tokens(proplists:get_all_values(<<"supported">>, Hds2)) of
-        error -> throw({invalid, <<"Supported">>});
-        Supported0 -> [N || {N, _} <- Supported0]
+        error ->
+            throw({invalid, <<"Supported">>});
+        Supported0 ->
+            [N || {N, _} <- Supported0]
     end,
     Event = case nklib_parse:tokens(proplists:get_all_values(<<"event">>, Hds2)) of
         [] ->
             case SipMsg2#sipmsg.class of
-                {req, 'SUBSCRIBE'} -> throw({invalid, <<"Event">>});
-                {req, 'NOTIFY'} -> throw({invalid, <<"Event">>});
-                _ -> undefined
+                {req, 'SUBSCRIBE'} ->
+                    throw({invalid, <<"Event">>});
+                {req, 'NOTIFY'} ->
+                    throw({invalid, <<"Event">>});
+                _ ->
+                    undefined
             end;
-        [Event0] -> 
+        [Event0] ->
             Event0;
-        _ -> 
+        _ ->
             throw({invalid, <<"Event">>})
     end,
     RestHeaders = lists:filter(
@@ -459,13 +507,17 @@ parse_sipmsg(SipMsg, Headers) ->
     ParsedBody = case ContentType of
         {<<"application/sdp">>, _} ->
             case nksip_sdp:parse(Body) of
-                error -> Body;
-                SDP -> SDP
+                error ->
+                    Body;
+                SDP ->
+                    SDP
             end;
         {<<"application/nksip.ebf.base64">>, _} ->
             case catch binary_to_term(base64:decode(Body)) of
-                {'EXIT', _} -> Body;
-                ErlBody -> ErlBody
+                {'EXIT', _} ->
+                    Body;
+                ErlBody ->
+                    ErlBody
             end;
         _ ->
             Body
@@ -522,8 +574,10 @@ parse_vias([], Acc) ->
 
 parse_vias([Next|Rest], Acc) ->
     case nksip_parse_via:vias(Next) of
-        error -> error;
-        UriList -> parse_vias(Rest, Acc++UriList)
+        error ->
+            error;
+        UriList ->
+            parse_vias(Rest, Acc++UriList)
     end.
 
 
@@ -544,8 +598,10 @@ uri_method(RawUri, Default) ->
                     {Default, Uri};
                 {value, {_, RawMethod}, Rest} ->
                     case nksip_parse:method(RawMethod) of
-                        Method when is_atom(Method) -> {Method, Uri#uri{opts=Rest}};
-                        _ -> error
+                        Method when is_atom(Method) ->
+                            {Method, Uri#uri{opts=Rest}};
+                        _ ->
+                            error
                     end;
                 _ ->
                     error

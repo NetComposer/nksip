@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,48 +22,9 @@
 -module(nksip_debug_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
+-include("nksip.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_start/2]).
--export([nks_sip_connection_sent/2, nks_sip_connection_recv/2, nks_sip_debug/3]).
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_debug => boolean
-    }.
-
-
-plugin_config(Config, _Service) ->
-    Debug = maps:get(sip_debug, Config, false),
-    {ok, Config, Debug}.
-
-
-plugin_start(Config, _Service) ->
-    case whereis(nksip_debug_srv) of
-        undefined ->
-            Child = {
-                nksip_debug_srv,
-                {nksip_debug_srv, start_link, []},
-                permanent,
-                5000,
-                worker,
-                [nksip_debug_srv]
-            },
-            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
-        _ ->
-            ok
-    end,
-    {ok, Config}.
-
-
+-export([nksip_connection_sent/2, nksip_connection_recv/2, nksip_debug/3]).
 
 
 %% ===================================================================
@@ -72,11 +33,11 @@ plugin_start(Config, _Service) ->
 
 
 %% @doc Called when a new message has been sent
--spec nks_sip_connection_sent(nksip:request()|nksip:response(), binary()) ->
+-spec nksip_connection_sent(nksip:request()|nksip:response(), binary()) ->
     continue.
 
-nks_sip_connection_sent(SipMsg, Packet) ->
-    #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
+nksip_connection_sent(SipMsg, Packet) ->
+    #sipmsg{class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case Class of
         {req, Method} ->
@@ -88,10 +49,10 @@ nks_sip_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nksip:sipmsg(), binary()) ->
+-spec nksip_connection_recv(nksip:sipmsg(), binary()) ->
     continue.
 
-nks_sip_connection_recv(NkPort, Packet) ->
+nksip_connection_recv(NkPort, Packet) ->
     #sipmsg{nkport=NkPort, call_id=CallId, srv_id=SrvId} = NkPort,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
@@ -99,9 +60,9 @@ nks_sip_connection_recv(NkPort, Packet) ->
 
 
 %% doc Called at specific debug points
--spec nks_sip_debug(nksip:srv_id(), nksip:call_id(), term()) ->
+-spec nksip_debug(nkserver:id(), nksip:call_id(), term()) ->
     continue.
 
-nks_sip_debug(SrvId, CallId, Info) ->
+nksip_debug(SrvId, CallId, Info) ->
     nksip_debug:insert(SrvId, CallId, Info),
     continue.

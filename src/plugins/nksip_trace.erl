@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,13 +28,15 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
+-export([start/1, start/2, start/3, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
--export([get_config/2, open_file/2, close_file/1]).
+-export([open_file/2, close_file/1]).
 
 -include_lib("nkpacket/include/nkpacket.hrl").
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-include_lib("nkserver/include/nkserver.hrl").
+
 
 -type file() :: console | string() | binary().
 -type ip_list() :: all | string() | binary() | [string()|binary()].
@@ -46,89 +48,53 @@
 %% Public
 %% ===================================================================
 
-%% @doc Get all Services currently tracing messages.
--spec get_all() ->
-    [{Srv::nkservice:name(), File::console|binary(), IpList::all|[binary()]}].
-
-get_all() ->
-    Fun = fun({SrvId, SrvName, _Pid}, Acc) ->
-        case catch SrvId:config_nksip_trace() of
-            {'EXIT', _} -> Acc;
-            {File, IpList} -> [{SrvName, File, IpList}]
-        end
-    end,
-    lists:foldl(Fun, [], nkservice:get_all(nksip)).
-
-
-%% @doc Equivalent to `start(SrvId, console, all)' for all started Services.
--spec start() -> 
-    [{nkservice:name(), ok|{error, term()}}].
-
-start() -> 
-    lists:map(
-        fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId)} end, 
-        nkservice:get_all(nksip)).
-
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
--spec start(nksip:srv_id()|nkservice:name()) -> 
+-spec start(nkserver:id()) ->
     ok | {error, term()}.
 
-start(Srv) -> 
-    start(Srv, console, all).
+start(SrvId) ->
+    start(SrvId, console, []).
 
 
-%% @doc Equivalent to `start(Srv, File, all)'.
--spec start(nksip:srv_id()|nkservice:name(), file()) -> 
+%% @doc Equivalent to `start(SrvId, File, all)'.
+-spec start(nkserver:id(), file()) ->
     ok | {error, term()}.
 
-start(Srv, File) -> 
-    start(Srv, File, all).
+start(SrvId, File) ->
+    start(SrvId, File, []).
 
 
 %% @doc Configures a Service to start tracing SIP messages.
--spec start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()) ->
+-spec start(nkserver:id(), file(), ip_list()) ->
     ok | {error, term()}.
 
-start(Srv, File, IpList) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            Plugins1 = SrvId:plugins(),
-            Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
-            case nksip:update(SrvId, #{plugins=>Plugins2, sip_trace=>{File, IpList}}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
-            end;
-        not_found ->
-            {error, service_not_found}
-    end.
+start(SrvId, File, IpList) ->
+    Config = nkserver:get_config(SrvId),
+    Plugins1 = nkserver:get_plugins(SrvId),
+    Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
+    Spec = Config#{
+        plugins => Plugins2,
+        sip_trace => true,
+        sip_trace_file => File,
+        sip_trace_ips => IpList
+    },
+    nkserver:replace(SrvId, Spec).
 
-
-%% @doc Stop all tracing processes, closing all open files.
--spec stop() -> 
-    ok.
-
-stop() ->
-    lists:map(
-        fun({SrvId, SrvName, _Pid}) -> {SrvName, stop(SrvId)} end, 
-        nkservice:get_all(nksip)).
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
--spec stop(nksip:srv_id()|nkservice:name()) ->
+-spec stop(nkserver:id()) ->
     ok | {error, term()}.
 
-stop(Srv) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            Plugins = SrvId:plugins() -- [nksip_trace],
-            case nksip:update(Srv, #{plugins=>Plugins}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
-            end;
-        not_found ->
-            {error, service_not_found}
-    end.    
+stop(SrvId) ->
+    Config = nkserver:get_config(SrvId),
+    Plugins1 = nkserver:get_plugins(SrvId),
+    Plugins2 = Plugins1 -- [nksip_trace],
+    Config2 = maps:without([sip_trace, sip_trace_file, sip_trace_ips], Config),
+    Spec = Config2#{plugins => Plugins2},
+    nkserver:replace(SrvId, Spec).
+
 
 
 %% @doc Pretty-print a `Request' or `Response'.
@@ -153,22 +119,20 @@ print(Header, #sipmsg{}=SipMsg) ->
 
 
 %% @private
--spec sipmsg(nksip:srv_id(), nksip:call_id(), binary(), 
+-spec sipmsg(nkserver:id(), nksip:call_id(), binary(),
              nkpacket:nkport(), binary()) ->
     ok.
 
 sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
-    case SrvId:config_nksip_trace() of
-        {File, all} ->
-            SrvName = SrvId:name(),
-            Msg = print_packet(SrvName, Header, Transport, Binary),
+    case nkserver:get_plugin_config(SrvId, nksip_trace, config) of
+        {true, File, []} ->
+            Msg = print_packet(SrvId, Header, Transport, Binary),
             write(SrvId, File, Msg);
-        {File, IpList} ->
+        {true, File, IpList} ->
             #nkport{local_ip=Ip1, remote_ip=Ip2} = Transport,
             case has_ip([Ip1, Ip2], IpList) of
                 true ->
-                    SrvName = SrvId:name(),
-                    Msg = print_packet(SrvName, Header, Transport, Binary),
+                    Msg = print_packet(SrvId, Header, Transport, Binary),
                     write(SrvId, File, Msg);
                 false ->
                     ok
@@ -184,82 +148,13 @@ sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
 
 
 
-%% @doc
-get_config(Id, Trace) ->
-    try
-        {File, IpList} = case Trace of
-            {File0, IpList0} -> 
-                case norm_file(File0) of
-                    {ok, File1} ->
-                        case norm_iplist(IpList0, []) of
-                            {ok, IpList1} -> {File1, IpList1};
-                            error -> throw({invalid_re, IpList0})
-                        end;
-                    error ->
-                        throw({invalid_file, File0})
-                end;
-            File0 -> 
-                case norm_file(File0) of
-                    {ok, File1} -> 
-                        {File1, all};
-                    error ->
-                        throw({invalid_file, File0})
-                end
-        end,
-        close_file(Id),
-        case open_file(Id, File) of
-            ok -> 
-                close_file(Id),
-                case compile_ips(IpList, []) of
-                    {ok, CompIpList} ->
-                        {ok, {File, CompIpList}};
-                    error ->
-                        throw({invalid_re, IpList})
-                end;
-            error -> 
-                throw({invalid_config, {could_not_open, File}})
-        end
-    catch
-        throw:Error -> {error, Error}
-    end.
-
-
-%% @private
-norm_file(console) -> 
-    {ok, console};
-norm_file(File) when is_binary(File) ->
-    {ok, File};
-norm_file(File) when is_list(File) -> 
-    {ok, list_to_binary(File)};
-norm_file(_) -> 
-    error.
-
-%% @private
-norm_iplist([], Acc) -> 
-    {ok, lists:reverse(Acc)};
-norm_iplist(all, []) -> 
-    {ok, all};
-norm_iplist(List, Acc) when is_integer(hd(List)) -> 
-    norm_iplist(list_to_binary(List), Acc);
-norm_iplist([Ip|Rest], Acc) when is_binary(Ip) -> 
-    norm_iplist(Rest, [Ip|Acc]);
-norm_iplist([Ip|Rest], Acc) when is_list(Ip) -> 
-    norm_iplist(Rest, [list_to_binary(Ip)|Acc]);
-norm_iplist([Re|Rest], Acc) when element(1, Re)==re_pattern ->
-    norm_iplist(Rest, [Re|Acc]);
-norm_iplist([_|_], _bAcc) ->
-    error;
-norm_iplist(Term, Acc) ->
-    norm_iplist([Term], Acc).
-
-
 %% @private
 close_file(SrvId) ->
     case nksip_app:get({nksip_trace_file, SrvId}) of
         undefined -> 
             ok;
         {File, OldDevice} ->
-            ?notice(SrvId, <<>>, "Closing file ~s (~p)", [File, OldDevice]),
+            ?SIP_LOG(notice, "Closing file ~s (~p)", [File, OldDevice]),
             nksip_app:del({nksip_trace_file, SrvId}),
             file:close(OldDevice),
             ok
@@ -267,13 +162,13 @@ close_file(SrvId) ->
  
 
 %% @private
-open_file(_SrvId, console) ->
+open_file(_PkgId, console) ->
     ok;
 
 open_file(SrvId, File) ->
-    case file:open(binary_to_list(File), [append]) of
+    case file:open(File, [append]) of
         {ok, IoDevice} -> 
-            ?notice(SrvId, <<>>, "File ~s opened for trace (~p)", [File, IoDevice]),
+            ?SIP_LOG(notice, "File ~s opened for trace (~p)", [File, IoDevice]),
             nksip_app:put({nksip_trace_file, SrvId}, {File, IoDevice}),
             ok;
         {error, _Error} -> 
@@ -281,25 +176,10 @@ open_file(SrvId, File) ->
     end.
 
 
-%% @private
-compile_ips(all, []) ->
-    {ok, all};
-
-compile_ips([], Acc) ->
-    {ok, lists:reverse(Acc)};
-
-compile_ips([Ip|Rest], Acc) when is_binary(Ip) ->
-    case re:compile(Ip) of
-        {ok, Comp} -> compile_ips(Rest, [Comp|Acc]);
-        {error, _Error} -> error
-    end;
-
-compile_ips([Re|Rest], Acc) when element(1, Re)==re_pattern ->
-    compile_ips(Rest, [Re|Acc]).
 
 
 %% @private
-write(SrvId, File, Msg) -> 
+write(SrvId, File, Msg) ->
     Time = nklib_util:l_timestamp_to_float(nklib_util:l_timestamp()), 
     case File of
         console ->
@@ -316,7 +196,7 @@ write(SrvId, File, Msg) ->
 
 
 %% @private
-print_packet(SrvId, Info, 
+print_packet(SrvId, Info,
                 #nkport{
                     transp = Transp,
                     local_ip = LIp, 
@@ -325,22 +205,28 @@ print_packet(SrvId, Info,
                     remote_port = RPort
                 }, 
                 Binary) ->
-    case catch inet_parse:ntoa(RIp) of
-        {error, _} -> RHost = <<"undefined">>;
-        {'EXIT', _} -> RHost = <<"undefined">>;
-        RHost -> ok
+    RHost = case catch inet_parse:ntoa(RIp) of
+        {error, _} ->
+            <<"undefined">>;
+        {'EXIT', _} ->
+            <<"undefined">>;
+        RHost0 ->
+            RHost0
     end,
-    case catch inet_parse:ntoa(LIp) of
-        {error, _} -> LHost = <<"undefined">>;
-        {'EXIT', _} -> LHost = <<"undefined">>;
-        LHost -> ok
+    LHost = case catch inet_parse:ntoa(LIp) of
+        {error, _} ->
+            <<"undefined">>;
+        {'EXIT', _} ->
+            <<"undefined">>;
+        LHost0 ->
+            LHost0
     end,
     Lines = [
         [<<"        ">>, Line, <<"\n">>]
         || Line <- binary:split(Binary, <<"\r\n">>, [global])
     ],
     io_lib:format("~p ~s ~s:~p (~p, ~s:~p) (~p)\n\n~s", 
-                    [SrvId, Info, RHost, RPort, 
+                    [SrvId, Info, RHost, RPort,
                     Transp, LHost, LPort, self(), list_to_binary(Lines)]).
 
 
@@ -350,8 +236,10 @@ has_ip([], _) ->
     false;
 has_ip([Ip|Rest], IpList) ->
     case has_ip2(Ip, IpList) of
-        true -> true;
-        false -> has_ip(Rest, IpList)
+        true ->
+            true;
+        false ->
+            has_ip(Rest, IpList)
     end.
 
 
@@ -360,8 +248,10 @@ has_ip2(_Ip, []) ->
     false;
 has_ip2(Ip, [Re|Rest]) ->
     case re:run(inet_parse:ntoa(Ip), Re) of
-        {match, _} -> true;
-        nomatch -> has_ip2(Ip, Rest)
+        {match, _} ->
+            true;
+        nomatch ->
+            has_ip2(Ip, Rest)
     end.
 
 

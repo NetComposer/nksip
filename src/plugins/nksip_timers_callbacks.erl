@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,43 +22,12 @@
 -module(nksip_timers_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("../include/nksip.hrl").
--include("../include/nksip_call.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
--export([nks_sip_parse_uac_opts/2, nks_sip_dialog_update/3, nks_sip_make_uac_dialog/4,
-         nks_sip_uac_pre_request/4, nks_sip_uac_pre_response/3, nks_sip_uac_response/4,
-         nks_sip_uas_dialog_response/4, nks_sip_uas_process/2, nks_sip_route/4]).
-
-
-%% ===================================================================
-%% Plugin
-%% ===================================================================
-
-plugin_deps() ->
-    [nksip].
-
-
-plugin_syntax() ->
-    #{
-        sip_timers_se =>  {integer, 5, none},
-        sip_timers_min_se => {integer, 1, none}
-    }.
-
-
-plugin_config(Config, _Service) ->
-    Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
-    Supported2 = nklib_util:store_value(<<"timer">>, Supported1),
-    Config2 = Config#{sip_supported=>Supported2},
-    SE = maps:get(sip_timers_se, Config, 1800),      % (secs) 30 min
-    MinSE = maps:get(sip_timers_min_se, Config, 90), % (secs) 90 secs (min 90, recom 1800)
-    {ok, Config2, {SE, MinSE}}.
-
-
-plugin_stop(Config, _Service) ->
-    Supported1 = maps:get(sip_supported, Config, []),
-    Supported2 = Supported1 -- [<<"timer">>],
-    {ok, Config#{sip_supported=>Supported2}}.
+-export([nksip_parse_uac_opts/2, nksip_dialog_update/3, nksip_make_uac_dialog/4,
+         nksip_uac_pre_request/4, nksip_uac_pre_response/3, nksip_uac_response/4,
+         nksip_uas_dialog_response/4, nksip_uas_process/2, nksip_route/4]).
 
 
 %% ===================================================================
@@ -67,10 +36,10 @@ plugin_stop(Config, _Service) ->
 
 
 %% @doc Called to parse specific UAC options
--spec nks_sip_parse_uac_opts(nksip:request(), nksip:optslist()) ->
+-spec nksip_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {error, term()}.
 
-nks_sip_parse_uac_opts(Req, Opts) ->
+nksip_parse_uac_opts(Req, Opts) ->
     case nksip_timers_lib:parse_uac_config(Opts, Req, []) of
         {ok, Opts1} ->
             {continue, [Req, Opts1]};
@@ -80,16 +49,16 @@ nks_sip_parse_uac_opts(Req, Opts) ->
 
 
  %% @private
--spec nks_sip_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
+-spec nksip_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
     {ok, nksip_call:call()} | continue.
 
-nks_sip_dialog_update({update, Class, Req, Resp}, Dialog, Call) ->
+nksip_dialog_update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = nksip_call_dialog:target_update(Class, Req, Resp, Dialog, Call),
     Dialog2 = nksip_call_dialog:session_update(Dialog1, Call),
     Dialog3 = nksip_timers_lib:timer_update(Req, Resp, Class, Dialog2, Call),
     {ok, nksip_call_dialog:store(Dialog3, Call)};
 
-nks_sip_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
+nksip_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
     #dialog{meta=Meta, invite=Invite} = Dialog,
     #invite{
         media_started = Media,
@@ -104,14 +73,16 @@ nks_sip_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
     nksip_call_dialog:sip_dialog_update(
                                 {invite_status, {stop, StopReason}}, Dialog, Call),
     case Media of
-        true -> nksip_call_dialog:sip_session_update(stop, Dialog, Call);
-        _ -> ok
+        true ->
+            nksip_call_dialog:sip_session_update(stop, Dialog, Call);
+        _ ->
+            ok
     end,
     {ok, nksip_call_dialog:store(Dialog#dialog{invite=undefined}, Call)};
 
-nks_sip_dialog_update({invite, Status}, Dialog, Call) ->
+nksip_dialog_update({invite, Status}, Dialog, Call) ->
     #dialog{
-        id = DialogId, 
+        id = _DialogId,
         blocked_route_set = BlockedRouteSet,
         invite = #invite{
             status = OldStatus, 
@@ -128,7 +99,7 @@ nks_sip_dialog_update({invite, Status}, Dialog, Call) ->
             nksip_call_dialog:sip_dialog_update({invite_status, Status}, Dialog, Call),
             Dialog#dialog{invite=Invite#invite{status=Status}}
     end,
-    ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status]),
+    ?CALL_DEBUG("Dialog ~s ~p -> ~p", [_DialogId, OldStatus, Status], Call),
     Dialog2 = if
         Status==proceeding_uac; Status==proceeding_uas; 
         Status==accepted_uac; Status==accepted_uas ->
@@ -151,22 +122,24 @@ nks_sip_dialog_update({invite, Status}, Dialog, Call) ->
         (not BlockedRouteSet) andalso 
         (Status==accepted_uac orelse Status==accepted_uas)
     of
-        true -> Dialog2#dialog{blocked_route_set=true};
-        false -> Dialog2
+        true ->
+            Dialog2#dialog{blocked_route_set=true};
+        false ->
+            Dialog2
     end,
     Dialog4 = nksip_timers_lib:timer_update(Req, Resp, Class, Dialog3, Call),
     {ok, nksip_call_dialog:store(Dialog4, Call)};
 
-nks_sip_dialog_update(_, _, _) ->
+nksip_dialog_update(_, _, _) ->
     continue.
     
 
 %% @doc Called when a new in-dialog request is being generated
--spec nks_sip_make_uac_dialog(nksip:method(), nksip:uri(), 
+-spec nksip_make_uac_dialog(nksip:method(), nksip:uri(),
                               nksip:optslist(), nksip:call()) ->
     {continue, list()}.
 
-nks_sip_make_uac_dialog(Method, Uri, Opts, #call{dialogs=[Dialog|_]}=Call) ->
+nksip_make_uac_dialog(Method, Uri, Opts, #call{dialogs=[Dialog|_]}=Call) ->
     Opts1 = case lists:keymember(sip_timers_se, 1, Opts) of
         true -> 
             Opts;
@@ -177,39 +150,42 @@ nks_sip_make_uac_dialog(Method, Uri, Opts, #call{dialogs=[Dialog|_]}=Call) ->
 
 
 %% @doc Called when the UAC is preparing a request to be sent
--spec nks_sip_uac_pre_request(nksip:request(), nksip:optslist(), 
-                           nksip_call_uac:uac_from(), nksip:call()) ->
-    {continue, list()}.
-
-nks_sip_uac_pre_request(Req, Opts, From, Call) ->
+nksip_uac_pre_request(Req, Opts, From, Call) ->
     Req1 = case From of 
-        {fork, _} -> nksip_timers_lib:uac_pre_request(Req, Call);
-        _ -> Req
+        {fork, _} ->
+            nksip_timers_lib:uac_pre_request(Req, Call);
+        _ ->
+            Req
     end,
     {continue, [Req1, Opts, From, Call]}.
 
 
 %% @doc Called when the UAC has just received a responses
--spec nks_sip_uac_pre_response(nksip:response(), nksip_call:trans(), nksip:call()) ->
+-spec nksip_uac_pre_response(nksip:response(), nksip_call:trans(), nksip:call()) ->
     {continue, list()}.
 
-nks_sip_uac_pre_response(Resp, UAC, Call) ->
+nksip_uac_pre_response(Resp, UAC, Call) ->
     #trans{request=Req, from=From} = UAC,
     Resp1 = case From of 
-        {fork, _} -> nksip_timers_lib:uac_pre_response(Req, Resp);
-        _ -> Resp
+        {fork, _} ->
+            nksip_timers_lib:uac_pre_response(Req, Resp);
+        _ ->
+            Resp
     end,
     {continue, [Resp1, UAC, Call]}.
 
 
 %% @doc Called after the UAC processes a response
--spec nks_sip_uac_response(nksip:request(), nksip:response(), 
+-spec nksip_uac_response(nksip:request(), nksip:response(),
                         nksip_call:trans(), nksip:call()) ->
     {ok, nksip:call()} | continue.
 
-nks_sip_uac_response(Req, Resp, UAC, Call) ->
+nksip_uac_response(Req, Resp, UAC, Call) ->
     #trans{from=From, code=Code} = UAC,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of
+        {fork, _} -> true;
+        _ -> false
+    end,
     case 
         (not IsProxy) andalso Code==422 andalso
         nksip_timers_lib:uac_received_422(Req, Resp, UAC, Call) 
@@ -222,27 +198,27 @@ nks_sip_uac_response(Req, Resp, UAC, Call) ->
 
 
 %% @doc Called when preparing a UAS dialog response
--spec nks_sip_uas_dialog_response(nksip:request(), nksip:response(), 
+-spec nksip_uas_dialog_response(nksip:request(), nksip:response(),
                                nksip:optslist(), nksip:call()) ->
     {ok, nksip:response(), nksip:optslist()} | continue.
 
-nks_sip_uas_dialog_response(Req, Resp, Opts, Call) ->
+nksip_uas_dialog_response(Req, Resp, Opts, Call) ->
     Resp1 = case Req of
         #sipmsg{} -> 
             nksip_timers_lib:uas_dialog_response(Req, Resp, Call);
         _ ->
             % In a multiple 2xx scenario, request is already deleted at UAS
-            ?call_info("Skipping timer check because of no request", []),
+            ?CALL_LOG(info, "Skipping timer check because of no request", [], Call),
             Resp
     end,
     {continue, [Req, Resp1, Opts, Call]}.
 
 
 %% @doc Called when the UAS is proceesing a request
--spec nks_sip_uas_process(nksip_call:trans(), nksip_call:call()) ->
+-spec nksip_uas_process(nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
-nks_sip_uas_process(#trans{request=Req}=UAS, Call) ->
+nksip_uas_process(#trans{request=Req}=UAS, Call) ->
     case nksip_timers_lib:uas_check_422(Req, Call) of
         continue -> 
             continue;
@@ -255,11 +231,11 @@ nks_sip_uas_process(#trans{request=Req}=UAS, Call) ->
 
 
 %% @doc Called when a proxy is preparing a routing
--spec nks_sip_route(nksip:uri_set(), nksip:optslist(), 
+-spec nksip_route(nksip:uri_set(), nksip:optslist(),
                  nksip_call:trans(), nksip_call:call()) -> 
     {continue, list()} | {reply, nksip:sipreply(), nksip_call:call()}.
 
-nks_sip_route(UriList, ProxyOpts, UAS, Call) ->
+nksip_route(UriList, ProxyOpts, UAS, Call) ->
     #trans{request=Req} = UAS,
     case nksip_timers_lib:uas_check_422(Req, Call) of
         continue -> 

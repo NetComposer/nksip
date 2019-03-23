@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -52,8 +52,10 @@ header(Name, [F|_]=List) when is_integer(F) ->
 header(Name, List) when is_list(List) ->
     Values = [
         case Term of
-            #uri{} -> nklib_unparse:uri(Term);
-            _ -> nklib_util:to_binary(Term)
+            #uri{} ->
+                nklib_unparse:uri(Term);
+            _ ->
+                nklib_util:to_binary(Term)
         end
         || Term <- List
     ], 
@@ -113,9 +115,12 @@ update(Headers, []) ->
 
 update(Headers, [{default_single, Name, ValueOrValues}|R]) ->
     case lists:keymember(Name, 1, Headers) of
-        false when ValueOrValues==[]-> update(Headers, R);
-        false -> update([header(Name, ValueOrValues)|Headers], R);
-        true  -> update(Headers, R)
+        false when ValueOrValues==[] ->
+            update(Headers, R);
+        false ->
+            update([header(Name, ValueOrValues)|Headers], R);
+        true  ->
+            update(Headers, R)
     end;
 
 update(Headers, [{default_multi, Name, ValueOrValues}|R]) ->
@@ -138,8 +143,10 @@ update(Headers, [{default_multi, Name, ValueOrValues}|R]) ->
 update(Headers, [{single, Name, ValueOrValues}|R]) ->
     Headers1 = nklib_util:delete(Headers, Name),
     case ValueOrValues of
-        [] -> update(Headers1, R);
-        _ -> update([header(Name, ValueOrValues)|Headers1], R)
+        [] ->
+            update(Headers1, R);
+        _ ->
+            update([header(Name, ValueOrValues)|Headers1], R)
     end;
 
 update(Headers, [{multi, Name, ValueOrValues}|R]) ->
@@ -161,8 +168,10 @@ update(Headers, [{_, _, []}|R]) ->
 update(Headers, [{after_single, Name, ValueOrValues}|R]) ->
     {OldValues, Headers1} = extract(Name, Headers),
     Values1 = case is_list(ValueOrValues) of
-        true -> OldValues ++ ValueOrValues;
-        false -> OldValues ++ [ValueOrValues]
+        true ->
+            OldValues ++ ValueOrValues;
+        false ->
+            OldValues ++ [ValueOrValues]
     end,
     update([header(Name, Values1) | Headers1], R);
 
@@ -170,16 +179,20 @@ update(Headers, [{after_multi, Name, ValueOrValues}|R]) ->
     {OldValues, Headers1} = extract(Name, Headers),
     % If OldValues is like "a,b,c" this will not be splitted in multiple headers
     Values1 = case is_list(ValueOrValues) of
-        true -> OldValues ++ ValueOrValues;
-        false -> OldValues ++ [ValueOrValues]
+        true ->
+            OldValues ++ ValueOrValues;
+        false ->
+            OldValues ++ [ValueOrValues]
     end,
     update([header(Name, V) || V <- Values1] ++ Headers1, R);
 
 update(Headers, [{before_single, Name, ValueOrValues}|R]) ->
     {OldValues, Headers1} = extract(Name, Headers),
     Values1 = case is_list(ValueOrValues) of
-        true -> ValueOrValues ++ OldValues;
-        false -> [ValueOrValues | OldValues]
+        true ->
+            ValueOrValues ++ OldValues;
+        false ->
+            [ValueOrValues | OldValues]
     end,
     update([header(Name, Values1) | Headers1], R);
 
@@ -187,8 +200,10 @@ update(Headers, [{before_multi, Name, ValueOrValues}|R]) ->
     {OldValues, Headers1} = extract(Name, Headers),
     % If OldValues is like "a,b,c" this will not be splitted in multiple headers
     Values1 = case is_list(ValueOrValues) of
-        true -> ValueOrValues ++ OldValues;
-        false -> [ValueOrValues | OldValues]
+        true ->
+            ValueOrValues ++ OldValues;
+        false ->
+            [ValueOrValues | OldValues]
     end,
     update([header(Name, V) || V <- Values1] ++ Headers1, R);
 

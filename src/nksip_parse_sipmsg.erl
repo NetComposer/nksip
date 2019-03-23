@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2019 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -41,12 +41,14 @@
 
 parse(Bin) ->
     try
-        Class = case first(Bin) of
-            {req, Method, Uri, Rest1} -> {req, Method, Uri};
-            {resp, Code, Reason, Rest1} -> {resp, Code, Reason}
+        {Class, Rest2} = case first(Bin) of
+            {req, Method, Uri, Rest1} ->
+                {{req, Method, Uri}, Rest1};
+            {resp, Code, Reason, Rest1} ->
+                {{resp, Code, Reason}, Rest1}
         end,
-        {Headers, Rest2} = headers(Rest1, []),
-        {ok, Class, Headers, Rest2}
+        {Headers, Rest3} = headers(Rest2, []),
+        {ok, Class, Headers, Rest3}
     catch
         throw:{line, _Line} -> 
             % lager:error("LINE: ~p", [_Line]),
@@ -64,16 +66,18 @@ parse(Bin) ->
 
 parse(Transp, Bin) ->
     try
-        Class = case first(Bin) of
-            {req, Method, Uri, Rest1} -> {req, Method, Uri};
-            {resp, Code, Reason, Rest1} -> {resp, Code, Reason}
+        {Class, Rest2} = case first(Bin) of
+            {req, Method, Uri, Rest1} ->
+                {{req, Method, Uri}, Rest1};
+            {resp, Code, Reason, Rest1} ->
+                {{resp, Code, Reason}, Rest1}
         end,
-        {Headers, Rest2} = headers(Rest1, []),
+        {Headers, Rest3} = headers(Rest2, []),
         case proplists:get_all_values(<<"content-length">>, Headers) of
             [] when Transp==tcp; Transp==tls -> 
                 {reply, Class, Headers, <<"Content-Length">>};
             [] -> 
-                {ok, Class, Headers, Rest2, <<>>};
+                {ok, Class, Headers, Rest3, <<>>};
             [CL0] ->
                 case nklib_util:to_integer(CL0) of
                     error -> 
@@ -81,23 +85,24 @@ parse(Transp, Bin) ->
                     CL when CL<0 ->
                         {reply, Class, Headers, <<"Content-Length">>};
                     CL -> 
-                        case byte_size(Rest2) of
+                        case byte_size(Rest3) of
                             CL -> 
-                                {ok, Class, Headers, Rest2, <<>>};
+                                {ok, Class, Headers, Rest3, <<>>};
                             BS when CL>BS andalso (Transp==tcp orelse Transp==tls) ->
                                 partial;
                             BS when CL>BS ->
                                 {reply, Class, Headers, <<"Content-Length">>};
                             _ ->
-                                {Body, Rest3} = split_binary(Rest2, CL),
-                                {ok, Class, Headers, Body, Rest3}
+                                {Body, Rest4} = split_binary(Rest3, CL),
+                                {ok, Class, Headers, Body, Rest4}
                         end
                 end;
             _ ->
                 {reply, Class, Headers, <<"Content-Length">>}
         end
     catch
-        throw:{line, _} -> error
+        throw:{line, _} ->
+            error
     end.
 
 
@@ -140,8 +145,10 @@ headers(<<"\r\n", Body/binary>>, Acc) ->
 headers(Bin, Acc) ->
     {Name, Value, Rest} = name(Bin, []),
     Name1 = case Name of
-        [Single] -> long_name(Single);
-        _ -> list_to_binary(Name)
+        [Single] ->
+            long_name(Single);
+        _ ->
+            list_to_binary(Name)
     end,
     headers(Rest, [{Name1, list_to_binary(Value)}|Acc]).
 

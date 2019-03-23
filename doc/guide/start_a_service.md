@@ -11,6 +11,12 @@ A _Service_ is a SIP entity that starts listening on one or several sets of tran
 
 You can create a _callback Erlang module_ (for very simple or outbound-only applications, you can omit the callback module). The callback module can implement any callback function from the list of NkSIP service's [callback functions](../reference/callback_functions.md). You can take a look to the [`nksip_callbacks`](../../src/nksip_callbacks.erl) module to find the default implementation of each of them.
 
+The callback module, as any nkserver service, **must include the library nkservice_module.hrl**
+```erlang
+-include_lib("nkserver/include/nkserver_module.hrl").
+```
+
+
 Once defined the callback module, call [`nksip:start/2`](../../src/nksip.erl) to start the service:
 ```erlang
 > nksip:start("my_app", #{sip_listen=>"sip:127.0.0.1:5060"}).
