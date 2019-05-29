@@ -110,7 +110,9 @@ do_request('INVITE', _Req, #dialog{invite=#invite{status=Status}}, _Call) ->
         proceeding_uas ->
             {error, retry()};
         accepted_uas ->
-            {error, retry()}
+            {error, retry()};
+        bye ->
+            {error, no_transaction}
     end;
 
 do_request('BYE', _Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
