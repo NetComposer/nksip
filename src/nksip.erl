@@ -60,7 +60,7 @@
     #{
         plugins => [atom()],
         sip_listen => binary(),
-        sip_allow => binary(),
+        sip_allow => [binary()|string()],
         sip_supported => binary(),
         sip_timer_t1 => integer(),
         sip_timer_t2 => integer(),
