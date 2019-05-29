@@ -59,9 +59,9 @@
 -type config() ::
     #{
         plugins => [atom()],
-        sip_listen => binary(),
-        sip_allow => binary(),
-        sip_supported => binary(),
+        sip_listen => binary()|string(),
+        sip_allow => [binary()|string()],
+        sip_supported => [binary()|string()],
         sip_timer_t1 => integer(),
         sip_timer_t2 => integer(),
         sip_timer_t4 => integer(),
