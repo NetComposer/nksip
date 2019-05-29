@@ -73,7 +73,7 @@
         sip_nonce_timeout => integer(),
         sip_from => binary(),
         sip_accept => binary(),
-        sip_events => binary(),
+        sip_events => [binary()|string()],
         sip_route => binary(),
         sip_no_100 => boolean(),
         sip_max_calls => binary(),
