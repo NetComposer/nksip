@@ -159,8 +159,8 @@ is_local(SrvId, #uri{}=Uri) ->
 
 is_local(SrvId, #via{}=Via) ->
     {Transp, Host, Port} = nksip_parse:transport(Via),
-    Transp = {<<"transport">>, nklib_util:to_binary(Transp)},
-    Uri = #uri{scheme=sip, domain=Host, port=Port, opts=[Transp]},
+    TranspTuple = {<<"transport">>, nklib_util:to_binary(Transp)},
+    Uri = #uri{scheme=sip, domain=Host, port=Port, opts=[TranspTuple]},
     is_local(SrvId, Uri).
 
 
