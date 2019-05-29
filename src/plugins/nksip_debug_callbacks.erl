@@ -52,8 +52,8 @@ nksip_connection_sent(SipMsg, Packet) ->
 -spec nksip_connection_recv(nksip:sipmsg(), binary()) ->
     continue.
 
-nksip_connection_recv(NkPort, Packet) ->
-    #sipmsg{nkport=NkPort, call_id=CallId, srv_id=SrvId} = NkPort,
+nksip_connection_recv(SipMsg, Packet) ->
+    #sipmsg{nkport=NkPort, call_id=CallId, srv_id=SrvId} = SipMsg,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
     continue.
