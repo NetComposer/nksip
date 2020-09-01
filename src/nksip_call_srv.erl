@@ -26,7 +26,7 @@
 -behaviour(gen_server).
 
 -export([start/2, stop/1, sync_work/5, async_work/2]).
--export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
+-export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3]).
 -export([get_data/1, find_call/2, get_all/0]).
 
@@ -82,12 +82,7 @@ get_data(Pid) ->
     pid() | undefined.
 
 find_call(SrvId, CallId) ->
-    case nklib_proc:values({?MODULE, SrvId, CallId}) of
-        [{_, Pid}] when is_pid(Pid) ->
-            Pid;
-        _ ->
-            undefined
-    end.
+  validate_process(nklib_proc:values({?MODULE, SrvId, CallId})).
 
 
 %% @private Get all started calls (dangerous in production with many calls)
@@ -104,7 +99,19 @@ get_all() ->
     nklib_proc:fold_names(Fun, []).
 
 
+%% @private Validate if given Pid is alive process
+-spec validate_process(pid()) ->
+    pid() | undefined.
 
+validate_process(Pid) when is_pid(Pid) ->
+  case is_process_alive(Pid) of
+    true ->
+      Pid;
+    false ->
+      undefined
+  end;
+validate_process(_) ->
+  undefined.
 
 
 %% ===================================================================
@@ -112,7 +119,7 @@ get_all() ->
 %% ===================================================================
 
 
-%% @private 
+%% @private
 -spec init(term()) ->
     {ok, call()}.
 
@@ -125,7 +132,7 @@ init([SrvId, CallId]) ->
     Call = #call{
         srv_id = SrvId,
         srv_ref = monitor(process, whereis(SrvId)),
-        call_id = CallId, 
+        call_id = CallId,
         next = Id+1,
         hibernate = false,
         trans = [],
@@ -150,7 +157,7 @@ init([SrvId, CallId]) ->
 handle_call(get_data, _From, Call) ->
     #call{trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
     {reply, {Trans, Forks, Dialogs}, Call};
- 
+
 handle_call(Msg, _From, Call) ->
     lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
     {noreply, Call}.
@@ -201,7 +208,7 @@ handle_info(Info, Call) ->
 -spec code_change(term(), call(), term()) ->
     {ok, call()}.
 
-code_change(_OldVsn, Call, _Extra) -> 
+code_change(_OldVsn, Call, _Extra) ->
     {ok, Call}.
 
 
@@ -223,15 +230,15 @@ terminate(_Reason, #call{srv_id=_SrvId, call_id =_CallId}=Call) ->
 -spec next(call()) ->
     {noreply, call()} | {stop, normal, call()}.
 
-next(#call{trans=[], forks=[], dialogs=[], events=[]}=Call) -> 
+next(#call{trans=[], forks=[], dialogs=[], events=[]}=Call) ->
     case erlang:process_info(self(), message_queue_len) of
-        {_, 0} -> 
+        {_, 0} ->
             {stop, normal, Call};
-        _ -> 
+        _ ->
             {noreply, Call}
     end;
 
-next(#call{hibernate=Hibernate}=Call) -> 
+next(#call{hibernate=Hibernate}=Call) ->
     case Hibernate of
         false ->
             {noreply, Call};
@@ -239,10 +246,3 @@ next(#call{hibernate=Hibernate}=Call) ->
             ?CALL_DEBUG("hibernating: ~p", [Hibernate], Call),
             {noreply, Call#call{hibernate=false}, hibernate}
     end.
-
-
-
-
-
-
-
