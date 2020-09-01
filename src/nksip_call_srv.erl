@@ -100,10 +100,10 @@ get_all() ->
 
 
 %% @private Validate if given Pid is alive process
--spec validate_process(pid()) ->
+-spec validate_process(list()) ->
     pid() | undefined.
 
-validate_process(Pid) when is_pid(Pid) ->
+validate_process([{_, Pid}]) when is_pid(Pid) ->
   case is_process_alive(Pid) of
     true ->
       Pid;
