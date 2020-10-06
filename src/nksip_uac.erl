@@ -22,7 +22,7 @@
 %%
 %% In case of using a SIP URI as destination, is is possible to include
 %% custom headers: `"<sip:host;method=REGISTER?contact=*&expires=10>"'
-%% 
+%%
 -module(nksip_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -44,9 +44,9 @@
 %% ===================================================================
 
 
--type uac_result() ::  
+-type uac_result() ::
     {ok, nksip:sip_code(), nksip:resp_options()} | {async, nksip:handle()} | {error, term()}.
-    
+
 -type uac_ack_result() ::
     ok | async | {error, term()}.
 
@@ -66,6 +66,7 @@
     allow |
     accept |
     allow_event |
+    contact |
 
     % Special parameters
     to_as_from |
@@ -93,6 +94,7 @@
     % Publish
     {sip_if_match, binary()} |
 
+    async |
     no_dialog |
     stateless_via |
 
@@ -403,9 +405,9 @@ refresh(Handle, Opts) ->
 
 %% @doc Sends a <i>STUN</i> binding request.
 %%
-%% Use this function to send a STUN binding request to a remote STUN or 
+%% Use this function to send a STUN binding request to a remote STUN or
 %% STUN-enabled SIP server, in order to get our external ip and port.
-%% If the remote server is a standard STUN server, use port 3478 
+%% If the remote server is a standard STUN server, use port 3478
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
@@ -485,7 +487,7 @@ send(SrvId, Method, Uri, Opts) ->
 send_dialog(Method, Handle, Opts) ->
     case nksip_dialog:get_handle(Handle) of
         {ok, DlgHandle} ->
-            Opts1 = case Handle of 
+            Opts1 = case Handle of
                 <<$U, $_, _/binary>>=SubsHandle ->
                     [{subscription, SubsHandle}|Opts];
                 _ ->
@@ -505,7 +507,7 @@ send_dialog(Method, Handle, Opts) ->
 %% @private
 -spec send_cancel(nksip:handle(), [req_option()]) ->
     uac_ack_result().
-    
+
 send_cancel(Handle, Opts) ->
     case nksip_sipmsg:parse_handle(Handle) of
         {req, SrvId, ReqId, CallId} ->
