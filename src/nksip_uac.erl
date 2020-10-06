@@ -94,6 +94,7 @@
     % Publish
     {sip_if_match, binary()} |
 
+    async |
     no_dialog |
     stateless_via |
 
