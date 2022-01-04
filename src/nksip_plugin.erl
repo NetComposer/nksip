@@ -110,7 +110,8 @@ get_listen(SrvId, #{sip_listen:=Url}=Config) ->
             Opts = Tls#{
                 id => {?PACKAGE_CLASS_SIP, SrvId},
                 class => {nksip, SrvId},
-				debug => lists:member(nkpacket, Debug)
+				debug => lists:member(nkpacket, Debug),
+				tos => maps:get(tos, Config, 0)
 			},
             get_listen(Conns, Opts, SipConfig, []);
 		{error, Error} ->
