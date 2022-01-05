@@ -103,6 +103,7 @@ make_config(Config) ->
         max_calls = maps:get(sip_max_calls, Config, 100000),
         local_host = maps:get(sip_local_host, Config, auto),
         local_host6 = maps:get(sip_local_host6, Config, auto),
+        tos = maps:get(tos, Config, 0),
         times = Times,
         udp_max_size = maps:get(sip_udp_max_size, Config, ?UDP_MAX_SIZE)
     }.

@@ -30,7 +30,7 @@ tls_cacertfile|`string()`|-|Custom CA certificate file
 tls_password|`string()`|-|Password fort the certificate
 tls_verify|`boolean()`|false|If we must check certificate
 tls_depth|`integer()`|0|TLS check depth
-
+tos|`integer()`|0|Type of Service value
 
 ### nkservice
 

@@ -181,6 +181,7 @@
     max_calls :: integer(),
     local_host :: auto | binary(),
     local_host6 :: auto | binary(),
+    tos :: integer(),
     debug :: [atom()],
     times :: #call_times{},
     udp_max_size :: integer()
