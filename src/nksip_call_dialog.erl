@@ -593,7 +593,7 @@ do_timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
         #invite{status=bye} ->
             ?CALL_LOG(warning, "Timeout in bye state - end the dialog ~p", [DialogId], Call),
             update({invite, {stop, timeout}}, Dialog, Call);
-        #invite{status=proceeding_uac} ->
+        #invite{status=Status} when Status == proceeding_uac; Status == proceeding_uas ->
             ?CALL_LOG(notice, "Dialog ~s timeout in proceeding state - ignored", [DialogId], Call),
             Call;
         _ ->
