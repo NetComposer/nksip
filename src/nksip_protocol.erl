@@ -395,7 +395,7 @@ do_parse(Data, #nkport{transp=Transp}, _State)
 do_parse(Data, #nkport{transp=Transp}=NkPort, State) ->
     #conn_state{rnrn_pattern = RNRN} = State,
     case binary:match(Data, RNRN) of
-        nomatch when Transp==tcp; Transp==tls ->
+        nomatch when Transp==tcp; Transp==tls; Transp==udp ->
             {ok, State#conn_state{buffer=Data}};
         nomatch ->
             ?SIP_LOG(notice, "ignoring partial ~p msg: ~p", [Transp, Data]),
@@ -421,7 +421,7 @@ do_parse(#nkport{transp=Transp}=NkPort, Data, Pos, State) ->
                             "error processing ~p request: ~p", [Transp, Error]),
                     {error, Error}
             end;
-        partial when Transp==tcp; Transp==tls ->
+        partial when Transp==tcp; Transp==tls; Transp==udp ->
             {ok, State#conn_state{buffer=Data}};
         partial ->
             ?SIP_LOG(notice, "ignoring partial msg ~p: ~p", [Transp, Data]),
@@ -454,7 +454,7 @@ extract(Transp, Data, Pos) ->
                                 MsgSize ->
                                     {ok, CallId, Data, <<>>};
                                 BS when BS<MsgSize andalso 
-                                        (Transp==tcp orelse Transp==tls) ->
+                                        (Transp==tcp orelse Transp==tls orelse Transp==udp) ->
                                     partial;
                                 BS when BS<MsgSize ->
                                     {error, <<"Invalid Content-Length">>};
